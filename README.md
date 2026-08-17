@@ -135,11 +135,21 @@ pnpm test        # tests de la API (requieren TEST_DATABASE_URL)
 - [x] Migración 0004 aplicada y **45/45 tests** verdes (31 previos + 14 nuevos)
 - [x] Ledger de tareas en [`tasks.md`](./tasks.md)
 
+### Fase 3b — Vida de usuario, reproductor y PWA ✅
+
+- [x] **Historial de reproducciones**: tabla `listens` + `POST /me/listens` (dedupe 30 s) + `GET /me/recently-played` (distintas, último play primero). El reproductor registra cada play automáticamente
+- [x] **Ranking popular**: `GET /songs/popular` con `play_count` → sección "Populares ahora" en el dashboard
+- [x] **Playlists de la comunidad**: `GET /playlists/public` (público, paginado) con autor (`owner_email`) → secciones "Playlists de la comunidad" en home y dashboard
+- [x] **Home promocional** (rediseño Hallmark: atmospheric / Marquee Hero / nav píldora / footer statement): invita a registrarse, loguearse o escuchar el catálogo; con sesión redirige al dashboard
+- [x] **Dashboard tipo Spotify**: sidebar (desktop) + drawer (móvil) en el área protegida, board con Seguí escuchando / Recién agregadas / Populares / Playlists de la comunidad, buscador (`/dashboard/search`) y recientes (`/dashboard/recently-played`)
+- [x] **Reproductor propio**: barra con entrada animada y línea de progreso; fullscreen con cover, controles, tabs Ahora/Letra y descarga offline
+- [x] **PWA**: service worker manual (shell offline + stale-while-revalidate + audio cache-first), manifest mejorado con shortcuts y **descarga de canciones a la Cache API** (reproducción sin stream; posible en Chrome/Android/desktop, limitada en iOS)
+- [x] **Tests**: 55/55 de integración en la API + 16 unitarios del web (Vitest + RTL)
+
 ### Siguientes fases
 
-- [ ] Fase 3b — Editar playlist en la UI, cover de playlist, CRUD de usuarios en el panel, tests frontend (ver `tasks.md`)
-- [ ] Fase 4 — PWA + pulido móvil (Serwist, Media Session avanzado, offline)
-- [ ] Fase 5 — Deploy (Vercel + Railway/Fly/Render, dominio propio)
+- [ ] Fase 4 — Deploy (Vercel + Railway/Fly/Render, dominio propio), CSRF, notificaciones push, perfiles públicos, letra sincronizada
+- [ ] Roadmap ampliado de features en [`tasks.md`](./tasks.md)
 
 ## Notas de seguridad pendientes antes de producción
 
