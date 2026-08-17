@@ -6,45 +6,53 @@ import { Badge } from "@/components/ui";
 import { sessionService } from "@/lib/services/session-service";
 
 /**
- * Área protegida — usuarios logueados (sin requisito de rol).
- * Cualquier usuario autenticado accede a sus configuraciones normales.
+ * Panel de administración — SOLO role="admin".
+ *
+ * Guards (en orden):
+ * 1. Sin sesión          -> /login (recordando a dónde iba)
+ * 2. Logueado sin rol    -> / (home público; el usuario normal no ve el panel)
  */
-export default async function ProtectedLayout({
+export default async function PanelLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const user = await sessionService.getSession();
-  if (!user) redirect("/login");
+  if (!user) redirect("/login?next=/panel");
 
   const isAdmin = user.role === "admin" || user.is_superuser;
+  if (!isAdmin) redirect("/");
 
   return (
     <div className="flex min-h-full flex-col">
       <header className="flex items-center justify-between border-b border-bg-highlight px-6 py-4">
         <div className="flex items-center gap-6">
           <Link
-            href="/"
+            href="/panel"
             className="font-display text-lg font-bold text-text-primary hover:text-brand-400"
           >
-            Pulse Stream
+            Pulse Stream <span className="text-brand-400">· Panel</span>
           </Link>
           <nav className="hidden gap-4 text-sm text-text-subdued sm:flex">
-            <Link href="/dashboard" className="hover:text-text-primary">
-              Mi cuenta
+            <Link href="/panel/artists" className="hover:text-text-primary">
+              Artistas
             </Link>
-            {isAdmin && (
-              <Link href="/panel" className="hover:text-brand-400">
-                Panel admin
-              </Link>
-            )}
+            <Link href="/panel/songs" className="hover:text-text-primary">
+              Canciones
+            </Link>
+            <Link href="/panel/songs/new" className="hover:text-brand-400">
+              + Subir canción
+            </Link>
           </nav>
         </div>
         <div className="flex items-center gap-4">
           <span className="hidden text-sm text-text-subdued sm:inline">
             {user.email}
           </span>
-          {isAdmin && <Badge>admin</Badge>}
+          <Badge>admin</Badge>
+          <Link href="/" className="text-sm text-text-subdued hover:text-text-primary">
+            Ver sitio
+          </Link>
           <LogoutButton />
         </div>
       </header>

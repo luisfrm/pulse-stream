@@ -76,7 +76,7 @@ export function NewSongForm({
 
       // 3) Purgar caché del servidor + refrescar el RSC
       await onCreated();
-      router.push("/dashboard/songs");
+      router.push("/panel/songs");
       router.refresh();
     } catch (err) {
       setError(friendlyError(err));
@@ -88,7 +88,7 @@ export function NewSongForm({
   return (
     <div className="mx-auto w-full max-w-2xl">
       <Link
-        href="/dashboard/songs"
+        href="/panel/songs"
         className="text-sm text-text-subdued hover:text-text-primary"
       >
         ← Volver a canciones

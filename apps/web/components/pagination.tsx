@@ -1,6 +1,9 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+
+import { Button } from "@/components/ui";
 
 interface PaginationProps {
   readonly page: number;
@@ -26,25 +29,27 @@ export function Pagination({ page, totalPages, limit }: PaginationProps) {
 
   return (
     <nav className="flex items-center justify-center gap-4 pt-4">
-      <button
+      <Button
         type="button"
+        variant="outline"
+        size="sm"
         disabled={page <= 1}
         onClick={() => navigate(Math.max(1, page - 1))}
-        className="rounded-pill border border-bg-highlight px-4 py-2 text-sm font-medium text-text-subdued transition-colors hover:border-brand-400 hover:text-text-primary disabled:opacity-40"
       >
-        ← Anterior
-      </button>
+        <ChevronLeft size={16} /> Anterior
+      </Button>
       <span className="text-xs text-text-subdued">
         Página {page} de {totalPages}
       </span>
-      <button
+      <Button
         type="button"
+        variant="outline"
+        size="sm"
         disabled={page >= totalPages}
         onClick={() => navigate(Math.min(totalPages, page + 1))}
-        className="rounded-pill border border-bg-highlight px-4 py-2 text-sm font-medium text-text-subdued transition-colors hover:border-brand-400 hover:text-text-primary disabled:opacity-40"
       >
-        Siguiente →
-      </button>
+        Siguiente <ChevronRight size={16} />
+      </Button>
     </nav>
   );
 }

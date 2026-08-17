@@ -22,6 +22,10 @@ export const artistsService = {
     });
   },
 
+  async getArtistById(id: string, options?: ApiFetchOptions): Promise<Artist> {
+    return await api<Artist>(`/artists/${id}`, options);
+  },
+
   async createArtist(name: string): Promise<Artist> {
     return await api<Artist>("/artists", {
       method: "POST",

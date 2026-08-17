@@ -5,6 +5,7 @@ export interface GetSongsParams {
   query?: string;
   offset?: number;
   limit?: number;
+  artistId?: string;
 }
 
 export interface CreateSongPayload {
@@ -21,10 +22,19 @@ export const songsService = {
     params?: GetSongsParams,
     options?: ApiFetchOptions,
   ): Promise<Page<Song>> {
+    const { artistId, ...rest } = params ?? {};
     return await api<Page<Song>>("/songs", {
-      query: params,
+      query: {
+        ...rest,
+        // La API espera snake_case (artist_id)
+        ...(artistId ? { artist_id: artistId } : {}),
+      },
       ...options,
     });
+  },
+
+  async getSongById(id: string, options?: ApiFetchOptions): Promise<Song> {
+    return await api<Song>(`/songs/${id}`, options);
   },
 
   async createSong(payload: CreateSongPayload): Promise<Song> {

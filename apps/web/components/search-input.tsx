@@ -1,8 +1,10 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
+import { Search } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { Input } from "@/components/ui";
 import { useDebounce } from "@/lib/hooks/use-debounce";
 
 interface SearchInputProps {
@@ -42,12 +44,15 @@ export function SearchInput({
   }, [debouncedValue, paramName, router, searchParams]);
 
   return (
-    <input
-      type="text"
-      value={value}
-      onChange={(e) => setValue(e.target.value)}
-      placeholder={placeholder}
-      className="rounded-xl border border-bg-highlight bg-bg-elevated px-4 py-3 text-text-primary outline-none transition-colors placeholder:text-text-subdued focus:border-brand-400"
-    />
+    <div className="relative w-full">
+      <Input
+        type="text"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        placeholder={placeholder}
+        leftIcon={<Search size={16} />}
+        aria-label={placeholder}
+      />
+    </div>
   );
 }

@@ -1,28 +1,74 @@
 import Link from "next/link";
 
-export default function DashboardHome() {
+import { Badge, Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
+import { sessionService } from "@/lib/services/session-service";
+
+export const dynamic = "force-dynamic";
+
+/** Home del usuario normal: sus configuraciones de cuenta y acceso al catálogo. */
+export default async function DashboardHome() {
+  const user = await sessionService.getSession();
+  if (!user) return null; // el layout redirige
+
+  const isAdmin = user.role === "admin" || user.is_superuser;
+
   return (
     <div className="mx-auto w-full max-w-5xl">
-      <h1 className="font-display text-3xl font-bold">Panel</h1>
+      <h1 className="font-display text-3xl font-bold">Mi cuenta</h1>
       <p className="mt-3 text-text-subdued">
-        Gestioná tu catálogo: artistas, canciones y subidas a R2.
+        Tus configuraciones de usuario en Pulse Stream.
       </p>
 
-      <div className="mt-10 grid gap-4 sm:grid-cols-3">
-        {[
-          ["Artistas", "Crear y gestionar artistas", "/dashboard/artists"],
-          ["Canciones", "Subir, editar y reproducir", "/dashboard/songs"],
-          ["Subir canción", "Formulario con subida directa a R2", "/dashboard/songs/new"],
-        ].map(([title, description, href]) => (
-          <Link
-            key={title}
-            href={href}
-            className="rounded-2xl border border-bg-highlight bg-bg-elevated p-6 transition-colors hover:border-brand-400"
-          >
-            <h2 className="font-display text-lg font-bold">{title}</h2>
-            <p className="mt-2 text-sm text-text-subdued">{description}</p>
-          </Link>
-        ))}
+      <div className="mt-8 grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Perfil</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            <div>
+              <p className="text-xs text-text-subdued">Email</p>
+              <p className="mt-0.5 font-medium">{user.email}</p>
+            </div>
+            <div>
+              <p className="text-xs text-text-subdued">Rol</p>
+              <div className="mt-0.5">
+                {isAdmin ? (
+                  <Badge>admin</Badge>
+                ) : (
+                  <Badge variant="glass">usuario</Badge>
+                )}
+              </div>
+            </div>
+            {isAdmin && (
+              <Link
+                href="/panel"
+                className="mt-2 text-sm font-medium text-brand-400 hover:underline"
+              >
+                Ir al panel de administración →
+              </Link>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Explorar</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            <Link
+              href="/"
+              className="rounded-xl border border-bg-highlight bg-bg-elevated px-4 py-3 text-sm transition-colors hover:border-brand-400"
+            >
+              🎧 Catálogo público
+            </Link>
+            <Link
+              href="/login"
+              className="rounded-xl border border-bg-highlight bg-bg-elevated px-4 py-3 text-sm transition-colors hover:border-brand-400"
+            >
+              🔑 Cambiar de cuenta
+            </Link>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
