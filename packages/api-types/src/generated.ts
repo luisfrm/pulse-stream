@@ -169,7 +169,7 @@ export interface paths {
         };
         /**
          * List Users
-         * @description Listado de usuarios — solo admin.
+         * @description Listado de usuarios — solo admin (role=admin).
          */
         get: operations["list_users_admin_users_get"];
         put?: never;
@@ -198,6 +198,29 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/admin/users/{user_id}/role": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Set User Role
+         * @description Asigna/revoca el rol de un usuario — solo admin.
+         *
+         *     `role: "admin"` otorga acceso al panel; `role: null` lo revoca.
+         *     Un admin no puede quitarse su propio rol.
+         */
+        patch: operations["set_user_role_admin_users__user_id__role_patch"];
         trace?: never;
     };
     "/artists": {
@@ -543,7 +566,7 @@ export interface components {
          * @description Registro público: email + password.
          *
          *     El rol NO se acepta acá: un usuario no puede auto-asignarse admin.
-         *     El rol se gestiona solo por un admin.
+         *     El rol se gestiona solo por un admin (PATCH /admin/users/{id}/role).
          */
         UserCreate: {
             /**
@@ -599,16 +622,29 @@ export interface components {
              * @default false
              */
             is_verified: boolean;
-            role: components["schemas"]["UserRole"];
+            role?: components["schemas"]["UserRole"] | null;
         };
         /**
          * UserRole
          * @description Roles de usuario.
          *
          *     Enums viven SOLO en Pydantic (AGENTS.md) — en la DB la columna es VARCHAR.
+         *
+         *     Semántica (Fase 2): `role` es **null** para un usuario normal (sin permisos
+         *     especiales) o el string `"admin"` para acceso al panel. No hay más valores.
          * @enum {string}
          */
-        UserRole: "admin" | "user";
+        UserRole: "admin";
+        /**
+         * UserRoleUpdate
+         * @description Asignación explícita de rol (admin only).
+         *
+         *     `role: null` revoca el admin (usuario normal); `role: "admin"` lo otorga.
+         *     Campo requerido — distingue "no enviado" (422) de "revocar" (null).
+         */
+        UserRoleUpdate: {
+            role: components["schemas"]["UserRole"] | null;
+        };
         /**
          * UserUpdate
          * @description Actualización de un usuario (self o admin).
@@ -1215,6 +1251,41 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_user_role_admin_users__user_id__role_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserRoleUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserRead"];
+                };
             };
             /** @description Validation Error */
             422: {

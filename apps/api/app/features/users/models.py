@@ -18,9 +18,9 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
 
     __tablename__ = "users"
 
-    role: Mapped[str] = mapped_column(
-        String(20), nullable=False, default="user", server_default="user"
-    )
+    # role: NULL = usuario normal (sin permisos especiales); "admin" = panel.
+    # Regla de enums (AGENTS.md): los valores se validan SOLO en Pydantic.
+    role: Mapped[str | None] = mapped_column(String(20), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

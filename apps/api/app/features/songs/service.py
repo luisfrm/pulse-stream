@@ -21,10 +21,16 @@ class SongService:
         self._artists = artist_repository
 
     async def list_songs(
-        self, offset: int = 0, limit: int = 50, search: str | None = None
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        search: str | None = None,
+        artist_id: uuid.UUID | None = None,
     ) -> tuple[list[Song], int]:
-        songs = await self._songs.list(offset=offset, limit=limit, search=search)
-        total = await self._songs.count(search=search)
+        songs = await self._songs.list(
+            offset=offset, limit=limit, search=search, artist_id=artist_id
+        )
+        total = await self._songs.count(search=search, artist_id=artist_id)
         return songs, total
 
     async def get_song(self, song_id: uuid.UUID) -> Song:

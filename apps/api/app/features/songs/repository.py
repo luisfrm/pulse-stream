@@ -16,18 +16,28 @@ class SongRepository:
         self._session = session
 
     async def list(
-        self, offset: int = 0, limit: int = 50, search: str | None = None
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        search: str | None = None,
+        artist_id: uuid.UUID | None = None,
     ) -> list[Song]:
         query = select(Song).options(selectinload(Song.artist)).order_by(Song.created_at.desc())
         if search:
             query = query.where(Song.title.ilike(f"%{search}%"))
+        if artist_id is not None:
+            query = query.where(Song.artist_id == artist_id)
         result = await self._session.execute(query.offset(offset).limit(limit))
         return list(result.scalars().all())
 
-    async def count(self, search: str | None = None) -> int:
+    async def count(
+        self, search: str | None = None, artist_id: uuid.UUID | None = None
+    ) -> int:
         query = select(func.count()).select_from(Song)
         if search:
             query = query.where(Song.title.ilike(f"%{search}%"))
+        if artist_id is not None:
+            query = query.where(Song.artist_id == artist_id)
         result = await self._session.execute(query)
         return result.scalar_one()
 

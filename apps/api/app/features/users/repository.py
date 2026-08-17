@@ -26,6 +26,11 @@ class UserRepository:
     async def delete(self, user: User) -> None:
         await self._session.delete(user)
 
+    async def update_role(self, user: User, role: str | None) -> None:
+        """Actualiza el rol (null = usuario normal, 'admin' = panel)."""
+        user.role = role
+        await self._session.flush()
+
 
 async def get_user_repository(
     session: AsyncSession = Depends(get_session),

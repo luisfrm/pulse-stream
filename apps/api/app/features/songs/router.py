@@ -16,9 +16,12 @@ async def list_songs(
     offset: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
     q: str | None = Query(None, max_length=255, description="Búsqueda por título"),
+    artist_id: uuid.UUID | None = Query(None, description="Filtrar por artista"),
     service: SongService = Depends(),
 ) -> Page[SongRead]:
-    songs, total = await service.list_songs(offset=offset, limit=limit, search=q)
+    songs, total = await service.list_songs(
+        offset=offset, limit=limit, search=q, artist_id=artist_id
+    )
     return paginate(songs, total, offset, limit)
 
 

@@ -34,6 +34,11 @@ class UserCannotDeleteSelfError(AppError):
     detail = "Un admin no puede borrar su propia cuenta"
 
 
+class UserRoleCannotChangeSelfError(AppError):
+    status_code = 400
+    detail = "Un admin no puede quitarse su propio rol"
+
+
 class ArtistNotFoundError(NotFoundError):
     def __init__(self, artist_id: uuid.UUID) -> None:
         super().__init__(f"Artista {artist_id} no existe")
