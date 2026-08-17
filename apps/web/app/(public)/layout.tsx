@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { BrandLogo } from "@/components/brand-logo";
 import { Badge, Button } from "@/components/ui";
 import { sessionService } from "@/lib/services/session-service";
 
@@ -25,9 +26,7 @@ export default async function PublicLayout({
             href="/"
             className="flex items-center gap-2 font-display text-base font-bold text-text-primary"
           >
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-gradient font-display text-sm font-extrabold text-bg-base">
-              P
-            </span>
+            <BrandLogo size={28} />
             <span className="hidden sm:inline">Pulse Stream</span>
           </Link>
 

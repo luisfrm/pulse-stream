@@ -20,7 +20,7 @@ interface CoverUploaderProps {
 }
 
 /**
- * Subida de cover (cuadrícula): JPG <= 512 KB, subida directa a R2 vía
+ * Subida de cover (cuadrícula): JPG/WebP <= 512 KB, subida directa a R2 vía
  * presign. Muestra el peso y el tamaño sugerido como ayuda (el backend
  * valida lo mismo). `onChange` recibe el object_key (o null al quitar).
  */
@@ -38,8 +38,12 @@ export function CoverUploader({
     setError(null);
 
     // Validaciones locales (el backend valida lo mismo al firmar)
-    if (file.type !== "image/jpeg" && file.type !== "image/jpg") {
-      setError("Solo se aceptan archivos JPG.");
+    if (
+      file.type !== "image/jpeg" &&
+      file.type !== "image/jpg" &&
+      file.type !== "image/webp"
+    ) {
+      setError("Solo se aceptan archivos JPG o WebP.");
       return;
     }
     if (file.size > MAX_COVER_BYTES) {
@@ -80,7 +84,7 @@ export function CoverUploader({
           <label className="inline-flex cursor-pointer items-center gap-2">
             <input
               type="file"
-              accept="image/jpeg,.jpg,.jpeg"
+              accept="image/jpeg,.jpg,.jpeg,image/webp,.webp"
               className="sr-only"
               onChange={(e) => handleFile(e.target.files?.[0])}
             />
@@ -106,7 +110,7 @@ export function CoverUploader({
       </div>
 
       <p className="text-xs text-text-subdued">
-        Formato <strong>JPG</strong> · peso máximo <strong>512 KB</strong> ·
+        Formato <strong>JPG o WebP</strong> · peso máximo <strong>512 KB</strong> ·
         tamaño sugerido <strong>{SUGGESTED_SIZE}</strong> (se muestra en
         cuadrículas).
       </p>

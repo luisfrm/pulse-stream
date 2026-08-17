@@ -17,6 +17,7 @@ import {
 import LogoutButton from "@/components/logout-button";
 import { cn } from "@/components/ui";
 import type { User } from "@/lib/services/types";
+import { BrandLogo } from "./brand-logo";
 
 interface DashboardShellProps {
   user: User;
@@ -112,7 +113,7 @@ function SidebarNav({
               {isAdmin ? "Administrador" : "Oyente"}
             </p>
           </div>
-          <LogoutButton />
+          <LogoutButton variant="icon" />
         </div>
       </div>
     </nav>
@@ -139,8 +140,9 @@ export function DashboardShell({ user, isAdmin, children }: DashboardShellProps)
               <Link
                 href="/dashboard"
                 onClick={() => setDrawerOpen(false)}
-                className="font-display text-lg font-bold text-text-primary"
+                className="flex items-center gap-2 font-display text-lg font-bold text-text-primary"
               >
+                <BrandLogo size={30} />
                 Pulse Stream
               </Link>
               <button
@@ -167,9 +169,7 @@ export function DashboardShell({ user, isAdmin, children }: DashboardShellProps)
           href="/dashboard"
           className="mb-6 flex items-center gap-2 px-3 font-display text-lg font-bold text-text-primary"
         >
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-gradient font-display text-base font-extrabold text-bg-base">
-            P
-          </span>
+          <BrandLogo size={32} />
           Pulse Stream
         </Link>
         <SidebarNav user={user} isAdmin={isAdmin} />
@@ -185,7 +185,11 @@ export function DashboardShell({ user, isAdmin, children }: DashboardShellProps)
         >
           <Menu size={22} />
         </button>
-        <Link href="/dashboard" className="font-display text-base font-bold text-text-primary">
+        <Link
+          href="/dashboard"
+          className="flex items-center gap-2 font-display text-base font-bold text-text-primary"
+        >
+          <BrandLogo size={24} />
           Pulse Stream
         </Link>
         <span className="w-9" />
