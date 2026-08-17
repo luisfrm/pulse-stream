@@ -23,6 +23,14 @@ export interface CreateSongPayload {
   cover_key?: string;
 }
 
+export interface UpdateSongPayload {
+  title?: string;
+  genres?: string[];
+  lyrics?: string;
+  duration_seconds?: number;
+  cover_key?: string;
+}
+
 export const songsService = {
   async getSongs(
     params?: GetSongsParams,
@@ -61,10 +69,7 @@ export const songsService = {
     });
   },
 
-  async updateSong(
-    id: string,
-    payload: { title?: string; cover_key?: string },
-  ): Promise<Song> {
+  async updateSong(id: string, payload: UpdateSongPayload): Promise<Song> {
     return await api<Song>(`/songs/${id}`, {
       method: "PATCH",
       body: payload,

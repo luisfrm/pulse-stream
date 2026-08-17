@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { CoverUploader } from "@/components/cover-uploader";
+import { Button, Dialog } from "@/components/ui";
 import { artistsService } from "@/lib/services/artists-service";
 import type { Artist } from "@/lib/services/types";
 import { friendlyError } from "@/lib/utils/error";
@@ -34,6 +35,7 @@ export function ArtistsResults({
 }: ArtistsResultsProps) {
   const router = useRouter();
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<Artist | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editingCoverId, setEditingCoverId] = useState<string | null>(null);
 
@@ -41,12 +43,13 @@ export function ArtistsResults({
   const query = initialQuery;
   const currentPage = page;
 
-  async function handleDelete(id: string) {
-    if (!confirm("¿Borrar este artista? Se borrarán sus canciones.")) return;
-    setPendingId(id);
+  async function confirmDelete() {
+    if (!deleting) return;
+    setPendingId(deleting.id);
     setError(null);
     try {
-      await artistsService.deleteArtist(id);
+      await artistsService.deleteArtist(deleting.id);
+      setDeleting(null);
       await onRevalidate();
       router.refresh();
     } catch (err) {
@@ -129,7 +132,7 @@ export function ArtistsResults({
                   <button
                     type="button"
                     disabled={pendingId === artist.id}
-                    onClick={() => handleDelete(artist.id)}
+                    onClick={() => setDeleting(artist)}
                     className="shrink-0 rounded-pill px-3 py-1.5 text-sm text-text-subdued transition-colors hover:bg-bg-highlight hover:text-text-primary disabled:opacity-50"
                   >
                     {pendingId === artist.id ? "Borrando…" : "Borrar"}
@@ -154,6 +157,31 @@ export function ArtistsResults({
       <p className="mt-4 text-xs text-text-subdued">
         Página {currentPage} de {totalPages} · {limit} por página
       </p>
+
+      {/* Confirmación de borrado */}
+      <Dialog
+        open={deleting !== null}
+        onClose={() => setDeleting(null)}
+        title="¿Borrar este artista?"
+        description={
+          deleting
+            ? `"${deleting.name}" se eliminará junto con todas sus canciones. Esta acción no se puede deshacer.`
+            : undefined
+        }
+      >
+        <div className="flex justify-end gap-3">
+          <Button variant="outline" onClick={() => setDeleting(null)}>
+            Cancelar
+          </Button>
+          <Button
+            variant="destructive"
+            loading={pendingId === deleting?.id}
+            onClick={confirmDelete}
+          >
+            Sí, eliminar
+          </Button>
+        </div>
+      </Dialog>
     </div>
   );
 }

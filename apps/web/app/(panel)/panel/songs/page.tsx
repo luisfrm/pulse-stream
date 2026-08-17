@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { Pagination } from "@/components/pagination";
 import { SearchInput } from "@/components/search-input";
+import { genresService } from "@/lib/services/genres-service";
 import { sessionService } from "@/lib/services/session-service";
 import { songsService } from "@/lib/services/songs-service";
 import { CACHE_TAGS } from "@/lib/services/tags";
@@ -14,7 +15,7 @@ export const metadata: Metadata = { title: "Canciones" };
 
 export const dynamic = "force-dynamic";
 
-const PAGE_LIMIT = 10;
+const PAGE_LIMIT = 9;
 
 export default async function SongsPage({
   searchParams,
@@ -31,10 +32,15 @@ export default async function SongsPage({
     user && (user.is_superuser || user.role === "admin")
   );
 
-  const { items, total } = await songsService.getSongs(
-    { query: query || undefined, offset, limit: PAGE_LIMIT },
-    { next: { revalidate: 60, tags: [CACHE_TAGS.songs] } },
-  );
+  const [songsPage, genres] = await Promise.all([
+    songsService.getSongs(
+      { query: query || undefined, offset, limit: PAGE_LIMIT },
+      { next: { revalidate: 60, tags: [CACHE_TAGS.songs] } },
+    ),
+    genresService.getGenres({
+      next: { revalidate: 3600, tags: [CACHE_TAGS.genres] },
+    }),
+  ]);
 
   const refreshSongs = async () => {
     "use server";
@@ -42,9 +48,15 @@ export default async function SongsPage({
   };
 
   return (
-    <div className="mx-auto w-full max-w-5xl">
-      <div className="flex items-center justify-between">
-        <h1 className="font-display text-3xl font-bold">Canciones</h1>
+    <div className="mx-auto w-full max-w-6xl">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="font-display text-3xl font-bold">Canciones</h1>
+          <p className="mt-1 text-sm text-text-subdued">
+            Grid del catálogo: reproducí un preview, editá metadatos y cover, o
+            eliminá canciones.
+          </p>
+        </div>
         {isAdmin && (
           <Link
             href="/panel/songs/new"
@@ -60,18 +72,19 @@ export default async function SongsPage({
       </div>
 
       <SongsResults
-        initialSongs={items}
+        initialSongs={songsPage.items}
         initialQuery={query}
         page={page}
-        totalPages={Math.max(1, Math.ceil(total / PAGE_LIMIT))}
+        totalPages={Math.max(1, Math.ceil(songsPage.total / PAGE_LIMIT))}
         limit={PAGE_LIMIT}
         isAdmin={isAdmin}
+        genres={genres}
         onRevalidate={refreshSongs}
       />
 
       <Pagination
         page={page}
-        totalPages={Math.max(1, Math.ceil(total / PAGE_LIMIT))}
+        totalPages={Math.max(1, Math.ceil(songsPage.total / PAGE_LIMIT))}
         limit={PAGE_LIMIT}
       />
     </div>

@@ -7,3 +7,4 @@ export * from "./title";
 export * from "./select";
 export * from "./bottom-sheet";
 export * from "./textarea";
+export * from "./dialog";
