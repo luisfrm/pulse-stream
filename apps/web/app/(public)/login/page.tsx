@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
-import { authApi, friendlyError } from "@/lib/api-client";
+import { authService } from "@/lib/services/auth-service";
+import { friendlyError } from "@/lib/utils/error";
 
 function LoginForm() {
   const router = useRouter();
@@ -21,7 +22,7 @@ function LoginForm() {
     setPending(true);
     setError(null);
     try {
-      await authApi.login(email, password);
+      await authService.login(email, password);
       router.push(next);
       router.refresh();
     } catch (err) {

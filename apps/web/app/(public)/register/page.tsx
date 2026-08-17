@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { authApi, friendlyError } from "@/lib/api-client";
+import { authService } from "@/lib/services/auth-service";
+import { friendlyError } from "@/lib/utils/error";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -19,9 +20,9 @@ export default function RegisterPage() {
     setPending(true);
     setError(null);
     try {
-      await authApi.register(email, password);
+      await authService.register(email, password);
       // Registro exitoso -> login automático y al panel
-      await authApi.login(email, password);
+      await authService.login(email, password);
       router.push("/dashboard");
       router.refresh();
     } catch (err) {

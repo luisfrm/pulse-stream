@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import LogoutButton from "@/components/logout-button";
-import { getMe } from "@/lib/api-server";
+import { sessionService } from "@/lib/services/session-service";
 
 export default async function DashboardLayout({
   children,
@@ -10,7 +10,7 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   // Validación REAL de la sesión (el proxy solo chequea la presencia de cookie).
-  const user = await getMe();
+  const user = await sessionService.getSession();
   if (!user) redirect("/login");
 
   return (
