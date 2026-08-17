@@ -41,3 +41,18 @@ export function greetingForHour(hour: number): string {
   if (hour < 20) return "Buenas tardes";
   return "Buenas noches";
 }
+
+/** Capitaliza un género (la API los envía en minúscula): "hip-hop" -> "Hip-Hop". */
+export function formatGenre(genre: string): string {
+  const normalized = genre.trim().toLowerCase();
+  if (normalized === "r&b") return "R&B";
+  return normalized
+    .split("-")
+    .map((part) => (part ? part.charAt(0).toUpperCase() + part.slice(1) : part))
+    .join("-");
+}
+
+/** Etiqueta legible del rol de usuario: "admin" -> "Administrador", null -> "Oyente". */
+export function formatRole(role: string | null | undefined): string {
+  return role === "admin" ? "Administrador" : "Oyente";
+}

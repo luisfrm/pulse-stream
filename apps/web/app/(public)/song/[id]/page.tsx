@@ -7,6 +7,7 @@ import { PlayButton } from "@/components/player/play-button";
 import { Badge } from "@/components/ui";
 import { songsService } from "@/lib/services/songs-service";
 import { CACHE_TAGS } from "@/lib/services/tags";
+import { formatGenre } from "@/lib/utils/format";
 
 interface SongPageProps {
   params: Promise<{ id: string }>;
@@ -58,7 +59,7 @@ export default async function SongPage({ params }: SongPageProps) {
             <div className="flex flex-wrap gap-1.5">
               {song.genres!.map((genre) => (
                 <Badge key={genre} variant="glass" size="sm">
-                  {genre}
+                  {formatGenre(genre)}
                 </Badge>
               ))}
             </div>

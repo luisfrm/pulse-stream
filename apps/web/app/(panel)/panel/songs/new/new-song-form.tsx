@@ -12,6 +12,7 @@ import {
   uploadToR2,
 } from "@/lib/services/uploads-service";
 import { friendlyError } from "@/lib/utils/error";
+import { formatGenre } from "@/lib/utils/format";
 
 interface NewSongFormProps {
   readonly initialArtists: Artist[];
@@ -161,7 +162,7 @@ export function NewSongForm({
                   checked={selectedGenres.includes(genre)}
                   onChange={() => toggleGenre(genre)}
                 />
-                {genre}
+                {formatGenre(genre)}
               </label>
             ))}
           </div>

@@ -4,6 +4,8 @@ import {
   authorHandle,
   firstNameFromEmail,
   formatBytes,
+  formatGenre,
+  formatRole,
   formatTime,
   greetingForHour,
 } from "./format";
@@ -64,5 +66,27 @@ describe("greetingForHour", () => {
     expect(greetingForHour(9)).toBe("Buenos días");
     expect(greetingForHour(15)).toBe("Buenas tardes");
     expect(greetingForHour(22)).toBe("Buenas noches");
+  });
+});
+
+describe("formatGenre", () => {
+  it("capitaliza cada palabra de un género", () => {
+    expect(formatGenre("pop")).toBe("Pop");
+    expect(formatGenre("rock")).toBe("Rock");
+    expect(formatGenre("hip-hop")).toBe("Hip-Hop");
+    expect(formatGenre("reggaeton")).toBe("Reggaeton");
+  });
+
+  it("maneja acrónimos y espacios en blanco", () => {
+    expect(formatGenre("r&b")).toBe("R&B");
+    expect(formatGenre("  latin ")).toBe("Latin");
+  });
+});
+
+describe("formatRole", () => {
+  it("traduce el rol a etiqueta legible capitalizada", () => {
+    expect(formatRole("admin")).toBe("Administrador");
+    expect(formatRole(null)).toBe("Oyente");
+    expect(formatRole(undefined)).toBe("Oyente");
   });
 });

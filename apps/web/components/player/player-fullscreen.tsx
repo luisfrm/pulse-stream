@@ -6,7 +6,7 @@ import { ChevronDown, Pause, Play, SkipBack, SkipForward } from "lucide-react";
 
 import { OfflineButton } from "@/components/offline-button";
 import { cn } from "@/components/ui";
-import { formatTime } from "@/lib/utils/format";
+import { formatGenre, formatTime } from "@/lib/utils/format";
 import { usePlayer } from "./player-provider";
 
 interface PlayerFullscreenProps {
@@ -154,7 +154,7 @@ export function PlayerFullscreen({ open, onClose }: PlayerFullscreenProps) {
                       key={genre}
                       className="rounded-pill border border-bg-highlight bg-bg-elevated/60 px-2.5 py-0.5 text-xs text-text-subdued"
                     >
-                      {genre}
+                      {formatGenre(genre)}
                     </span>
                   ))}
                 </div>

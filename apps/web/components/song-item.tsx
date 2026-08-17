@@ -5,6 +5,7 @@ import Link from "next/link";
 import { PlayButton } from "@/components/player/play-button";
 import { Badge } from "@/components/ui";
 import type { Playlist, Song } from "@/lib/services/types";
+import { formatGenre } from "@/lib/utils/format";
 import { SongActions } from "./song-actions";
 
 interface SongItemProps {
@@ -50,7 +51,7 @@ export function SongItem({ song, queue, favoriteIds, playlists, onMutated }: Son
         <div className="hidden gap-1.5 sm:flex">
           {song.genres!.slice(0, 2).map((genre) => (
             <Badge key={genre} variant="glass" size="sm">
-              {genre}
+              {formatGenre(genre)}
             </Badge>
           ))}
         </div>
