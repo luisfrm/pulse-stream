@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { CoverUploader } from "@/components/cover-uploader";
 import { songsService } from "@/lib/services/songs-service";
 import type { Artist } from "@/lib/services/types";
 import {
@@ -32,6 +33,7 @@ export function NewSongForm({
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [lyrics, setLyrics] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [coverKey, setCoverKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -72,6 +74,7 @@ export function NewSongForm({
         genres: selectedGenres,
         lyrics: lyrics.trim() || undefined,
         object_key: presign.object_key,
+        ...(coverKey ? { cover_key: coverKey } : {}),
       });
 
       // 3) Purgar caché del servidor + refrescar el RSC
@@ -174,6 +177,8 @@ export function NewSongForm({
             className="rounded-xl border border-bg-highlight bg-bg-elevated px-4 py-3 text-text-primary outline-none transition-colors placeholder:text-text-subdued focus:border-brand-400"
           />
         </label>
+
+        <CoverUploader value={coverKey} onChange={setCoverKey} label="Cover (opcional)" />
 
         <label className="flex flex-col gap-1.5 text-sm font-medium">
           Archivo de audio (.mp3)

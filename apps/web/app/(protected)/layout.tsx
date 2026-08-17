@@ -33,6 +33,12 @@ export default async function ProtectedLayout({
             <Link href="/dashboard" className="hover:text-text-primary">
               Mi cuenta
             </Link>
+            <Link href="/dashboard/favorites" className="hover:text-text-primary">
+              Favoritos
+            </Link>
+            <Link href="/dashboard/playlists" className="hover:text-text-primary">
+              Playlists
+            </Link>
             {isAdmin && (
               <Link href="/panel" className="hover:text-brand-400">
                 Panel admin

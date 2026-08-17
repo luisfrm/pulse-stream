@@ -15,6 +15,7 @@ export interface CreateSongPayload {
   genres: string[];
   lyrics?: string;
   object_key: string;
+  cover_key?: string;
 }
 
 export const songsService = {
@@ -40,6 +41,16 @@ export const songsService = {
   async createSong(payload: CreateSongPayload): Promise<Song> {
     return await api<Song>("/songs", {
       method: "POST",
+      body: payload,
+    });
+  },
+
+  async updateSong(
+    id: string,
+    payload: { title?: string; cover_key?: string },
+  ): Promise<Song> {
+    return await api<Song>(`/songs/${id}`, {
+      method: "PATCH",
       body: payload,
     });
   },

@@ -1,8 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { CoverUploader } from "@/components/cover-uploader";
 import { artistsService } from "@/lib/services/artists-service";
 import type { Artist } from "@/lib/services/types";
 import { friendlyError } from "@/lib/utils/error";
@@ -18,8 +20,8 @@ interface ArtistsResultsProps {
 }
 
 /**
- * Hoja cliente: NO fetchea. Recibe los datos del RSC (initialData) y solo
- * maneja mutaciones (borrar) + estado efímero de UI.
+ * Hoja cliente: recibe los datos del RSC (initialData) y maneja mutaciones
+ * (crear con cover, editar cover, borrar) + estado efímero de UI.
  */
 export function ArtistsResults({
   initialArtists,
@@ -33,6 +35,7 @@ export function ArtistsResults({
   const router = useRouter();
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [editingCoverId, setEditingCoverId] = useState<string | null>(null);
 
   const artists = initialArtists;
   const query = initialQuery;
@@ -50,6 +53,17 @@ export function ArtistsResults({
       setError(friendlyError(err));
     } finally {
       setPendingId(null);
+    }
+  }
+
+  async function handleCoverChange(artist: Artist, coverKey: string | null) {
+    setError(null);
+    try {
+      await artistsService.updateArtist(artist.id, { cover_key: coverKey ?? undefined });
+      await onRevalidate();
+      router.refresh();
+    } catch (err) {
+      setError(friendlyError(err));
     }
   }
 
@@ -72,24 +86,65 @@ export function ArtistsResults({
           {artists.map((artist) => (
             <li
               key={artist.id}
-              className="flex items-center justify-between rounded-2xl border border-bg-highlight bg-bg-elevated px-5 py-4"
+              className="rounded-2xl border border-bg-highlight bg-bg-elevated p-4"
             >
-              <div>
-                <p className="font-display font-bold">{artist.name}</p>
-                <p className="text-xs text-text-subdued">
-                  Creado el{" "}
-                  {new Date(artist.created_at).toLocaleDateString("es-AR")}
-                </p>
-              </div>
-              {isAdmin && (
-                <button
-                  type="button"
-                  disabled={pendingId === artist.id}
-                  onClick={() => handleDelete(artist.id)}
-                  className="rounded-pill px-3 py-1.5 text-sm text-text-subdued transition-colors hover:bg-bg-highlight hover:text-text-primary disabled:opacity-50"
+              <div className="flex items-center gap-4">
+                <Link
+                  href={`/artist/${artist.id}`}
+                  className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-bg-highlight bg-bg-highlight/40"
                 >
-                  {pendingId === artist.id ? "Borrando…" : "Borrar"}
-                </button>
+                  {artist.cover_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={artist.cover_url} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="bg-brand-gradient flex h-full w-full items-center justify-center font-display font-extrabold text-bg-base">
+                      {artist.name.charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                </Link>
+                <div className="min-w-0 flex-1">
+                  <Link
+                    href={`/artist/${artist.id}`}
+                    className="block truncate font-display font-bold hover:underline"
+                  >
+                    {artist.name}
+                  </Link>
+                  <p className="text-xs text-text-subdued">
+                    Creado el{" "}
+                    {new Date(artist.created_at).toLocaleDateString("es-AR")}
+                  </p>
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEditingCoverId(editingCoverId === artist.id ? null : artist.id)
+                      }
+                      className="mt-1 text-xs text-text-subdued transition-colors hover:text-brand-400"
+                    >
+                      {editingCoverId === artist.id ? "Cerrar cover" : "Editar cover"}
+                    </button>
+                  )}
+                </div>
+                {isAdmin && (
+                  <button
+                    type="button"
+                    disabled={pendingId === artist.id}
+                    onClick={() => handleDelete(artist.id)}
+                    className="shrink-0 rounded-pill px-3 py-1.5 text-sm text-text-subdued transition-colors hover:bg-bg-highlight hover:text-text-primary disabled:opacity-50"
+                  >
+                    {pendingId === artist.id ? "Borrando…" : "Borrar"}
+                  </button>
+                )}
+              </div>
+
+              {editingCoverId === artist.id && (
+                <div className="mt-4 border-t border-bg-highlight pt-4">
+                  <CoverUploader
+                    value={artist.cover_key}
+                    previewUrl={artist.cover_url}
+                    onChange={(key) => handleCoverChange(artist, key)}
+                  />
+                </div>
               )}
             </li>
           ))}
@@ -110,6 +165,7 @@ function CreateArtistForm({
 }) {
   const router = useRouter();
   const [name, setName] = useState("");
+  const [coverKey, setCoverKey] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -119,8 +175,9 @@ function CreateArtistForm({
     setPending(true);
     setError(null);
     try {
-      await artistsService.createArtist(name.trim());
+      await artistsService.createArtist(name.trim(), coverKey ?? undefined);
       setName("");
+      setCoverKey(null);
       await onRevalidate();
       router.refresh();
     } catch (err) {
@@ -131,23 +188,27 @@ function CreateArtistForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mb-6 flex max-w-md gap-3">
-      <input
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="Nombre del artista (ej. Soda Stereo)"
-        className="flex-1 rounded-xl border border-bg-highlight bg-bg-elevated px-4 py-3 text-text-primary outline-none transition-colors placeholder:text-text-subdued focus:border-brand-400"
-      />
-      <button
-        type="submit"
-        disabled={pending || !name.trim()}
-        className="rounded-pill bg-brand-400 px-5 py-3 font-semibold text-bg-base transition-colors hover:bg-brand-200 disabled:opacity-60"
-      >
-        {pending ? "Creando…" : "Crear"}
-      </button>
-      {error && (
-        <span className="self-center text-sm text-brand-200">{error}</span>
-      )}
-    </form>
+    <div className="mb-6 rounded-2xl border border-bg-highlight bg-bg-elevated p-5">
+      <h2 className="font-display font-bold">Nuevo artista</h2>
+      <form onSubmit={handleSubmit} className="mt-4 flex max-w-md flex-col gap-4">
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Nombre del artista (ej. Soda Stereo)"
+          className="flex-1 rounded-xl border border-bg-highlight bg-bg-elevated px-4 py-3 text-text-primary outline-none transition-colors placeholder:text-text-subdued focus:border-brand-400"
+        />
+        <CoverUploader value={coverKey} onChange={setCoverKey} label="Cover (opcional)" />
+        <button
+          type="submit"
+          disabled={pending || !name.trim()}
+          className="w-fit rounded-pill bg-brand-400 px-5 py-2.5 font-semibold text-bg-base transition-colors hover:bg-brand-200 disabled:opacity-60"
+        >
+          {pending ? "Creando…" : "Crear artista"}
+        </button>
+        {error && (
+          <span className="self-center text-sm text-brand-200">{error}</span>
+        )}
+      </form>
+    </div>
   );
 }

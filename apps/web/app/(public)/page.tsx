@@ -6,6 +6,7 @@ import { Pagination } from "@/components/pagination";
 import { SearchInput } from "@/components/search-input";
 import { Title } from "@/components/ui";
 import { artistsService } from "@/lib/services/artists-service";
+import { getUserLibrary } from "@/lib/services/library";
 import { sessionService } from "@/lib/services/session-service";
 import { songsService } from "@/lib/services/songs-service";
 import { CACHE_TAGS } from "@/lib/services/tags";
@@ -29,6 +30,9 @@ export default async function HomePage({
   // Sesión (para mostrar u ocultar el acceso al panel; el catálogo es público)
   const user = await sessionService.getSession();
   const isAdmin = Boolean(user && (user.role === "admin" || user.is_superuser));
+
+  // Biblioteca del usuario (favoritos + playlists) para las acciones por canción
+  const library = await getUserLibrary();
 
   // Lecturas en paralelo, cacheadas con tags (catálogo público)
   const [{ items: songs, total }, { items: artists }] = await Promise.all([
@@ -109,7 +113,13 @@ export default async function HomePage({
             ) : (
               <ul className="mt-4 space-y-2.5">
                 {songs.map((song) => (
-                  <SongItem key={song.id} song={song} queue={songs} />
+                  <SongItem
+                    key={song.id}
+                    song={song}
+                    queue={songs}
+                    favoriteIds={library?.favoriteIds}
+                    playlists={library?.playlists}
+                  />
                 ))}
               </ul>
             )}

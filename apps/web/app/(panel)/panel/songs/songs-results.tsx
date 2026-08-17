@@ -1,8 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { CoverUploader } from "@/components/cover-uploader";
 import { songsService } from "@/lib/services/songs-service";
 import type { Song } from "@/lib/services/types";
 import { friendlyError } from "@/lib/utils/error";
@@ -18,8 +20,8 @@ interface SongsResultsProps {
 }
 
 /**
- * Hoja cliente: NO fetchea. Recibe las canciones del RSC (initialData),
- * renderiza el reproductor y maneja mutaciones (borrar) + revalidación.
+ * Hoja cliente: recibe las canciones del RSC (initialData), renderiza el
+ * reproductor, permite editar el cover y borrar + revalidación.
  */
 export function SongsResults({
   initialSongs,
@@ -32,6 +34,7 @@ export function SongsResults({
 }: SongsResultsProps) {
   const router = useRouter();
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [editingCoverId, setEditingCoverId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const songs = initialSongs;
@@ -49,6 +52,17 @@ export function SongsResults({
       setError(friendlyError(err));
     } finally {
       setPendingId(null);
+    }
+  }
+
+  async function handleCoverChange(song: Song, coverKey: string | null) {
+    setError(null);
+    try {
+      await songsService.updateSong(song.id, { cover_key: coverKey ?? undefined });
+      await onRevalidate();
+      router.refresh();
+    } catch (err) {
+      setError(friendlyError(err));
     }
   }
 
@@ -71,16 +85,43 @@ export function SongsResults({
               key={song.id}
               className="rounded-2xl border border-bg-highlight bg-bg-elevated p-5"
             >
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <p className="font-display text-lg font-bold">{song.title}</p>
-                  <p className="text-sm text-text-subdued">
+              <div className="flex items-center gap-4">
+                {/* Cover */}
+                <Link
+                  href={`/song/${song.id}`}
+                  className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-bg-highlight bg-bg-highlight/40"
+                >
+                  {song.cover_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={song.cover_url} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="bg-brand-gradient flex h-full w-full items-center justify-center font-display font-extrabold text-bg-base">
+                      {song.title.charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                </Link>
+
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-display text-lg font-bold">{song.title}</p>
+                  <p className="truncate text-sm text-text-subdued">
                     {song.artist.name}
                     {(song.genres?.length ?? 0) > 0 && (
                       <span className="ml-2">· {song.genres!.join(", ")}</span>
                     )}
                   </p>
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEditingCoverId(editingCoverId === song.id ? null : song.id)
+                      }
+                      className="mt-1 text-xs text-text-subdued transition-colors hover:text-brand-400"
+                    >
+                      {editingCoverId === song.id ? "Cerrar cover" : "Editar cover"}
+                    </button>
+                  )}
                 </div>
+
                 {isAdmin && (
                   <button
                     type="button"
@@ -92,6 +133,7 @@ export function SongsResults({
                   </button>
                 )}
               </div>
+
               {song.stream_url ? (
                 <audio
                   controls
@@ -103,6 +145,16 @@ export function SongsResults({
                 <p className="mt-3 text-xs text-text-subdued">
                   Sin URL de reproducción (R2_PUBLIC_BASE_URL no configurado).
                 </p>
+              )}
+
+              {editingCoverId === song.id && (
+                <div className="mt-4 border-t border-bg-highlight pt-4">
+                  <CoverUploader
+                    value={song.cover_key}
+                    previewUrl={song.cover_url}
+                    onChange={(key) => handleCoverChange(song, key)}
+                  />
+                </div>
               )}
             </li>
           ))}

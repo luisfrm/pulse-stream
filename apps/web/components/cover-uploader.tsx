@@ -1,0 +1,119 @@
+"use client";
+
+import * as React from "react";
+import { ImagePlus, Loader2, X } from "lucide-react";
+
+import { uploadsService, uploadToR2 } from "@/lib/services/uploads-service";
+import { friendlyError } from "@/lib/utils/error";
+import { cn } from "@/components/ui";
+
+const MAX_COVER_BYTES = 512 * 1024; // 512 KB
+const SUGGESTED_SIZE = "600×600 px";
+
+interface CoverUploaderProps {
+  /** object_key actual (para mostrar el cover ya subido). */
+  value?: string | null;
+  /** URL pública del cover actual (para preview). */
+  previewUrl?: string | null;
+  onChange: (objectKey: string | null) => void;
+  label?: string;
+}
+
+/**
+ * Subida de cover (cuadrícula): JPG <= 512 KB, subida directa a R2 vía
+ * presign. Muestra el peso y el tamaño sugerido como ayuda (el backend
+ * valida lo mismo). `onChange` recibe el object_key (o null al quitar).
+ */
+export function CoverUploader({
+  value,
+  previewUrl,
+  onChange,
+  label = "Cover",
+}: CoverUploaderProps) {
+  const [pending, setPending] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  async function handleFile(file: File | undefined) {
+    if (!file) return;
+    setError(null);
+
+    // Validaciones locales (el backend valida lo mismo al firmar)
+    if (file.type !== "image/jpeg" && file.type !== "image/jpg") {
+      setError("Solo se aceptan archivos JPG.");
+      return;
+    }
+    if (file.size > MAX_COVER_BYTES) {
+      setError(`El archivo pesa ${(file.size / 1024).toFixed(0)} KB. Máximo 512 KB.`);
+      return;
+    }
+
+    setPending(true);
+    try {
+      const presign = await uploadsService.presignCover(file.name, file.type, file.size);
+      await uploadToR2(presign.url, file);
+      onChange(presign.object_key);
+    } catch (err) {
+      setError(friendlyError(err));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <span className="text-sm font-medium">{label}</span>
+
+      <div className="flex items-center gap-4">
+        {/* Preview / placeholder */}
+        <div className="h-24 w-24 shrink-0 overflow-hidden rounded-xl border border-bg-highlight bg-bg-highlight/40">
+          {previewUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={previewUrl} alt="Vista previa del cover" className="h-full w-full object-cover" />
+          ) : (
+            <div className="bg-brand-gradient flex h-full w-full items-center justify-center text-text-primary/60">
+              {pending ? <Loader2 size={20} className="animate-spin" /> : <ImagePlus size={20} />}
+            </div>
+          )}
+        </div>
+
+        <div className="flex min-w-0 flex-col gap-2">
+          <label className="inline-flex cursor-pointer items-center gap-2">
+            <input
+              type="file"
+              accept="image/jpeg,.jpg,.jpeg"
+              className="sr-only"
+              onChange={(e) => handleFile(e.target.files?.[0])}
+            />
+            <span
+              className={cn(
+                "rounded-pill border border-bg-highlight px-4 py-2 text-sm font-medium text-text-primary transition-colors hover:border-brand-400",
+                pending && "pointer-events-none opacity-60"
+              )}
+            >
+              {pending ? "Subiendo…" : value ? "Cambiar cover" : "Subir cover"}
+            </span>
+          </label>
+          {value && (
+            <button
+              type="button"
+              onClick={() => onChange(null)}
+              className="inline-flex w-fit items-center gap-1 text-xs text-text-subdued transition-colors hover:text-brand-400"
+            >
+              <X size={12} /> Quitar cover
+            </button>
+          )}
+        </div>
+      </div>
+
+      <p className="text-xs text-text-subdued">
+        Formato <strong>JPG</strong> · peso máximo <strong>512 KB</strong> ·
+        tamaño sugerido <strong>{SUGGESTED_SIZE}</strong> (se muestra en
+        cuadrículas).
+      </p>
+
+      {error && (
+        <p className="rounded-xl bg-brand-900/30 px-3 py-2 text-sm text-brand-200">{error}</p>
+      )}
+    </div>
+  );
+}

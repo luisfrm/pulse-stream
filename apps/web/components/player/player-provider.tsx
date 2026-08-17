@@ -10,26 +10,30 @@ interface PlayerState {
   playing: boolean;
   hasPrev: boolean;
   hasNext: boolean;
+  progress: number;
+  duration: number;
   play: (song: Song, queue?: Song[]) => void;
   toggle: () => void;
   next: () => void;
   prev: () => void;
+  seek: (time: number) => void;
 }
 
 const PlayerContext = React.createContext<PlayerState | null>(null);
 
 /**
- * Reproductor persistente: vive en el root layout, sobrevive a la navegación.
- * Cualquier página puede llamar `play(song, queue)` desde un botón.
- * Integra Media Session API (controles de pantalla de bloqueo / notificaciones).
+ * Reproductor persistente: un único <audio> global en el root layout,
+ * sobrevive a la navegación. `play(song, queue)` lo carga desde cualquier
+ * página; integra Media Session API (controles de pantalla de bloqueo).
  */
 export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const [current, setCurrent] = React.useState<Song | null>(null);
   const [queue, setQueue] = React.useState<Song[]>([]);
   const [playing, setPlaying] = React.useState(false);
+  const [progress, setProgress] = React.useState(0);
+  const [duration, setDuration] = React.useState(0);
 
-  // Asegura un único <audio> reutilizable
   React.useEffect(() => {
     const audio = new Audio();
     audio.preload = "none";
@@ -76,6 +80,13 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     play(queue[currentIndex - 1], queue);
   }
 
+  function seek(time: number) {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.currentTime = time;
+    setProgress(time);
+  }
+
   // Media Session API: metadata + controles del sistema operativo
   React.useEffect(() => {
     if (!("mediaSession" in navigator) || !current) return;
@@ -84,6 +95,9 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       title: current.title,
       artist: current.artist.name,
       album: "Pulse Stream",
+      artwork: current.cover_url
+        ? [{ src: current.cover_url, sizes: "512x512", type: "image/jpeg" }]
+        : [],
     });
 
     navigator.mediaSession.setActionHandler("play", () => toggle());
@@ -100,7 +114,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current]);
 
-  // Sincroniza `playing` con el estado real del <audio> (fin de canción, etc.)
+  // Sincroniza estado con el <audio> (fin de canción, progreso, duración)
   React.useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -114,14 +128,23 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     };
     const onPause = () => setPlaying(false);
     const onPlay = () => setPlaying(true);
+    const onTime = () => setProgress(audio.currentTime);
+    const onLoaded = () => {
+      setDuration(audio.duration || 0);
+      setProgress(audio.currentTime);
+    };
 
     audio.addEventListener("ended", onEnded);
     audio.addEventListener("pause", onPause);
     audio.addEventListener("play", onPlay);
+    audio.addEventListener("timeupdate", onTime);
+    audio.addEventListener("loadedmetadata", onLoaded);
     return () => {
       audio.removeEventListener("ended", onEnded);
       audio.removeEventListener("pause", onPause);
       audio.removeEventListener("play", onPlay);
+      audio.removeEventListener("timeupdate", onTime);
+      audio.removeEventListener("loadedmetadata", onLoaded);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current, queue]);
@@ -133,13 +156,16 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       playing,
       hasPrev: currentIndex > 0,
       hasNext: currentIndex >= 0 && currentIndex < queue.length - 1,
+      progress,
+      duration,
       play,
       toggle,
       next,
       prev,
+      seek,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [current, queue, playing, currentIndex]
+    [current, queue, playing, progress, duration, currentIndex]
   );
 
   return (

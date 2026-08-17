@@ -4,3 +4,6 @@ export * from "./badge";
 export * from "./card";
 export * from "./input";
 export * from "./title";
+export * from "./select";
+export * from "./bottom-sheet";
+export * from "./textarea";

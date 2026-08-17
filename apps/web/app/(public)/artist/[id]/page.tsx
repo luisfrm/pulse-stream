@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { SongItem } from "@/components/song-item";
 import { Title } from "@/components/ui";
 import { artistsService } from "@/lib/services/artists-service";
+import { getUserLibrary } from "@/lib/services/library";
 import { songsService } from "@/lib/services/songs-service";
 import { CACHE_TAGS } from "@/lib/services/tags";
 
@@ -45,6 +46,9 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
     )
     .catch(() => ({ items: [] as never[] }));
 
+  // Biblioteca del usuario para las acciones por canción
+  const library = await getUserLibrary();
+
   return (
     <main className="flex-1">
       <section className="bg-brand-gradient px-6 py-12 text-bg-base">
@@ -74,7 +78,13 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
         ) : (
           <ul className="mt-4 space-y-2.5">
             {songs.map((song) => (
-              <SongItem key={song.id} song={song} queue={songs} />
+              <SongItem
+                key={song.id}
+                song={song}
+                queue={songs}
+                favoriteIds={library?.favoriteIds}
+                playlists={library?.playlists}
+              />
             ))}
           </ul>
         )}

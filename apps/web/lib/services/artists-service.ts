@@ -26,10 +26,20 @@ export const artistsService = {
     return await api<Artist>(`/artists/${id}`, options);
   },
 
-  async createArtist(name: string): Promise<Artist> {
+  async createArtist(name: string, coverKey?: string): Promise<Artist> {
     return await api<Artist>("/artists", {
       method: "POST",
-      body: { name },
+      body: { name, ...(coverKey ? { cover_key: coverKey } : {}) },
+    });
+  },
+
+  async updateArtist(
+    id: string,
+    payload: { name?: string; cover_key?: string },
+  ): Promise<Artist> {
+    return await api<Artist>(`/artists/${id}`, {
+      method: "PATCH",
+      body: payload,
     });
   },
 

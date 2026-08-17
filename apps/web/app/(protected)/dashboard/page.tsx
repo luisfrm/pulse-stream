@@ -52,20 +52,26 @@ export default async function DashboardHome() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Explorar</CardTitle>
+            <CardTitle>Biblioteca</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
+            <Link
+              href="/dashboard/favorites"
+              className="rounded-xl border border-bg-highlight bg-bg-elevated px-4 py-3 text-sm transition-colors hover:border-brand-400"
+            >
+              ♥ Tus favoritos
+            </Link>
+            <Link
+              href="/dashboard/playlists"
+              className="rounded-xl border border-bg-highlight bg-bg-elevated px-4 py-3 text-sm transition-colors hover:border-brand-400"
+            >
+              📋 Tus playlists
+            </Link>
             <Link
               href="/"
               className="rounded-xl border border-bg-highlight bg-bg-elevated px-4 py-3 text-sm transition-colors hover:border-brand-400"
             >
               🎧 Catálogo público
-            </Link>
-            <Link
-              href="/login"
-              className="rounded-xl border border-bg-highlight bg-bg-elevated px-4 py-3 text-sm transition-colors hover:border-brand-400"
-            >
-              🔑 Cambiar de cuenta
             </Link>
           </CardContent>
         </Card>
