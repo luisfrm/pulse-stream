@@ -2,6 +2,7 @@
 
 import * as React from "react";
 
+import { listensService } from "@/lib/services/listens-service";
 import type { Song } from "@/lib/services/types";
 
 interface PlayerState {
@@ -21,10 +22,16 @@ interface PlayerState {
 
 const PlayerContext = React.createContext<PlayerState | null>(null);
 
+/** ¿Hay sesión? Solo se registran plays de usuarios autenticados. */
+function hasSessionCookie(): boolean {
+  return typeof document !== "undefined" && document.cookie.includes("session=");
+}
+
 /**
  * Reproductor persistente: un único <audio> global en el root layout,
  * sobrevive a la navegación. `play(song, queue)` lo carga desde cualquier
  * página; integra Media Session API (controles de pantalla de bloqueo).
+ * Registra cada play (POST /me/listens) cuando una canción empieza a sonar.
  */
 export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
@@ -33,6 +40,12 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [playing, setPlaying] = React.useState(false);
   const [progress, setProgress] = React.useState(0);
   const [duration, setDuration] = React.useState(0);
+
+  const recordPlay = React.useCallback((song: Song) => {
+    if (!hasSessionCookie() || !song.id) return;
+    // Fire-and-forget: el backend deduplica plays consecutivos.
+    listensService.recordPlay(song.id).catch(() => {});
+  }, []);
 
   React.useEffect(() => {
     const audio = new Audio();
@@ -104,17 +117,22 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     navigator.mediaSession.setActionHandler("pause", () => toggle());
     navigator.mediaSession.setActionHandler("previoustrack", () => prev());
     navigator.mediaSession.setActionHandler("nexttrack", () => next());
+    navigator.mediaSession.setActionHandler("seekto", (details) => {
+      if (typeof details.seekTime === "number") seek(details.seekTime);
+    });
 
     return () => {
       navigator.mediaSession.setActionHandler("play", null);
       navigator.mediaSession.setActionHandler("pause", null);
       navigator.mediaSession.setActionHandler("previoustrack", null);
       navigator.mediaSession.setActionHandler("nexttrack", null);
+      navigator.mediaSession.setActionHandler("seekto", null);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current]);
 
-  // Sincroniza estado con el <audio> (fin de canción, progreso, duración)
+  // Sincroniza estado con el <audio> (fin de canción, progreso, duración,
+  // y registro de cada play cuando realmente empieza a sonar).
   React.useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -127,7 +145,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       }
     };
     const onPause = () => setPlaying(false);
-    const onPlay = () => setPlaying(true);
+    const onPlay = () => {
+      setPlaying(true);
+      if (current) recordPlay(current);
+    };
     const onTime = () => setProgress(audio.currentTime);
     const onLoaded = () => {
       setDuration(audio.duration || 0);
