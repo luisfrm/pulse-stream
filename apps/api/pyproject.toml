@@ -1,0 +1,39 @@
+[project]
+name = "pulse-stream-api"
+version = "0.1.0"
+description = "Backend FastAPI del Spotify clone (Pulse Stream)"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic-settings>=2.6",
+    "sqlalchemy[asyncio]>=2.0.36",
+    "asyncpg>=0.30",
+    "alembic>=1.14",
+    "fastapi-users[sqlalchemy]>=15.0",
+    "pwdlib[argon2]>=0.2",
+    "structlog>=24.4",
+    "slowapi>=0.1.9",
+    "python-multipart>=0.0.12",
+    "email-validator>=2.2",
+    "boto3>=1.35",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "pytest-cov>=6.0",
+    "httpx>=0.27",
+    "polyfactory>=2.17",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-q"
+pythonpath = ["."]
+# Un único event loop para toda la corrida: el engine session-scoped (asyncpg)
+# no puede cruzar loops entre fixtures y tests.
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
