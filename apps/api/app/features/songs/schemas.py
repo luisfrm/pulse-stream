@@ -48,3 +48,9 @@ class SongRead(BaseModel):
     # Se leen desde las propiedades `Song.stream_url` / `Song.cover_url`.
     stream_url: str | None = None
     cover_url: str | None = None
+
+
+class SongWithPlays(SongRead):
+    """Canción + métrica de reproducciones (ranking "populares")."""
+
+    play_count: int = 0

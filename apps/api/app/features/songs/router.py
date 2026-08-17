@@ -3,8 +3,9 @@ import uuid
 from fastapi import APIRouter, Depends, Query, status
 
 from app.features.auth.manager import require_admin
+from app.features.listens.service import ListenService, get_listen_service
 from app.features.songs.models import Song
-from app.features.songs.schemas import SongCreate, SongRead, SongUpdate
+from app.features.songs.schemas import SongCreate, SongRead, SongUpdate, SongWithPlays
 from app.features.songs.service import SongService
 from app.shared.pagination import Page, paginate
 
@@ -23,6 +24,22 @@ async def list_songs(
         offset=offset, limit=limit, search=q, artist_id=artist_id
     )
     return paginate(songs, total, offset, limit)
+
+
+@router.get("/popular", response_model=list[SongWithPlays])
+async def popular_songs(
+    limit: int = Query(10, ge=1, le=50),
+    days: int = Query(30, ge=1, le=365, description="Ventana en días"),
+    service: ListenService = Depends(get_listen_service),
+) -> list[SongWithPlays]:
+    """Top canciones por reproducciones en los últimos `days` días."""
+    ranking = await service.popular_songs(limit=limit, days=days)
+    items = []
+    for song, plays in ranking:
+        item = SongWithPlays.model_validate(song)
+        item.play_count = plays
+        items.append(item)
+    return items
 
 
 @router.get("/{song_id}", response_model=SongRead)

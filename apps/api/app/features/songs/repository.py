@@ -49,6 +49,21 @@ class SongRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_by_ids(self, song_ids: list[uuid.UUID]) -> dict[uuid.UUID, Song]:
+        """Fetch de varias canciones con su artista; devuelve dict id->Song.
+
+        El orden del dict no importa — quien llama reordena contra su propio
+        ranking (ver listens.service.recently_played).
+        """
+        if not song_ids:
+            return {}
+        result = await self._session.execute(
+            select(Song)
+            .options(selectinload(Song.artist))
+            .where(Song.id.in_(song_ids))
+        )
+        return {song.id: song for song in result.scalars().all()}
+
     async def create(self, **fields: object) -> Song:
         song = Song(**fields)
         self._session.add(song)
