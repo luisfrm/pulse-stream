@@ -63,17 +63,19 @@ async def test_create_song_with_inline_artist(client, session):
 
 
 async def test_create_song_reuses_existing_inline_artist(client, session):
+    # Nombre único por corrida: los tests comparten la DB y los artistas son únicos
+    name = f"Soda Stereo {uuid.uuid4().hex[:6]}"
     await register_and_login(client, admin=True, session=session)
-    await _create_artist(client, "Soda Stereo")
+    await _create_artist(client, name)
 
     resp = await client.post(
         "/songs",
-        json={"title": "Nada Personal", "artist_name": "soda stereo", "object_key": "songs/ghi.mp3"},
+        json={"title": "Nada Personal", "artist_name": name.lower(), "object_key": "songs/ghi.mp3"},
     )
     assert resp.status_code == 201, resp.text
-    assert resp.json()["artist"]["name"] == "Soda Stereo"
+    assert resp.json()["artist"]["name"] == name
 
-    resp = await client.get("/artists", params={"q": "soda"})
+    resp = await client.get("/artists", params={"q": name})
     assert resp.json()["total"] == 1  # no duplicó el artista
 
 
