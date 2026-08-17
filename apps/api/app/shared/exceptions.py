@@ -66,3 +66,13 @@ class InvalidUploadError(AppError):
 class R2NotConfiguredError(AppError):
     status_code = 503
     detail = "El storage (R2) no está configurado. Completá las env vars R2_* en el .env de apps/api."
+
+
+class PlaylistNotFoundError(NotFoundError):
+    def __init__(self, playlist_id: uuid.UUID) -> None:
+        super().__init__(f"Playlist {playlist_id} no existe")
+
+
+class PlaylistForbiddenError(AppError):
+    status_code = 403
+    detail = "No tenés acceso a esta playlist"

@@ -43,8 +43,10 @@ class ArtistRepository:
         )
         return result.scalar_one_or_none()
 
-    async def create(self, name: str, image_url: str | None = None) -> Artist:
-        artist = Artist(name=name, image_url=image_url)
+    async def create(
+        self, name: str, image_url: str | None = None, cover_key: str | None = None
+    ) -> Artist:
+        artist = Artist(name=name, image_url=image_url, cover_key=cover_key)
         self._session.add(artist)
         await self._session.flush()
         return artist

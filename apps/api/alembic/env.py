@@ -16,6 +16,10 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from app.core.config import settings
 from app.db.base import Base
 from app.features.users.models import User  # noqa: F401  (registra tablas)
+from app.features.artists.models import Artist  # noqa: F401
+from app.features.songs.models import Song  # noqa: F401
+from app.features.playlists.models import Playlist, PlaylistSong  # noqa: F401
+from app.features.favorites.models import UserFavorite  # noqa: F401
 
 config = context.config
 

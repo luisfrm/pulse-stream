@@ -83,6 +83,8 @@ class SongService:
             updates["lyrics"] = payload.lyrics
         if payload.duration_seconds is not None:
             updates["duration_seconds"] = payload.duration_seconds
+        if payload.cover_key is not None:
+            updates["cover_key"] = payload.cover_key
         updated = await self._songs.update(song, **updates)
         return await self.get_song(updated.id)
 

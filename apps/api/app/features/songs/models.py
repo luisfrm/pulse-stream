@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text, Uuid, func, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -7,6 +8,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.config import settings
 from app.db.base import Base
 from app.features.artists.models import Artist
+
+if TYPE_CHECKING:
+    from app.features.favorites.models import UserFavorite
+    from app.features.playlists.models import PlaylistSong
 
 
 class Song(Base):
@@ -28,6 +33,7 @@ class Song(Base):
     )
     lyrics: Mapped[str | None] = mapped_column(Text)
     object_key: Mapped[str] = mapped_column(String(1024), nullable=False, unique=True)
+    cover_key: Mapped[str | None] = mapped_column(String(1024))
     duration_seconds: Mapped[int | None] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -40,14 +46,25 @@ class Song(Base):
     )
 
     artist: Mapped[Artist] = relationship(back_populates="songs")
+    playlist_items: Mapped[list["PlaylistSong"]] = relationship(
+        back_populates="song", cascade="all, delete-orphan"
+    )
+    favorited_by: Mapped[list["UserFavorite"]] = relationship(
+        back_populates="song", cascade="all, delete-orphan"
+    )
 
     @property
     def stream_url(self) -> str | None:
-        """URL pública de reproducción vía el dominio público de R2 (si hay).
+        """URL pública de reproducción vía el dominio público de R2 (si hay)."""
+        return self._public_url(self.object_key)
 
-        Es presentación (no columna): la lee el schema SongRead para exponerla
-        en las respuestas y en el OpenAPI sin duplicar lógica en el frontend.
-        """
+    @property
+    def cover_url(self) -> str | None:
+        """URL pública del cover (cuadrícula) vía el dominio público de R2."""
+        return self._public_url(self.cover_key) if self.cover_key else None
+
+    @staticmethod
+    def _public_url(key: str) -> str | None:
         if settings.r2_public_base_url:
-            return f"{settings.r2_public_base_url.rstrip('/')}/{self.object_key}"
+            return f"{settings.r2_public_base_url.rstrip('/')}/{key}"
         return None

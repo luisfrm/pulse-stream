@@ -15,6 +15,9 @@ from app.features.uploads.schemas import PresignRequest, PresignResponse
 from app.shared.exceptions import InvalidUploadError, R2NotConfiguredError
 
 ALLOWED_CONTENT_TYPES = {"audio/mpeg", "audio/mp3"}
+ALLOWED_COVER_TYPES = {"image/jpeg", "image/jpg"}
+# Covers son cuadrículas (portadas/artistas): JPG de hasta 512 KB.
+MAX_COVER_BYTES = 512 * 1024
 PRESIGN_EXPIRES_SECONDS = 600  # 5-10 min: ventana para subir el archivo
 
 
@@ -68,6 +71,30 @@ class UploadService:
             raise R2NotConfiguredError()
 
         object_key = f"songs/{uuid.uuid4()}.mp3"
+        url = self._storage.presign_put(object_key, payload.content_type)
+        return PresignResponse(
+            url=url,
+            object_key=object_key,
+            content_type=payload.content_type,
+            expires_in=PRESIGN_EXPIRES_SECONDS,
+        )
+
+    async def presign_cover(self, payload: PresignRequest) -> PresignResponse:
+        """Presigned PUT para covers (cuadrículas): JPG <= 512 KB."""
+        if payload.content_type not in ALLOWED_COVER_TYPES:
+            raise InvalidUploadError(
+                f"Tipo de archivo no permitido: {payload.content_type}. "
+                "Los covers se suben en JPG (image/jpeg)."
+            )
+        if payload.size > MAX_COVER_BYTES:
+            raise InvalidUploadError(
+                f"El cover supera el tamaño máximo de 512 KB "
+                f"({payload.size} bytes)."
+            )
+        if not self._storage.enabled:
+            raise R2NotConfiguredError()
+
+        object_key = f"covers/{uuid.uuid4()}.jpg"
         url = self._storage.presign_put(object_key, payload.content_type)
         return PresignResponse(
             url=url,

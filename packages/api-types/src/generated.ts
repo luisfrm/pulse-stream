@@ -328,10 +328,165 @@ export interface paths {
         put?: never;
         /**
          * Presign Upload
-         * @description Firma una URL de subida directa a R2 (5-10 min de validez).
+         * @description Firma una URL de subida directa a R2 para AUDIO (5-10 min de validez).
          */
         post: operations["presign_upload_uploads_presign_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/uploads/presign-cover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Presign Cover
+         * @description Firma una URL de subida directa a R2 para COVERS (JPG <= 512 KB).
+         */
+        post: operations["presign_cover_uploads_presign_cover_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/playlists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Playlists
+         * @description Playlists del usuario actual (o las públicas del mismo perfil).
+         */
+        get: operations["list_playlists_playlists_get"];
+        put?: never;
+        /** Create Playlist */
+        post: operations["create_playlist_playlists_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/playlists/{playlist_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Playlist
+         * @description Detalle con canciones ordenadas (solo dueño o playlist pública).
+         */
+        get: operations["get_playlist_playlists__playlist_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Playlist */
+        delete: operations["delete_playlist_playlists__playlist_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Playlist */
+        patch: operations["update_playlist_playlists__playlist_id__patch"];
+        trace?: never;
+    };
+    "/playlists/{playlist_id}/songs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Song To Playlist */
+        post: operations["add_song_to_playlist_playlists__playlist_id__songs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/playlists/{playlist_id}/songs/{song_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove Song From Playlist */
+        delete: operations["remove_song_from_playlist_playlists__playlist_id__songs__song_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/favorites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Favorites
+         * @description Canciones favoritas del usuario (más recientes primero).
+         */
+        get: operations["list_favorites_me_favorites_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/favorites/ids": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Favorite Ids
+         * @description IDs favoritos (para pintar corazones en listas grandes sin traer todo).
+         */
+        get: operations["favorite_ids_me_favorites_ids_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/favorites/{song_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Add Favorite */
+        put: operations["add_favorite_me_favorites__song_id__put"];
+        post?: never;
+        /** Remove Favorite */
+        delete: operations["remove_favorite_me_favorites__song_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -364,6 +519,8 @@ export interface components {
             name: string;
             /** Image Url */
             image_url?: string | null;
+            /** Cover Key */
+            cover_key?: string | null;
         };
         /** ArtistRead */
         ArtistRead: {
@@ -376,11 +533,15 @@ export interface components {
             name: string;
             /** Image Url */
             image_url?: string | null;
+            /** Cover Key */
+            cover_key?: string | null;
             /**
              * Created At
              * Format: date-time
              */
             created_at: string;
+            /** Cover Url */
+            cover_url?: string | null;
         };
         /** ArtistUpdate */
         ArtistUpdate: {
@@ -388,6 +549,8 @@ export interface components {
             name?: string | null;
             /** Image Url */
             image_url?: string | null;
+            /** Cover Key */
+            cover_key?: string | null;
         };
         /** Body_auth_cookie_login_auth_login_post */
         Body_auth_cookie_login_auth_login_post: {
@@ -475,6 +638,104 @@ export interface components {
             /** Limit */
             limit: number;
         };
+        /** PlaylistAddSong */
+        PlaylistAddSong: {
+            /**
+             * Song Id
+             * Format: uuid
+             */
+            song_id: string;
+        };
+        /** PlaylistCreate */
+        PlaylistCreate: {
+            /** Name */
+            name: string;
+            /** Description */
+            description?: string | null;
+            /**
+             * Is Public
+             * @default false
+             */
+            is_public: boolean;
+        };
+        /**
+         * PlaylistDetail
+         * @description Playlist con sus canciones (estilo Spotify: lista ordenada).
+         */
+        PlaylistDetail: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description?: string | null;
+            /**
+             * Is Public
+             * @default false
+             */
+            is_public: boolean;
+            /** Cover Key */
+            cover_key?: string | null;
+            /** Cover Url */
+            cover_url?: string | null;
+            /**
+             * Song Count
+             * @default 0
+             */
+            song_count: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Songs */
+            songs?: components["schemas"]["SongRead"][];
+        };
+        /** PlaylistRead */
+        PlaylistRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description?: string | null;
+            /**
+             * Is Public
+             * @default false
+             */
+            is_public: boolean;
+            /** Cover Key */
+            cover_key?: string | null;
+            /** Cover Url */
+            cover_url?: string | null;
+            /**
+             * Song Count
+             * @default 0
+             */
+            song_count: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** PlaylistUpdate */
+        PlaylistUpdate: {
+            /** Name */
+            name?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Is Public */
+            is_public?: boolean | null;
+            /** Cover Key */
+            cover_key?: string | null;
+        };
         /** PresignRequest */
         PresignRequest: {
             /** Filename */
@@ -538,6 +799,8 @@ export interface components {
             lyrics?: string | null;
             /** Object Key */
             object_key: string;
+            /** Cover Key */
+            cover_key?: string | null;
             /** Duration Seconds */
             duration_seconds?: number | null;
             /**
@@ -547,6 +810,8 @@ export interface components {
             created_at: string;
             /** Stream Url */
             stream_url?: string | null;
+            /** Cover Url */
+            cover_url?: string | null;
         };
         /** SongUpdate */
         SongUpdate: {
@@ -560,6 +825,8 @@ export interface components {
             lyrics?: string | null;
             /** Duration Seconds */
             duration_seconds?: number | null;
+            /** Cover Key */
+            cover_key?: string | null;
         };
         /**
          * UserCreate
@@ -1467,6 +1734,8 @@ export interface operations {
                 limit?: number;
                 /** @description Búsqueda por título */
                 q?: string | null;
+                /** @description Filtrar por artista */
+                artist_id?: string | null;
             };
             header?: never;
             path?: never;
@@ -1663,6 +1932,375 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["PresignResponse"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    presign_cover_uploads_presign_cover_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PresignRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PresignResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_playlists_playlists_get: {
+        parameters: {
+            query?: {
+                mine?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaylistRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_playlist_playlists_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlaylistCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaylistDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_playlist_playlists__playlist_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                playlist_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaylistDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_playlist_playlists__playlist_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                playlist_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_playlist_playlists__playlist_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                playlist_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlaylistUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaylistDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_song_to_playlist_playlists__playlist_id__songs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                playlist_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlaylistAddSong"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaylistDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_song_from_playlist_playlists__playlist_id__songs__song_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                playlist_id: string;
+                song_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaylistDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_favorites_me_favorites_get: {
+        parameters: {
+            query?: {
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_SongRead_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    favorite_ids_me_favorites_ids_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[];
+                };
+            };
+        };
+    };
+    add_favorite_me_favorites__song_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                song_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_favorite_me_favorites__song_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                song_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

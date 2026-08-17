@@ -8,7 +8,9 @@ from app.core.logging import configure_logging
 from app.core.security import limiter, rate_limit_exceeded_handler
 from app.features.artists.router import router as artists_router
 from app.features.auth.router import router as auth_router
+from app.features.favorites.router import router as favorites_router
 from app.features.genres.router import router as genres_router
+from app.features.playlists.router import router as playlists_router
 from app.features.songs.router import router as songs_router
 from app.features.uploads.router import router as uploads_router
 from app.features.users.router import router as users_admin_router
@@ -52,6 +54,8 @@ def create_app() -> FastAPI:
     app.include_router(songs_router)
     app.include_router(genres_router)
     app.include_router(uploads_router)
+    app.include_router(playlists_router)
+    app.include_router(favorites_router)
 
     @app.get("/health", tags=["health"])
     async def health() -> dict[str, str]:

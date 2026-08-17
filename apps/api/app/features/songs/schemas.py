@@ -30,6 +30,7 @@ class SongUpdate(BaseModel):
     genres: list[SongGenre] | None = None
     lyrics: str | None = None
     duration_seconds: int | None = Field(default=None, ge=0)
+    cover_key: str | None = None
 
 
 class SongRead(BaseModel):
@@ -41,9 +42,9 @@ class SongRead(BaseModel):
     genres: list[SongGenre] = Field(default_factory=list)
     lyrics: str | None = None
     object_key: str
+    cover_key: str | None = None
     duration_seconds: int | None = None
     created_at: datetime
-    # La lee Pydantic desde la propiedad `Song.stream_url` (ver models.py).
-    # Se declara como campo para que aparezca en el OpenAPI (los computed_field
-    # de pydantic 2.13 no entran en el schema de validación que usa FastAPI).
+    # Se leen desde las propiedades `Song.stream_url` / `Song.cover_url`.
     stream_url: str | None = None
+    cover_url: str | None = None

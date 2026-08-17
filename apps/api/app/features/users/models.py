@@ -1,11 +1,16 @@
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, String, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from fastapi_users_db_sqlalchemy import SQLAlchemyBaseUserTableUUID
 
 from app.db.base import Base
+
+if TYPE_CHECKING:
+    from app.features.favorites.models import UserFavorite
+    from app.features.playlists.models import Playlist
 
 
 class User(SQLAlchemyBaseUserTableUUID, Base):
@@ -29,4 +34,11 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
         server_default=func.now(),
         onupdate=func.now(),
         nullable=False,
+    )
+
+    playlists: Mapped[list["Playlist"]] = relationship(
+        back_populates="owner", cascade="all, delete-orphan"
+    )
+    favorites: Mapped[list["UserFavorite"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
     )

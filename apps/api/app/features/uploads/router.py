@@ -17,5 +17,17 @@ async def presign_upload(
     service: UploadService = Depends(get_upload_service),
     _=Depends(current_user),
 ) -> PresignResponse:
-    """Firma una URL de subida directa a R2 (5-10 min de validez)."""
+    """Firma una URL de subida directa a R2 para AUDIO (5-10 min de validez)."""
     return await service.presign_upload(payload)
+
+
+@router.post("/presign-cover", response_model=PresignResponse)
+@limiter.limit(settings.rate_limit_presign)
+async def presign_cover(
+    request: Request,
+    payload: PresignRequest,
+    service: UploadService = Depends(get_upload_service),
+    _=Depends(current_user),
+) -> PresignResponse:
+    """Firma una URL de subida directa a R2 para COVERS (JPG <= 512 KB)."""
+    return await service.presign_cover(payload)

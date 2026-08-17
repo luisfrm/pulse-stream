@@ -33,7 +33,9 @@ class ArtistService:
         existing = await self._repository.get_by_name(payload.name)
         if existing is not None:
             raise ArtistNameTakenError(payload.name)
-        return await self._repository.create(payload.name, payload.image_url)
+        return await self._repository.create(
+            payload.name, payload.image_url, payload.cover_key
+        )
 
     async def get_or_create_by_name(self, name: str) -> Artist:
         """Usado por songs cuando llega `artist_name` inline (Fase 1)."""
