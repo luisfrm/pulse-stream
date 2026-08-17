@@ -3,7 +3,9 @@ import { FetchError } from "ofetch";
 // Mensajes amigables para los códigos de error de fastapi-users y del backend.
 const ERROR_MESSAGES: Record<string, string> = {
   LOGIN_BAD_CREDENTIALS: "Email o contraseña incorrectos.",
-  REGISTER_USER_ALREADY_EXISTS: "Ya existe una cuenta con ese email.",
+  // El backend lo usa también para username duplicado (mismo código).
+  REGISTER_USER_ALREADY_EXISTS:
+    "Ya existe una cuenta con ese email o nombre de usuario.",
   REGISTER_INVALID_PASSWORD: "La contraseña no es válida (mínimo 3 caracteres).",
 };
 

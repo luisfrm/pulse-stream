@@ -260,6 +260,43 @@ export interface paths {
         patch: operations["update_artist_artists__artist_id__patch"];
         trace?: never;
     };
+    "/albums": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Albums */
+        get: operations["list_albums_albums_get"];
+        put?: never;
+        /** Create Album */
+        post: operations["create_album_albums_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/albums/{album_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Album */
+        get: operations["get_album_albums__album_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Album */
+        delete: operations["delete_album_albums__album_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Album */
+        patch: operations["update_album_albums__album_id__patch"];
+        trace?: never;
+    };
     "/songs": {
         parameters: {
             query?: never;
@@ -287,7 +324,7 @@ export interface paths {
         };
         /**
          * Popular Songs
-         * @description Top canciones por reproducciones en los últimos `days` días.
+         * @description Top canciones por reproducciones en una ventana (días o mes actual).
          */
         get: operations["popular_songs_songs_popular_get"];
         put?: never;
@@ -371,6 +408,26 @@ export interface paths {
          * @description Firma una URL de subida directa a R2 para COVERS (JPG <= 512 KB).
          */
         post: operations["presign_cover_uploads_presign_cover_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/playlists/system": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create System Playlist
+         * @description Genera una playlist del sistema (snapshot de una query) — admin only.
+         */
+        post: operations["create_system_playlist_playlists_system_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -546,6 +603,8 @@ export interface paths {
         /**
          * Record Play
          * @description Registra una reproducción (play). Idempotente dentro de ~30 s por canción.
+         *
+         *     Cada play suma +1 a `songs.play_count` y a `users.total_plays`.
          */
         post: operations["record_play_me_listens_post"];
         delete?: never;
@@ -564,6 +623,8 @@ export interface paths {
         /**
          * Recently Played
          * @description Canciones reproducidas por el usuario (sin duplicar), último play primero.
+         *
+         *     Cada item incluye `user_play_count`: cuántas veces la tocó el usuario.
          */
         get: operations["recently_played_me_recently_played_get"];
         put?: never;
@@ -595,6 +656,85 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AlbumCreate */
+        AlbumCreate: {
+            /** Title */
+            title: string;
+            /**
+             * Artist Id
+             * Format: uuid
+             */
+            artist_id: string;
+            /** Cover Key */
+            cover_key?: string | null;
+        };
+        /**
+         * AlbumDetail
+         * @description Álbum con sus canciones ordenadas.
+         *
+         *     Vive acá (no en schemas.py) para evitar el ciclo de imports entre
+         *     albums.schemas (AlbumRead) y songs.schemas (SongRead).
+         */
+        AlbumDetail: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            artist: components["schemas"]["ArtistRead"];
+            /** Cover Key */
+            cover_key?: string | null;
+            /** Cover Url */
+            cover_url?: string | null;
+            /**
+             * Song Count
+             * @default 0
+             */
+            song_count: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Songs */
+            songs?: components["schemas"]["SongRead"][];
+        };
+        /** AlbumRead */
+        AlbumRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            artist: components["schemas"]["ArtistRead"];
+            /** Cover Key */
+            cover_key?: string | null;
+            /** Cover Url */
+            cover_url?: string | null;
+            /**
+             * Song Count
+             * @default 0
+             */
+            song_count: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** AlbumUpdate */
+        AlbumUpdate: {
+            /** Title */
+            title?: string | null;
+            /** Artist Id */
+            artist_id?: string | null;
+            /** Cover Key */
+            cover_key?: string | null;
+        };
         /** ArtistCreate */
         ArtistCreate: {
             /** Name */
@@ -727,6 +867,17 @@ export interface components {
              */
             played_at: string;
         };
+        /** Page[AlbumRead] */
+        Page_AlbumRead_: {
+            /** Items */
+            items: components["schemas"]["AlbumRead"][];
+            /** Total */
+            total: number;
+            /** Offset */
+            offset: number;
+            /** Limit */
+            limit: number;
+        };
         /** Page[ArtistRead] */
         Page_ArtistRead_: {
             /** Items */
@@ -742,6 +893,17 @@ export interface components {
         Page_PlaylistRead_: {
             /** Items */
             items: components["schemas"]["PlaylistRead"][];
+            /** Total */
+            total: number;
+            /** Offset */
+            offset: number;
+            /** Limit */
+            limit: number;
+        };
+        /** Page[RecentlyPlayedSong] */
+        Page_RecentlyPlayedSong_: {
+            /** Items */
+            items: components["schemas"]["RecentlyPlayedSong"][];
             /** Total */
             total: number;
             /** Offset */
@@ -790,6 +952,8 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** @default user */
+            kind: components["schemas"]["PlaylistKind"];
             /** Name */
             name: string;
             /** Description */
@@ -818,6 +982,12 @@ export interface components {
             /** Songs */
             songs?: components["schemas"]["SongRead"][];
         };
+        /**
+         * PlaylistKind
+         * @description Tipo de playlist (columna VARCHAR plana — regla de enums en Pydantic).
+         * @enum {string}
+         */
+        PlaylistKind: "user" | "system";
         /** PlaylistRead */
         PlaylistRead: {
             /**
@@ -825,6 +995,8 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** @default user */
+            kind: components["schemas"]["PlaylistKind"];
             /** Name */
             name: string;
             /** Description */
@@ -851,6 +1023,26 @@ export interface components {
              */
             created_at: string;
         };
+        /**
+         * PlaylistSystemCreate
+         * @description Creación de una playlist del sistema (admin only).
+         *
+         *     La playlist se genera como snapshot de una query: top de la semana,
+         *     top del mes o canciones recién agregadas.
+         */
+        PlaylistSystemCreate: {
+            /** Name */
+            name: string;
+            /** Description */
+            description?: string | null;
+            query: components["schemas"]["PlaylistSystemQuery"];
+        };
+        /**
+         * PlaylistSystemQuery
+         * @description Fuente de datos de una playlist del sistema (se genera desde el panel).
+         * @enum {string}
+         */
+        PlaylistSystemQuery: "top_week" | "top_month" | "new";
         /** PlaylistUpdate */
         PlaylistUpdate: {
             /** Name */
@@ -882,6 +1074,52 @@ export interface components {
             /** Expires In */
             expires_in: number;
         };
+        /**
+         * RecentlyPlayedSong
+         * @description Canción del historial + cuántas veces la reprodujo el usuario.
+         */
+        RecentlyPlayedSong: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            artist: components["schemas"]["ArtistRead"];
+            album?: components["schemas"]["AlbumRead"] | null;
+            /** Genres */
+            genres?: components["schemas"]["SongGenre"][];
+            /** Lyrics */
+            lyrics?: string | null;
+            /** Object Key */
+            object_key: string;
+            /** Cover Key */
+            cover_key?: string | null;
+            /** Duration Seconds */
+            duration_seconds?: number | null;
+            /**
+             * Play Count
+             * @default 0
+             */
+            play_count: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Stream Url */
+            stream_url?: string | null;
+            /** Cover Url */
+            cover_url?: string | null;
+            /** Collaborators */
+            collaborators?: components["schemas"]["ArtistRead"][];
+            /**
+             * User Play Count
+             * @default 0
+             */
+            user_play_count: number;
+        };
         /** SongCreate */
         SongCreate: {
             /** Title */
@@ -890,6 +1128,8 @@ export interface components {
             artist_id?: string | null;
             /** Artist Name */
             artist_name?: string | null;
+            /** Album Id */
+            album_id?: string | null;
             /** Genres */
             genres?: components["schemas"]["SongGenre"][];
             /** Lyrics */
@@ -898,6 +1138,8 @@ export interface components {
             object_key: string;
             /** Duration Seconds */
             duration_seconds?: number | null;
+            /** Collaborator Ids */
+            collaborator_ids?: string[];
         };
         /**
          * SongGenre
@@ -919,6 +1161,7 @@ export interface components {
             /** Title */
             title: string;
             artist: components["schemas"]["ArtistRead"];
+            album?: components["schemas"]["AlbumRead"] | null;
             /** Genres */
             genres?: components["schemas"]["SongGenre"][];
             /** Lyrics */
@@ -930,6 +1173,11 @@ export interface components {
             /** Duration Seconds */
             duration_seconds?: number | null;
             /**
+             * Play Count
+             * @default 0
+             */
+            play_count: number;
+            /**
              * Created At
              * Format: date-time
              */
@@ -938,6 +1186,8 @@ export interface components {
             stream_url?: string | null;
             /** Cover Url */
             cover_url?: string | null;
+            /** Collaborators */
+            collaborators?: components["schemas"]["ArtistRead"][];
         };
         /** SongUpdate */
         SongUpdate: {
@@ -945,6 +1195,8 @@ export interface components {
             title?: string | null;
             /** Artist Id */
             artist_id?: string | null;
+            /** Album Id */
+            album_id?: string | null;
             /** Genres */
             genres?: components["schemas"]["SongGenre"][] | null;
             /** Lyrics */
@@ -953,6 +1205,8 @@ export interface components {
             duration_seconds?: number | null;
             /** Cover Key */
             cover_key?: string | null;
+            /** Collaborator Ids */
+            collaborator_ids?: string[] | null;
         };
         /**
          * SongWithPlays
@@ -967,6 +1221,7 @@ export interface components {
             /** Title */
             title: string;
             artist: components["schemas"]["ArtistRead"];
+            album?: components["schemas"]["AlbumRead"] | null;
             /** Genres */
             genres?: components["schemas"]["SongGenre"][];
             /** Lyrics */
@@ -978,6 +1233,11 @@ export interface components {
             /** Duration Seconds */
             duration_seconds?: number | null;
             /**
+             * Play Count
+             * @default 0
+             */
+            play_count: number;
+            /**
              * Created At
              * Format: date-time
              */
@@ -986,15 +1246,12 @@ export interface components {
             stream_url?: string | null;
             /** Cover Url */
             cover_url?: string | null;
-            /**
-             * Play Count
-             * @default 0
-             */
-            play_count: number;
+            /** Collaborators */
+            collaborators?: components["schemas"]["ArtistRead"][];
         };
         /**
          * UserCreate
-         * @description Registro público: email + password.
+         * @description Registro público: email + password (+ username opcional).
          *
          *     El rol NO se acepta acá: un usuario no puede auto-asignarse admin.
          *     El rol se gestiona solo por un admin (PATCH /admin/users/{id}/role).
@@ -1022,6 +1279,8 @@ export interface components {
              * @default false
              */
             is_verified: boolean | null;
+            /** Username */
+            username?: string | null;
         };
         /**
          * UserRead
@@ -1054,6 +1313,17 @@ export interface components {
              */
             is_verified: boolean;
             role?: components["schemas"]["UserRole"] | null;
+            /** Username */
+            username?: string | null;
+            /** Cover Key */
+            cover_key?: string | null;
+            /** Cover Url */
+            cover_url?: string | null;
+            /**
+             * Total Plays
+             * @default 0
+             */
+            total_plays: number;
         };
         /**
          * UserRole
@@ -1092,6 +1362,10 @@ export interface components {
             /** Is Verified */
             is_verified?: boolean | null;
             role?: components["schemas"]["UserRole"] | null;
+            /** Username */
+            username?: string | null;
+            /** Cover Key */
+            cover_key?: string | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -1891,6 +2165,170 @@ export interface operations {
             };
         };
     };
+    list_albums_albums_get: {
+        parameters: {
+            query?: {
+                offset?: number;
+                limit?: number;
+                /** @description Búsqueda por título */
+                q?: string | null;
+                /** @description Filtrar por artista */
+                artist_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_AlbumRead_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_album_albums_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AlbumCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlbumDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_album_albums__album_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                album_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlbumDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_album_albums__album_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                album_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_album_albums__album_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                album_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AlbumUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlbumDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_songs_songs_get: {
         parameters: {
             query?: {
@@ -1900,6 +2338,8 @@ export interface operations {
                 q?: string | null;
                 /** @description Filtrar por artista */
                 artist_id?: string | null;
+                /** @description Filtrar por artista colaborador (no principal) */
+                collaborator_id?: string | null;
             };
             header?: never;
             path?: never;
@@ -1964,8 +2404,10 @@ export interface operations {
         parameters: {
             query?: {
                 limit?: number;
-                /** @description Ventana en días */
+                /** @description Ventana móvil en días */
                 days?: number;
+                /** @description Usar el mes calendario actual (UTC) en vez de `days` */
+                month?: boolean;
             };
             header?: never;
             path?: never;
@@ -2161,6 +2603,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PresignResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_system_playlist_playlists_system_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlaylistSystemCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaylistDetail"];
                 };
             };
             /** @description Validation Error */
@@ -2593,7 +3068,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Page_SongRead_"];
+                    "application/json": components["schemas"]["Page_RecentlyPlayedSong_"];
                 };
             };
             /** @description Validation Error */

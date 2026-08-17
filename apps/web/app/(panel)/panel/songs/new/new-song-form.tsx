@@ -6,7 +6,7 @@ import { useState } from "react";
 
 import { CoverUploader } from "@/components/cover-uploader";
 import { songsService } from "@/lib/services/songs-service";
-import type { Artist } from "@/lib/services/types";
+import type { Album, Artist } from "@/lib/services/types";
 import {
   uploadsService,
   uploadToR2,
@@ -16,12 +16,14 @@ import { formatGenre } from "@/lib/utils/format";
 
 interface NewSongFormProps {
   readonly initialArtists: Artist[];
+  readonly initialAlbums: Album[];
   readonly initialGenres: string[];
   readonly onCreated: () => Promise<void>;
 }
 
 export function NewSongForm({
   initialArtists,
+  initialAlbums,
   initialGenres,
   onCreated,
 }: NewSongFormProps) {
@@ -31,16 +33,29 @@ export function NewSongForm({
   const [artistId, setArtistId] = useState("");
   const [newArtistName, setNewArtistName] = useState("");
   const [createNewArtist, setCreateNewArtist] = useState(false);
+  const [albumId, setAlbumId] = useState("");
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
+  const [collaboratorIds, setCollaboratorIds] = useState<string[]>([]);
   const [lyrics, setLyrics] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [coverKey, setCoverKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
+  // Álbumes del artista elegido (el álbum pertenece al mismo artista).
+  const artistAlbums = artistId
+    ? initialAlbums.filter((a) => a.artist.id === artistId)
+    : [];
+
   function toggleGenre(genre: string) {
     setSelectedGenres((prev) =>
       prev.includes(genre) ? prev.filter((g) => g !== genre) : [...prev, genre]
+    );
+  }
+
+  function toggleCollaborator(id: string) {
+    setCollaboratorIds((prev) =>
+      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
     );
   }
 
@@ -72,10 +87,14 @@ export function NewSongForm({
       await songsService.createSong({
         title: title.trim(),
         ...artistSpec,
+        ...(albumId ? { album_id: albumId } : {}),
         genres: selectedGenres,
         lyrics: lyrics.trim() || undefined,
         object_key: presign.object_key,
         ...(coverKey ? { cover_key: coverKey } : {}),
+        ...(collaboratorIds.length > 0
+          ? { collaborator_ids: collaboratorIds }
+          : {}),
       });
 
       // 3) Purgar caché del servidor + refrescar el RSC
@@ -88,6 +107,9 @@ export function NewSongForm({
       setPending(false);
     }
   }
+
+  const inputClass =
+    "rounded-xl border border-bg-highlight bg-bg-elevated px-4 py-3 text-text-primary outline-none transition-colors placeholder:text-text-subdued focus:border-brand-400";
 
   return (
     <div className="mx-auto w-full max-w-2xl">
@@ -107,7 +129,7 @@ export function NewSongForm({
             onChange={(e) => setTitle(e.target.value)}
             required
             placeholder="Ej. De Música Ligera"
-            className="rounded-xl border border-bg-highlight bg-bg-elevated px-4 py-3 text-text-primary outline-none transition-colors placeholder:text-text-subdued focus:border-brand-400"
+            className={inputClass}
           />
         </label>
 
@@ -118,13 +140,16 @@ export function NewSongForm({
               value={newArtistName}
               onChange={(e) => setNewArtistName(e.target.value)}
               placeholder="Nombre del artista nuevo"
-              className="rounded-xl border border-bg-highlight bg-bg-elevated px-4 py-3 text-text-primary outline-none transition-colors placeholder:text-text-subdued focus:border-brand-400"
+              className={inputClass}
             />
           ) : (
             <select
               value={artistId}
-              onChange={(e) => setArtistId(e.target.value)}
-              className="rounded-xl border border-bg-highlight bg-bg-elevated px-4 py-3 text-text-primary outline-none transition-colors focus:border-brand-400"
+              onChange={(e) => {
+                setArtistId(e.target.value);
+                setAlbumId(""); // el álbum pertenece al artista recién elegido
+              }}
+              className={inputClass}
             >
               <option value="">Elegí un artista…</option>
               {initialArtists.map((artist) => (
@@ -143,6 +168,25 @@ export function NewSongForm({
             Crear artista nuevo
           </label>
         </fieldset>
+
+        {!createNewArtist && (
+          <label className="flex flex-col gap-1.5 text-sm font-medium">
+            Álbum (opcional)
+            <select
+              value={albumId}
+              onChange={(e) => setAlbumId(e.target.value)}
+              className={inputClass}
+              disabled={artistAlbums.length === 0}
+            >
+              <option value="">Sin álbum</option>
+              {artistAlbums.map((album) => (
+                <option key={album.id} value={album.id}>
+                  {album.title}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
 
         <fieldset className="flex flex-col gap-2 text-sm font-medium">
           <legend>Géneros</legend>
@@ -168,6 +212,37 @@ export function NewSongForm({
           </div>
         </fieldset>
 
+        {!createNewArtist && artistId && (
+          <fieldset className="flex flex-col gap-2 text-sm font-medium">
+            <legend>Colaboradores (opcional)</legend>
+            <div className="flex flex-wrap gap-2">
+              {initialArtists
+                .filter((a) => a.id !== artistId)
+                .map((artist) => {
+                  const selected = collaboratorIds.includes(artist.id);
+                  return (
+                    <label
+                      key={artist.id}
+                      className={`cursor-pointer rounded-pill border px-3 py-1.5 text-sm transition-colors ${
+                        selected
+                          ? "border-brand-400 bg-brand-400/20 text-brand-200"
+                          : "border-bg-highlight text-text-subdued hover:border-brand-400"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        className="sr-only"
+                        checked={selected}
+                        onChange={() => toggleCollaborator(artist.id)}
+                      />
+                      {artist.name}
+                    </label>
+                  );
+                })}
+            </div>
+          </fieldset>
+        )}
+
         <label className="flex flex-col gap-1.5 text-sm font-medium">
           Letra (opcional)
           <textarea
@@ -175,7 +250,7 @@ export function NewSongForm({
             onChange={(e) => setLyrics(e.target.value)}
             rows={5}
             placeholder="La letra de la canción…"
-            className="rounded-xl border border-bg-highlight bg-bg-elevated px-4 py-3 text-text-primary outline-none transition-colors placeholder:text-text-subdued focus:border-brand-400"
+            className={inputClass}
           />
         </label>
 

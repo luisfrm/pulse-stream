@@ -5,6 +5,7 @@
  */
 export const CACHE_TAGS = {
   artists: "catalog:artists",
+  albums: "catalog:albums",
   songs: "catalog:songs",
   genres: "catalog:genres",
   playlists: "user:playlists",

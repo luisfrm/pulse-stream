@@ -4,6 +4,8 @@ import Link from "next/link";
 
 import { Pagination } from "@/components/pagination";
 import { SearchInput } from "@/components/search-input";
+import { albumsService } from "@/lib/services/albums-service";
+import { artistsService } from "@/lib/services/artists-service";
 import { genresService } from "@/lib/services/genres-service";
 import { sessionService } from "@/lib/services/session-service";
 import { songsService } from "@/lib/services/songs-service";
@@ -32,7 +34,7 @@ export default async function SongsPage({
     user && (user.is_superuser || user.role === "admin")
   );
 
-  const [songsPage, genres] = await Promise.all([
+  const [songsPage, genres, albumsPage, artistsPage] = await Promise.all([
     songsService.getSongs(
       { query: query || undefined, offset, limit: PAGE_LIMIT },
       { next: { revalidate: 60, tags: [CACHE_TAGS.songs] } },
@@ -40,6 +42,14 @@ export default async function SongsPage({
     genresService.getGenres({
       next: { revalidate: 3600, tags: [CACHE_TAGS.genres] },
     }),
+    albumsService.getAlbums(
+      { limit: 100 },
+      { next: { revalidate: 60, tags: [CACHE_TAGS.albums] } }
+    ),
+    artistsService.getArtists(
+      { limit: 100 },
+      { next: { revalidate: 60, tags: [CACHE_TAGS.artists] } }
+    ),
   ]);
 
   const refreshSongs = async () => {
@@ -79,6 +89,8 @@ export default async function SongsPage({
         limit={PAGE_LIMIT}
         isAdmin={isAdmin}
         genres={genres}
+        albums={albumsPage.items}
+        artists={artistsPage.items}
         onRevalidate={refreshSongs}
       />
 

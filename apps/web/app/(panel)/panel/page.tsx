@@ -71,6 +71,18 @@ export default async function PanelHome() {
               Artistas — crear, buscar, covers
             </Link>
             <Link
+              href="/panel/albums"
+              className="rounded-xl border border-bg-highlight bg-bg-elevated px-4 py-3 text-sm transition-colors hover:border-brand-400"
+            >
+              Álbumes — agrupar canciones, covers
+            </Link>
+            <Link
+              href="/panel/playlists"
+              className="rounded-xl border border-bg-highlight bg-bg-elevated px-4 py-3 text-sm transition-colors hover:border-brand-400"
+            >
+              Playlists del sistema — generar curadas
+            </Link>
+            <Link
               href="/panel/songs"
               className="rounded-xl border border-bg-highlight bg-bg-elevated px-4 py-3 text-sm transition-colors hover:border-brand-400"
             >

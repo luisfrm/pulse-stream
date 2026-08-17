@@ -1,11 +1,31 @@
 import { api } from "@/lib/api/client";
 import type { User } from "./types";
 
+export interface RegisterPayload {
+  email: string;
+  password: string;
+  username?: string;
+}
+
+export interface UpdateProfilePayload {
+  username?: string;
+  email?: string;
+  password?: string;
+  cover_key?: string;
+}
+
 export const authService = {
-  register: (email: string, password: string) =>
+  register: (payload: RegisterPayload) =>
     api<User>("/auth/register", {
       method: "POST",
-      body: { email, password },
+      body: payload,
+    }),
+
+  /** Actualiza el perfil propio (username, email, password, cover). */
+  updateMe: (payload: UpdateProfilePayload) =>
+    api<User>("/users/me", {
+      method: "PATCH",
+      body: payload,
     }),
 
   /** /auth/login espera form-urlencoded (OAuth2PasswordRequestForm). */

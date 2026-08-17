@@ -1,5 +1,5 @@
 import { api, type ApiFetchOptions } from "@/lib/api/client";
-import type { ListenRead, Page, Song } from "./types";
+import type { ListenRead, Page, RecentlyPlayedSong } from "./types";
 
 export interface GetRecentlyPlayedParams {
   offset?: number;
@@ -18,12 +18,15 @@ export const listensService = {
     });
   },
 
-  /** Canciones reproducidas por el usuario (sin duplicar), último play primero. */
+  /**
+   * Canciones reproducidas por el usuario (sin duplicar), último play primero.
+   * Cada item incluye `user_play_count` (veces que la tocó el usuario).
+   */
   async getRecentlyPlayed(
     params?: GetRecentlyPlayedParams,
     options?: ApiFetchOptions,
-  ): Promise<Page<Song>> {
-    return await api<Page<Song>>("/me/recently-played", {
+  ): Promise<Page<RecentlyPlayedSong>> {
+    return await api<Page<RecentlyPlayedSong>>("/me/recently-played", {
       query: params,
       ...options,
     });

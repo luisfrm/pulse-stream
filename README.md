@@ -146,9 +146,19 @@ pnpm test        # tests de la API (requieren TEST_DATABASE_URL)
 - [x] **PWA**: service worker manual (shell offline + stale-while-revalidate + audio cache-first), manifest mejorado con shortcuts y **descarga de canciones a la Cache API** (reproducción sin stream; posible en Chrome/Android/desktop, limitada en iOS)
 - [x] **Tests**: 55/55 de integración en la API + 16 unitarios del web (Vitest + RTL)
 
+### Fase 4 — Perfil, plays, álbumes y colaboraciones ✅
+
+- [x] **Perfil de usuario**: `username` (único, en el registro con confirmación de contraseña) + foto de portada (JPG/WebP ≤ 512 KB vía presign-cover). Página `/account` (username/email/contraseña/cover). Nav pública: botón "Mi cuenta" con ícono User → `/account`, sin link a Panel
+- [x] **Contadores de plays**: cada play suma +1 a `songs.play_count` y +1 a `users.total_plays` (incrementos atómicos, respetando el dedupe). La canción muestra sus reproducciones
+- [x] **Rankings en el dashboard**: "Más escuchadas esta semana" (`days=7`) y "Más escuchadas este mes" (`month=true`, mes calendario). Recientes con `user_play_count` por canción (badge N×) y sin llamadas API redundantes
+- [x] **Playlists del sistema**: `playlists.kind` ('user'|'system'), generadas desde el panel (`/panel/playlists`) como snapshot de queries (`top_week`/`top_month`/`new`); públicas y primeras en el feed
+- [x] **Álbumes**: feature `albums` (artista + cover), `songs.album_id` (SET NULL), CRUD admin, página pública `/album/[id]` y sección Álbumes en el artista
+- [x] **Colaboradores**: `song_collaborators` (N:M), `SongRead.collaborators`, filtro `collaborator_id`, sección "Colaboraciones" en el artista; forms de canción (crear/editar) con álbum + colaboradores
+- [x] Migraciones 0006/0007 aplicadas; **78/78 tests** de integración + 19 unitarios del web, typecheck y lint limpios
+
 ### Siguientes fases
 
-- [ ] Fase 4 — Deploy (Vercel + Railway/Fly/Render, dominio propio), CSRF, notificaciones push, perfiles públicos, letra sincronizada
+- [ ] Fase 5 — Deploy (Vercel + Railway/Fly/Render, dominio propio), CSRF, notificaciones push, perfiles públicos, letra sincronizada
 - [ ] Roadmap ampliado de features en [`tasks.md`](./tasks.md)
 
 ## Notas de seguridad pendientes antes de producción

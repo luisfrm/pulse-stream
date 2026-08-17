@@ -11,10 +11,12 @@ interface SongCardProps {
   song: Song;
   queue?: Song[];
   className?: string;
+  /** Badge superior (ej. "3×" = plays del usuario en recientes). */
+  badge?: string;
 }
 
 /** Tarjeta de canción estilo Spotify: cover + play en hover + metadatos. */
-export function SongCard({ song, queue, className }: SongCardProps) {
+export function SongCard({ song, queue, className, badge }: SongCardProps) {
   const { current, playing, play, toggle } = usePlayer();
   const isCurrent = current?.id === song.id;
   const isPlaying = isCurrent && playing;
@@ -83,6 +85,12 @@ export function SongCard({ song, queue, className }: SongCardProps) {
           <span className="eq-bar h-3" />
           <span className="eq-bar h-3" />
         </div>
+      )}
+
+      {badge && !isPlaying && (
+        <span className="absolute left-4 top-4 rounded-pill bg-bg-base/80 px-2.5 py-1 text-[11px] font-bold text-text-subdued backdrop-blur-sm">
+          {badge}
+        </span>
       )}
     </div>
   );

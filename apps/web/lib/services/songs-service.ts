@@ -6,29 +6,38 @@ export interface GetSongsParams {
   offset?: number;
   limit?: number;
   artistId?: string;
+  /** Canciones donde el artista es colaborador (no principal). */
+  collaboratorId?: string;
 }
 
 export interface GetPopularParams {
   limit?: number;
   days?: number;
+  /** Usar el mes calendario actual (UTC) en vez de `days`. */
+  month?: boolean;
 }
 
 export interface CreateSongPayload {
   title: string;
   artist_id?: string;
   artist_name?: string;
+  album_id?: string;
   genres: string[];
   lyrics?: string;
   object_key: string;
   cover_key?: string;
+  collaborator_ids?: string[];
 }
 
 export interface UpdateSongPayload {
   title?: string;
+  /** null = quitar la canción del álbum. */
+  album_id?: string | null;
   genres?: string[];
   lyrics?: string;
   duration_seconds?: number;
   cover_key?: string;
+  collaborator_ids?: string[];
 }
 
 export const songsService = {
@@ -36,12 +45,13 @@ export const songsService = {
     params?: GetSongsParams,
     options?: ApiFetchOptions,
   ): Promise<Page<Song>> {
-    const { artistId, ...rest } = params ?? {};
+    const { artistId, collaboratorId, ...rest } = params ?? {};
     return await api<Page<Song>>("/songs", {
       query: {
         ...rest,
-        // La API espera snake_case (artist_id)
+        // La API espera snake_case (artist_id / collaborator_id)
         ...(artistId ? { artist_id: artistId } : {}),
+        ...(collaboratorId ? { collaborator_id: collaboratorId } : {}),
       },
       ...options,
     });

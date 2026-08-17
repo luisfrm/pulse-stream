@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { User } from "lucide-react";
 
 import { BrandLogo } from "@/components/brand-logo";
 import { Badge, Button } from "@/components/ui";
@@ -15,7 +16,6 @@ export default async function PublicLayout({
   children: React.ReactNode;
 }) {
   const user = await sessionService.getSession();
-  const isAdmin = Boolean(user && (user.role === "admin" || user.is_superuser));
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -24,25 +24,28 @@ export default async function PublicLayout({
         <div className="pointer-events-auto flex w-full max-w-lg items-center justify-between gap-2 rounded-pill border border-bg-highlight/60 bg-bg-base/70 px-4 py-2 shadow-lg shadow-black/20 backdrop-blur-xl">
           <Link
             href="/"
-            className="flex items-center gap-2 font-display text-base font-bold text-text-primary"
+            className="flex shrink-0 items-center gap-2 font-display text-base font-bold text-text-primary"
           >
             <BrandLogo size={28} />
-            <span className="hidden sm:inline">Pulse Stream</span>
+            {/* nowrap: el nombre no se parte en dos líneas en pantallas chicas */}
+            <span className="hidden whitespace-nowrap sm:inline">Pulse Stream</span>
           </Link>
 
-          <nav className="flex items-center gap-2">
+          <nav className="flex min-w-0 items-center gap-2">
             {user ? (
               <>
-                {isAdmin && (
-                  <Button asChild size="sm" variant="ghost">
-                    <Link href="/panel">Panel</Link>
-                  </Button>
-                )}
-                <Badge variant="glass" className="hidden sm:inline-flex">
-                  {user.email}
+                <Badge
+                  variant="glass"
+                  className="hidden max-w-32 truncate sm:inline-flex"
+                  title={user.email}
+                >
+                  {user.username ?? user.email}
                 </Badge>
-                <Button asChild size="sm">
-                  <Link href="/dashboard">Mi cuenta</Link>
+                <Button asChild size="sm" className="shrink-0">
+                  <Link href="/account">
+                    <User size={15} aria-hidden />
+                    Mi cuenta
+                  </Link>
                 </Button>
               </>
             ) : (

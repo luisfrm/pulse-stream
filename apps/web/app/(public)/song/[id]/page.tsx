@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Headphones } from "lucide-react";
 
 import { LyricsView } from "@/components/lyrics-view";
 import { PlayButton } from "@/components/player/play-button";
@@ -39,6 +40,8 @@ export default async function SongPage({ params }: SongPageProps) {
 
   if (!song) notFound();
 
+  const collaborators = song.collaborators ?? [];
+
   return (
     <main className="flex-1">
       <section className="border-b border-bg-highlight bg-bg-elevated/60 px-6 py-10">
@@ -48,12 +51,38 @@ export default async function SongPage({ params }: SongPageProps) {
             <h1 className="font-display text-3xl font-extrabold tracking-tight sm:text-5xl">
               {song.title}
             </h1>
-            <Link
-              href={`/artist/${song.artist.id}`}
-              className="mt-2 block text-lg text-brand-400 hover:underline"
-            >
-              {song.artist.name}
-            </Link>
+            <div className="mt-2 flex flex-wrap items-baseline gap-x-2 text-lg">
+              <Link
+                href={`/artist/${song.artist.id}`}
+                className="text-brand-400 hover:underline"
+              >
+                {song.artist.name}
+              </Link>
+              {collaborators.length > 0 && (
+                <span className="text-text-subdued">
+                  · feat.{" "}
+                  {collaborators.map((c, i) => (
+                    <span key={c.id}>
+                      {i > 0 && ", "}
+                      <Link
+                        href={`/artist/${c.id}`}
+                        className="text-brand-400 hover:underline"
+                      >
+                        {c.name}
+                      </Link>
+                    </span>
+                  ))}
+                </span>
+              )}
+            </div>
+            {song.album && (
+              <Link
+                href={`/album/${song.album.id}`}
+                className="mt-1 block text-sm text-text-subdued hover:text-brand-400"
+              >
+                del álbum {song.album.title}
+              </Link>
+            )}
           </div>
           {(song.genres?.length ?? 0) > 0 && (
             <div className="flex flex-wrap gap-1.5">
@@ -63,6 +92,13 @@ export default async function SongPage({ params }: SongPageProps) {
                 </Badge>
               ))}
             </div>
+          )}
+          {song.play_count > 0 && (
+            <p className="inline-flex items-center gap-1.5 text-xs text-text-subdued">
+              <Headphones size={13} aria-hidden />
+              {song.play_count.toLocaleString("es")}{" "}
+              {song.play_count === 1 ? "reproducción" : "reproducciones"}
+            </p>
           )}
         </div>
       </section>

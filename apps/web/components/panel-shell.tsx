@@ -4,8 +4,10 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Disc3,
   ExternalLink,
   LayoutDashboard,
+  ListMusic,
   Menu,
   Mic2,
   Music,
@@ -34,7 +36,9 @@ interface NavItem {
 const NAV: NavItem[] = [
   { href: "/panel", label: "Panel", icon: LayoutDashboard, exact: true },
   { href: "/panel/artists", label: "Artistas", icon: Mic2 },
+  { href: "/panel/albums", label: "Álbumes", icon: Disc3 },
   { href: "/panel/songs", label: "Canciones", icon: Music },
+  { href: "/panel/playlists", label: "Playlists", icon: ListMusic },
 ];
 
 function PanelNav({ user, onNavigate }: { user: User; onNavigate?: () => void }) {

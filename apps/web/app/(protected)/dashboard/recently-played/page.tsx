@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Headphones } from "lucide-react";
 
 import { Pagination } from "@/components/pagination";
 import { SongCard } from "@/components/song-card";
@@ -19,11 +20,13 @@ export default async function RecentlyPlayedPage({
   const offset = Math.max(0, Number(params.offset) || 0);
   const page = Math.floor(offset / PAGE_LIMIT) + 1;
 
+  // Una sola llamada: items + total (paginación) + user_play_count por canción.
   const { items: songs, total } = await listensService.getRecentlyPlayed({
     offset,
     limit: PAGE_LIMIT,
   });
   const totalPages = Math.max(1, Math.ceil(total / PAGE_LIMIT));
+  const totalUserPlays = songs.reduce((sum, s) => sum + (s.user_play_count ?? 0), 0);
 
   return (
     <div className="flex flex-col gap-8">
@@ -33,8 +36,15 @@ export default async function RecentlyPlayedPage({
         </h1>
         <p className="mt-1.5 text-sm text-text-subdued">
           Tu historial, sin repetir canciones. Cada play se registra cuando
-          reproducís un tema.
+          reproducís un tema y suma +1 a tus reproducciones.
         </p>
+        {totalUserPlays > 0 && (
+          <p className="mt-3 inline-flex items-center gap-2 rounded-pill border border-bg-highlight bg-bg-elevated px-4 py-2 text-xs text-text-subdued">
+            <Headphones size={14} aria-hidden />
+            {totalUserPlays} {totalUserPlays === 1 ? "play" : "plays"} en esta
+            página
+          </p>
+        )}
       </header>
 
       {songs.length === 0 ? (
@@ -54,7 +64,16 @@ export default async function RecentlyPlayedPage({
         <>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
             {songs.map((song) => (
-              <SongCard key={song.id} song={song} queue={songs} />
+              <SongCard
+                key={song.id}
+                song={song}
+                queue={songs}
+                badge={
+                  (song.user_play_count ?? 0) > 1
+                    ? `${song.user_play_count}×`
+                    : undefined
+                }
+              />
             ))}
           </div>
           <Pagination page={page} totalPages={totalPages} limit={PAGE_LIMIT} />

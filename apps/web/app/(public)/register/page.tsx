@@ -7,21 +7,39 @@ import { useState } from "react";
 import { authService } from "@/lib/services/auth-service";
 import { friendlyError } from "@/lib/utils/error";
 
+const MIN_PASSWORD = 3;
+
 export default function RegisterPage() {
   const router = useRouter();
 
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setPending(true);
     setError(null);
+
+    if (password.length < MIN_PASSWORD) {
+      setError(`La contraseña debe tener al menos ${MIN_PASSWORD} caracteres.`);
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("Las contraseñas no coinciden.");
+      return;
+    }
+
+    setPending(true);
     try {
-      await authService.register(email, password);
-      // Registro exitoso -> login automático y al panel
+      await authService.register({
+        email,
+        password,
+        username: username.trim() || undefined,
+      });
+      // Registro exitoso -> login automático y al dashboard
       await authService.login(email, password);
       router.push("/dashboard");
       router.refresh();
@@ -31,6 +49,9 @@ export default function RegisterPage() {
       setPending(false);
     }
   }
+
+  const inputClass =
+    "rounded-xl border border-bg-highlight bg-bg-elevated px-4 py-3 text-text-primary outline-none transition-colors placeholder:text-text-subdued focus:border-brand-400";
 
   return (
     <main className="flex flex-1 items-center justify-center px-6 py-16">
@@ -42,6 +63,21 @@ export default function RegisterPage() {
 
         <form onSubmit={onSubmit} className="mt-8 flex flex-col gap-5">
           <label className="flex flex-col gap-1.5 text-sm font-medium">
+            Nombre de usuario
+            <input
+              type="text"
+              required
+              autoComplete="username"
+              minLength={2}
+              maxLength={50}
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className={inputClass}
+              placeholder="Tu nombre o apodo"
+            />
+          </label>
+
+          <label className="flex flex-col gap-1.5 text-sm font-medium">
             Email
             <input
               type="email"
@@ -49,7 +85,7 @@ export default function RegisterPage() {
               autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="rounded-xl border border-bg-highlight bg-bg-elevated px-4 py-3 text-text-primary outline-none transition-colors placeholder:text-text-subdued focus:border-brand-400"
+              className={inputClass}
               placeholder="vos@ejemplo.com"
             />
           </label>
@@ -59,12 +95,26 @@ export default function RegisterPage() {
             <input
               type="password"
               required
-              minLength={3}
+              minLength={MIN_PASSWORD}
               autoComplete="new-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="rounded-xl border border-bg-highlight bg-bg-elevated px-4 py-3 text-text-primary outline-none transition-colors placeholder:text-text-subdued focus:border-brand-400"
-              placeholder="Mínimo 3 caracteres"
+              className={inputClass}
+              placeholder={`Mínimo ${MIN_PASSWORD} caracteres`}
+            />
+          </label>
+
+          <label className="flex flex-col gap-1.5 text-sm font-medium">
+            Confirmar contraseña
+            <input
+              type="password"
+              required
+              minLength={MIN_PASSWORD}
+              autoComplete="new-password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className={inputClass}
+              placeholder="Repetí la contraseña"
             />
           </label>
 

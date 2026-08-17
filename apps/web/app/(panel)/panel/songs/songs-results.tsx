@@ -5,7 +5,7 @@ import { useState } from "react";
 
 import { Button, Dialog } from "@/components/ui";
 import { songsService } from "@/lib/services/songs-service";
-import type { Song } from "@/lib/services/types";
+import type { Album, Artist, Song } from "@/lib/services/types";
 import { friendlyError } from "@/lib/utils/error";
 
 import { PanelSongCard } from "./panel-song-card";
@@ -19,6 +19,10 @@ interface SongsResultsProps {
   readonly limit: number;
   readonly isAdmin: boolean;
   readonly genres: string[];
+  /** Álbumes para el editor de canciones. */
+  readonly albums: Album[];
+  /** Artistas para el editor (colaboradores). */
+  readonly artists: Artist[];
   readonly onRevalidate: () => Promise<void>;
 }
 
@@ -34,6 +38,8 @@ export function SongsResults({
   limit,
   isAdmin,
   genres,
+  albums,
+  artists,
   onRevalidate,
 }: SongsResultsProps) {
   const router = useRouter();
@@ -134,6 +140,8 @@ export function SongsResults({
           key={editing?.id ?? "none"}
           song={editing}
           genres={genres}
+          albums={albums}
+          artists={artists}
           onClose={() => setEditing(null)}
           onSaved={async () => {
             await onRevalidate();

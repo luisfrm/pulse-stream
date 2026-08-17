@@ -14,9 +14,23 @@ export interface UpdatePlaylistPayload {
   cover_key?: string;
 }
 
+export interface CreateSystemPlaylistPayload {
+  name: string;
+  description?: string;
+  query: "top_week" | "top_month" | "new";
+}
+
 export const playlistsService = {
   async getMyPlaylists(options?: ApiFetchOptions): Promise<Playlist[]> {
     return await api<Playlist[]>("/playlists", options);
+  },
+
+  /** Genera una playlist del sistema (snapshot de una query) — admin only. */
+  async createSystem(payload: CreateSystemPlaylistPayload): Promise<PlaylistDetail> {
+    return await api<PlaylistDetail>("/playlists/system", {
+      method: "POST",
+      body: payload,
+    });
   },
 
   /** Feed público: playlists de toda la comunidad (con autor). */

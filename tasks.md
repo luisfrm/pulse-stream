@@ -20,6 +20,20 @@
 | 20 | **PWA + descarga offline** | Service worker manual (`public/sw.js`): shell offline para navegación, stale-while-revalidate para estáticos, cache-first para audio descargado. Botón "Descargar" en el reproductor guarda el audio completo en la Cache API (`lib/offline.ts`) y lo reproduce sin stream |
 | 21 | **Tests frontend (Vitest)** | Setup Vitest + jsdom + RTL (`vitest.config.ts`), 16 tests unitarios de `lib/offline` (Cache API mockeada) y `lib/utils/format` |
 
+## ✅ Resueltas (Fase 4 — perfil, plays, álbumes y colaboraciones)
+
+| # | Tarea | Resolución |
+|---|---|---|
+| 22 | **Username + confirmar contraseña en el registro** | `users.username` (único, case-insensitive, nullable) + cover del perfil. `UserCreate`/`UserUpdate` con username validado; unicidad chequeada en el `UserManager` (create + update). Form de registro con campo username y confirmación de contraseña. Migración 0006 |
+| 23 | **Página /account** | Ruta protegida con form de username/email/contraseña + foto de portada (JPG/WebP ≤ 512 KB vía `presign-cover` + `CoverUploader`) + contador de reproducciones del usuario. Nav pública: botón "Mi cuenta" con ícono User → `/account`, username en vez de email, sin link a Panel, nombre sin cortarse |
+| 24 | **Contadores de plays** | Cada play suma +1 a `songs.play_count` (contador persistente) y +1 a `users.total_plays` (lo escuchado por el usuario). Incrementos atómicos (race-safe) en `record_play`, respetando el dedupe de 30 s. La página de canción muestra las reproducciones |
+| 25 | **Dashboard con rankings** | Se reemplazó "Populares ahora" por **Más escuchadas esta semana** (`/songs/popular?days=7`) y **Más escuchadas este mes** (`month=true` = mes calendario). Se eliminó la llamada duplicada a recientes (una sola fetch con `{items, total}`) |
+| 26 | **Recientes con plays por usuario** | `GET /me/recently-played` devuelve `user_play_count` por canción (un solo query agrupado); la página muestra el badge "N×" y el total de plays de la página |
+| 27 | **Playlists del sistema** | `playlists.kind` ('user'|'system'); `POST /playlists/system` (admin) genera snapshots de queries (`top_week`/`top_month`/`new`). En el feed público van primero; solo un admin las muta. Panel: página `/panel/playlists` con generador + borrado |
+| 28 | **Álbumes** | Feature nueva `albums` (title + artist_id + cover). `songs.album_id` (ON DELETE SET NULL). CRUD admin en `/panel/albums` (con cover), página pública `/album/[id]` y sección Álbumes en el artista. `AlbumRead` con `song_count` en un query agrupado (sin N+1) |
+| 29 | **Colaboradores en canciones** | Tabla `song_collaborators` (N:M canción ↔ artista). `SongRead.collaborators`, filtro `GET /songs?collaborator_id=X` (excluye al artista principal). Sección **Colaboraciones** en la página de artista; forms de canción (crear/editar) con álbum + colaboradores. Migración 0007 |
+| 30 | **Tests Fase 4** | 78 tests de integración verdes (albums, plays, username, playlists system) + 19 unitarios de frontend; typecheck y lint limpios |
+
 ## ⏳ Roadmap propuesto para una app de música (próximas pasadas)
 
 | Feature | Por qué | Estado |
@@ -32,6 +46,8 @@
 | Editar playlist en la UI (nombre/descripción/visibilidad/cover) | Backend listo (`PATCH /playlists/{id}`); falta formulario | Pendiente |
 | Botón maestro "reproducir playlist completa" | El `SongItem` ya acepta cola; falta el botón en el header de playlist | Pendiente |
 | Búsqueda en `GET /songs` también por artista (JOIN) | Hoy busca solo por título | Pendiente |
+| Editar álbum (cover, título, canciones) desde su página | El panel crea y borra álbumes; falta el form de edición | Pendiente |
+| Página pública de usuario (`/user/[id]`) con sus plays/favoritos | Los contadores ya existen (`total_plays`, `user_play_count`) | Idea |
 | Notificaciones push de nuevas canciones/playlists | Requiere suscripción + VAPID; PWA ya está | Idea |
 | Recomendaciones por género/gustos | El backend guarda géneros + listens; se puede rankear por afinidad | Idea |
 | Compartir canciones/playlists (links/embeds) | Social; requiere URLs públicas de playlist | Idea |
