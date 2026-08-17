@@ -13,6 +13,10 @@ export const metadata: Metadata = {
   },
   description: "Tu música, en streaming.",
   manifest: "/manifest.webmanifest",
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
