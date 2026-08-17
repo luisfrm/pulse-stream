@@ -1,162 +1,209 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { ArrowDown, Play, Sparkles } from "lucide-react";
 
-import { SongItem } from "@/components/song-item";
-import { Pagination } from "@/components/pagination";
-import { SearchInput } from "@/components/search-input";
-import { Title } from "@/components/ui";
+import { PlaylistCard } from "@/components/playlist-card";
+import { SongCard } from "@/components/song-card";
 import { artistsService } from "@/lib/services/artists-service";
-import { getUserLibrary } from "@/lib/services/library";
+import { playlistsService } from "@/lib/services/playlists-service";
 import { sessionService } from "@/lib/services/session-service";
 import { songsService } from "@/lib/services/songs-service";
 import { CACHE_TAGS } from "@/lib/services/tags";
 
-export const metadata: Metadata = { title: "Inicio" };
+export const metadata: Metadata = { title: "Tu música, donde sea" };
 
 export const dynamic = "force-dynamic";
 
-const PAGE_LIMIT = 8;
+const SECTION_LIMIT = 10;
 
-export default async function HomePage({
-  searchParams,
-}: {
-  searchParams: Promise<{ q?: string; offset?: string }>;
-}) {
-  const params = await searchParams;
-  const query = params.q ?? "";
-  const offset = Math.max(0, Number(params.offset) || 0);
-  const page = Math.floor(offset / PAGE_LIMIT) + 1;
-
-  // Sesión (para mostrar u ocultar el acceso al panel; el catálogo es público)
+export default async function HomePage() {
+  // Con sesión, el home es el dashboard: el catálogo público vive en el board.
   const user = await sessionService.getSession();
-  const isAdmin = Boolean(user && (user.role === "admin" || user.is_superuser));
+  if (user) redirect("/dashboard");
 
-  // Biblioteca del usuario (favoritos + playlists) para las acciones por canción
-  const library = await getUserLibrary();
-
-  // Lecturas en paralelo, cacheadas con tags (catálogo público)
-  const [{ items: songs, total }, { items: artists }] = await Promise.all([
+  const [{ items: songs }, { items: artists }, publicPlaylists] = await Promise.all([
     songsService.getSongs(
-      { query: query || undefined, offset, limit: PAGE_LIMIT },
+      { limit: SECTION_LIMIT },
       { next: { revalidate: 60, tags: [CACHE_TAGS.songs] } }
     ),
     artistsService.getArtists(
       { limit: 6 },
       { next: { revalidate: 60, tags: [CACHE_TAGS.artists] } }
     ),
+    // Playlists públicas de la comunidad (visible sin sesión).
+    playlistsService
+      .getPublicPlaylists(
+        { limit: SECTION_LIMIT },
+        { next: { revalidate: 60, tags: [CACHE_TAGS.playlists] } }
+      )
+      .then((page) => page.items)
+      .catch(() => []),
   ]);
 
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_LIMIT));
-
   return (
-    <main className="flex-1">
-      {/* Hero */}
-      <section className="bg-brand-gradient px-6 py-14 text-bg-base sm:py-20">
-        <div className="mx-auto flex max-w-6xl flex-col items-start gap-6">
-          <span className="rounded-pill bg-bg-base/20 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest">
-            Streaming musical
-          </span>
-          <h1 className="font-display max-w-2xl text-4xl font-extrabold leading-tight tracking-tight sm:text-6xl">
-            Tu música, en Pulse Stream.
-          </h1>
-          <p className="max-w-md text-lg text-bg-base/80">
-            Descubrí el catálogo, buscá tus artistas y reproducí sin
-            interrupciones.
-          </p>
-          <div className="flex flex-wrap gap-3">
-            {user ? (
+    <main className="bg-blooms flex-1">
+      {/* Hero — Marquee: la tipografía es el diseño */}
+      <section className="flex min-h-[88dvh] flex-col items-center justify-center px-6 pt-24 text-center">
+        <span className="inline-flex items-center gap-2 rounded-pill border border-bg-highlight bg-bg-elevated/60 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-brand-200">
+          <Sparkles size={12} />
+          Streaming de música
+        </span>
+        <h1 className="font-display mt-6 max-w-5xl text-5xl font-extrabold leading-[1.02] tracking-tight sm:text-7xl lg:text-8xl">
+          Tu música.
+          <br />
+          Donde sea.
+        </h1>
+        <p className="mt-6 max-w-md text-base text-text-subdued sm:text-lg">
+          Descubrí canciones y playlists de toda la comunidad. Creá tu
+          biblioteca y llévala a todos lados.
+        </p>
+
+        <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
+          <Link
+            href="/register"
+            className="inline-flex items-center gap-2 rounded-pill bg-brand-400 px-7 py-3.5 font-semibold text-bg-base transition-all hover:bg-brand-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-200"
+          >
+            Crear cuenta gratis
+          </Link>
+          <Link
+            href="/login"
+            className="inline-flex items-center gap-2 rounded-pill border border-bg-highlight bg-bg-elevated/60 px-7 py-3.5 font-semibold text-text-primary transition-colors hover:border-brand-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+          >
+            Iniciar sesión
+          </Link>
+        </div>
+
+        <a
+          href="#catalogo"
+          className="mt-14 inline-flex flex-col items-center gap-1 text-xs text-text-subdued transition-colors hover:text-text-primary"
+        >
+          <ArrowDown size={16} />
+          Escuchá sin cuenta
+        </a>
+      </section>
+
+      {/* Regla gruesa entre el hero y el catálogo */}
+      <div className="mx-auto max-w-6xl px-6">
+        <hr className="h-px border-0 bg-gradient-to-r from-transparent via-bg-highlight to-transparent" />
+      </div>
+
+      {/* Catálogo */}
+      <section id="catalogo" className="mx-auto flex max-w-6xl flex-col gap-14 px-6 py-16">
+        {songs.length > 0 && (
+          <div>
+            <div className="mb-5 flex items-end justify-between gap-4">
+              <div>
+                <h2 className="font-display text-2xl font-bold sm:text-3xl">
+                  Recién agregadas
+                </h2>
+                <p className="mt-1 text-sm text-text-subdued">
+                  Lo último que se sumó al catálogo. Dale play sin crear cuenta.
+                </p>
+              </div>
               <Link
-                href={isAdmin ? "/panel" : "/dashboard"}
-                className="rounded-pill bg-bg-base px-6 py-3 font-semibold text-brand-400 transition-colors hover:bg-bg-highlight"
+                href="/register"
+                className="hidden shrink-0 text-sm font-medium text-brand-400 hover:underline sm:block"
               >
-                {isAdmin ? "Ir al panel" : "Mi cuenta"}
+                Guardarlas → registrate
               </Link>
-            ) : (
-              <>
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
+              {songs.map((song) => (
+                <SongCard key={song.id} song={song} queue={songs} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {artists.length > 0 && (
+          <div>
+            <h2 className="mb-5 font-display text-2xl font-bold sm:text-3xl">
+              Artistas del catálogo
+            </h2>
+            <div className="flex flex-wrap gap-3">
+              {artists.map((artist) => (
                 <Link
+                  key={artist.id}
+                  href={`/artist/${artist.id}`}
+                  className="card-lift inline-flex items-center gap-3 rounded-pill border border-bg-highlight bg-bg-elevated/60 py-2 pl-2 pr-5"
+                >
+                  {artist.cover_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={artist.cover_url}
+                      alt=""
+                      loading="lazy"
+                      className="h-10 w-10 rounded-full object-cover"
+                    />
+                  ) : (
+                    <span className="bg-brand-gradient flex h-10 w-10 items-center justify-center rounded-full font-display font-extrabold text-bg-base">
+                      {artist.name.charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                  <span className="font-medium">{artist.name}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {publicPlaylists.length > 0 && (
+          <div>
+            <div className="mb-5">
+              <h2 className="font-display text-2xl font-bold sm:text-3xl">
+                Playlists de la comunidad
+              </h2>
+              <p className="mt-1 text-sm text-text-subdued">
+                Listas públicas armadas por otros oyentes.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
+              {publicPlaylists.map((playlist) => (
+                <PlaylistCard
+                  key={playlist.id}
+                  playlist={playlist}
                   href="/register"
-                  className="rounded-pill bg-bg-base px-6 py-3 font-semibold text-brand-400 transition-colors hover:bg-bg-highlight"
-                >
-                  Crear cuenta gratis
-                </Link>
-                <Link
-                  href="/login"
-                  className="rounded-pill border border-bg-base/40 px-6 py-3 font-semibold text-bg-base transition-colors hover:border-bg-base"
-                >
-                  Iniciar sesión
-                </Link>
-              </>
-            )}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* CTA final */}
+        <div className="card-lift relative overflow-hidden rounded-3xl border border-bg-highlight bg-bg-elevated/70 px-6 py-12 text-center">
+          <div className="bg-blooms pointer-events-none absolute inset-0 opacity-40" />
+          <div className="relative">
+            <Play className="mx-auto mb-4 text-brand-400" size={28} />
+            <h2 className="font-display mx-auto max-w-xl text-3xl font-extrabold tracking-tight sm:text-4xl">
+              Tu biblioteca, tu historial, tu música.
+            </h2>
+            <p className="mx-auto mt-3 max-w-md text-sm text-text-subdued">
+              Guardá tus favoritos, armá playlists y seguí tu historial de
+              reproducción. Gratis.
+            </p>
+            <Link
+              href="/register"
+              className="mt-7 inline-block rounded-pill bg-brand-400 px-8 py-3.5 font-semibold text-bg-base transition-colors hover:bg-brand-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-200"
+            >
+              Empezar gratis
+            </Link>
           </div>
         </div>
       </section>
 
-      <div className="mx-auto w-full max-w-6xl px-6 py-10">
-        {/* Búsqueda (estado en la URL: ?q=...) */}
-        <div className="flex max-w-md items-center gap-3">
-          <SearchInput initialValue={query} placeholder="Buscar canciones…" />
+      {/* Footer Ft5 — Statement */}
+      <footer className="mx-auto flex max-w-6xl flex-col gap-6 px-6 pb-10 pt-4">
+        <p className="font-display max-w-md text-3xl font-bold leading-tight sm:text-4xl">
+          El soundtrack de tu día, siempre a mano.
+        </p>
+        <div className="flex flex-wrap items-center justify-between gap-4 border-t border-bg-highlight pt-5">
+          <p className="font-display text-sm font-bold">Pulse Stream</p>
+          <p className="text-xs text-text-subdued">
+            Hecho con música · {new Date().getFullYear()}
+          </p>
         </div>
-
-        <div className="mt-8 grid gap-8 lg:grid-cols-3">
-          {/* Catálogo de canciones */}
-          <section className="lg:col-span-2">
-            <Title as="h2" size="section">
-              {query ? `Resultados para “${query}”` : "Canciones recientes"}
-            </Title>
-
-            {songs.length === 0 ? (
-              <p className="mt-4 text-text-subdued">
-                {query
-                  ? "Sin resultados para tu búsqueda."
-                  : "Todavía no hay canciones publicadas."}
-              </p>
-            ) : (
-              <ul className="mt-4 space-y-2.5">
-                {songs.map((song) => (
-                  <SongItem
-                    key={song.id}
-                    song={song}
-                    queue={songs}
-                    favoriteIds={library?.favoriteIds}
-                    playlists={library?.playlists}
-                  />
-                ))}
-              </ul>
-            )}
-
-            <div className="mt-6">
-              <Pagination
-                page={page}
-                totalPages={totalPages}
-                limit={PAGE_LIMIT}
-              />
-            </div>
-          </section>
-
-          {/* Artistas */}
-          <aside>
-            <Title as="h2" size="section">
-              Artistas
-            </Title>
-            {artists.length === 0 ? (
-              <p className="mt-4 text-sm text-text-subdued">Sin artistas aún.</p>
-            ) : (
-              <ul className="mt-4 space-y-2.5">
-                {artists.map((artist) => (
-                  <li key={artist.id}>
-                    <Link
-                      href={`/artist/${artist.id}`}
-                      className="block rounded-xl border border-bg-highlight bg-bg-elevated px-4 py-3 transition-colors hover:border-brand-400"
-                    >
-                      <span className="font-medium">{artist.name}</span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </aside>
-        </div>
-      </div>
+      </footer>
     </main>
   );
 }
