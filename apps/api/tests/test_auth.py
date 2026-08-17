@@ -36,10 +36,10 @@ async def test_health(client):
 async def test_register_login_me_logout(client):
     email = _email()
 
-    # Registro devuelve el usuario con role por defecto
+    # Registro devuelve el usuario con role null (usuario normal)
     data = await _register(client, email)
     assert data["email"] == email
-    assert data["role"] == "user"
+    assert data["role"] is None
     assert data["is_superuser"] is False
     assert "hashed_password" not in data  # nunca se expone
 

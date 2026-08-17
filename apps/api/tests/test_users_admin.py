@@ -45,7 +45,8 @@ async def test_admin_can_list_users(client, session):
     assert resp.status_code == 200
     users = resp.json()
     assert len(users) >= 2
-    assert all(u["role"] in ("admin", "user") for u in users)
+    # role es null (usuario normal) o "admin"
+    assert all(u["role"] in (None, "admin") for u in users)
 
 
 @pytest.mark.asyncio
@@ -88,4 +89,70 @@ async def test_delete_nonexistent_user(client, session):
     await _promote_to_admin(session, email)
 
     resp = await client.delete(f"/admin/users/{uuid.uuid4()}")
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_normal_user_cannot_assign_roles(client):
+    email = _email()
+    await _register(client, email)
+    await _login(client, email)
+
+    victim = await _register(client, _email())
+
+    resp = await client.patch(
+        f"/admin/users/{victim['id']}/role", json={"role": "admin"}
+    )
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_admin_can_promote_and_demote(client, session):
+    admin_email = _email()
+    await _register(client, admin_email)
+    await _login(client, admin_email)
+    await _promote_to_admin(session, admin_email)
+
+    victim = await _register(client, _email())
+    assert victim["role"] is None
+
+    # Promover a admin
+    resp = await client.patch(
+        f"/admin/users/{victim['id']}/role", json={"role": "admin"}
+    )
+    assert resp.status_code == 200
+    assert resp.json()["role"] == "admin"
+
+    # Revocar (null)
+    resp = await client.patch(
+        f"/admin/users/{victim['id']}/role", json={"role": None}
+    )
+    assert resp.status_code == 200
+    assert resp.json()["role"] is None
+
+
+@pytest.mark.asyncio
+async def test_admin_cannot_revoke_own_role(client, session):
+    admin_email = _email()
+    me = await _register(client, admin_email)
+    await _login(client, admin_email)
+    await _promote_to_admin(session, admin_email)
+
+    resp = await client.patch(
+        f"/admin/users/{me['id']}/role", json={"role": None}
+    )
+    assert resp.status_code == 400
+    assert "propio rol" in resp.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_set_role_nonexistent_user(client, session):
+    admin_email = _email()
+    await _register(client, admin_email)
+    await _login(client, admin_email)
+    await _promote_to_admin(session, admin_email)
+
+    resp = await client.patch(
+        f"/admin/users/{uuid.uuid4()}/role", json={"role": "admin"}
+    )
     assert resp.status_code == 404
