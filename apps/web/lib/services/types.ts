@@ -4,6 +4,8 @@ import type { components } from "@pulse-stream/api-types";
 export type User = components["schemas"]["UserRead"];
 export type Artist = components["schemas"]["ArtistRead"];
 export type Song = components["schemas"]["SongRead"];
+export type SongWithPlays = components["schemas"]["SongWithPlays"];
+export type ListenRead = components["schemas"]["ListenRead"];
 export type PresignResponse = components["schemas"]["PresignResponse"];
 export type SongGenre = components["schemas"]["SongGenre"];
 export type Playlist = components["schemas"]["PlaylistRead"];

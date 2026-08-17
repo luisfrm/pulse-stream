@@ -1,11 +1,16 @@
 import { api, type ApiFetchOptions } from "@/lib/api/client";
-import type { Page, Song } from "./types";
+import type { Page, Song, SongWithPlays } from "./types";
 
 export interface GetSongsParams {
   query?: string;
   offset?: number;
   limit?: number;
   artistId?: string;
+}
+
+export interface GetPopularParams {
+  limit?: number;
+  days?: number;
 }
 
 export interface CreateSongPayload {
@@ -36,6 +41,17 @@ export const songsService = {
 
   async getSongById(id: string, options?: ApiFetchOptions): Promise<Song> {
     return await api<Song>(`/songs/${id}`, options);
+  },
+
+  /** Top canciones por reproducciones (ranking público del dashboard). */
+  async getPopular(
+    params?: GetPopularParams,
+    options?: ApiFetchOptions,
+  ): Promise<SongWithPlays[]> {
+    return await api<SongWithPlays[]>("/songs/popular", {
+      query: params,
+      ...options,
+    });
   },
 
   async createSong(payload: CreateSongPayload): Promise<Song> {

@@ -1,5 +1,5 @@
 import { api, type ApiFetchOptions } from "@/lib/api/client";
-import type { Playlist, PlaylistDetail } from "./types";
+import type { Page, Playlist, PlaylistDetail } from "./types";
 
 export interface CreatePlaylistPayload {
   name: string;
@@ -17,6 +17,17 @@ export interface UpdatePlaylistPayload {
 export const playlistsService = {
   async getMyPlaylists(options?: ApiFetchOptions): Promise<Playlist[]> {
     return await api<Playlist[]>("/playlists", options);
+  },
+
+  /** Feed público: playlists de toda la comunidad (con autor). */
+  async getPublicPlaylists(
+    params?: { offset?: number; limit?: number },
+    options?: ApiFetchOptions,
+  ): Promise<Page<Playlist>> {
+    return await api<Page<Playlist>>("/playlists/public", {
+      query: params,
+      ...options,
+    });
   },
 
   async getPlaylistById(
