@@ -278,6 +278,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/songs/popular": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Popular Songs
+         * @description Top canciones por reproducciones en los últimos `days` días.
+         */
+        get: operations["popular_songs_songs_popular_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/songs/{song_id}": {
         parameters: {
             query?: never;
@@ -351,6 +371,28 @@ export interface paths {
          * @description Firma una URL de subida directa a R2 para COVERS (JPG <= 512 KB).
          */
         post: operations["presign_cover_uploads_presign_cover_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/playlists/public": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Public Playlists
+         * @description Feed público: playlists públicas de toda la comunidad (nuevas primero).
+         *
+         *     Público (sin sesión): son contenido visible para cualquiera por diseño.
+         */
+        get: operations["list_public_playlists_playlists_public_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -492,6 +534,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/listens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record Play
+         * @description Registra una reproducción (play). Idempotente dentro de ~30 s por canción.
+         */
+        post: operations["record_play_me_listens_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/recently-played": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Recently Played
+         * @description Canciones reproducidas por el usuario (sin duplicar), último play primero.
+         */
+        get: operations["recently_played_me_recently_played_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -616,10 +698,50 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /**
+         * ListenCreate
+         * @description Registro de una reproducción. El `user_id` lo da la sesión, no el body.
+         */
+        ListenCreate: {
+            /**
+             * Song Id
+             * Format: uuid
+             */
+            song_id: string;
+        };
+        /** ListenRead */
+        ListenRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Song Id
+             * Format: uuid
+             */
+            song_id: string;
+            /**
+             * Played At
+             * Format: date-time
+             */
+            played_at: string;
+        };
         /** Page[ArtistRead] */
         Page_ArtistRead_: {
             /** Items */
             items: components["schemas"]["ArtistRead"][];
+            /** Total */
+            total: number;
+            /** Offset */
+            offset: number;
+            /** Limit */
+            limit: number;
+        };
+        /** Page[PlaylistRead] */
+        Page_PlaylistRead_: {
+            /** Items */
+            items: components["schemas"]["PlaylistRead"][];
             /** Total */
             total: number;
             /** Offset */
@@ -686,6 +808,8 @@ export interface components {
              * @default 0
              */
             song_count: number;
+            /** Owner Email */
+            owner_email?: string | null;
             /**
              * Created At
              * Format: date-time
@@ -719,6 +843,8 @@ export interface components {
              * @default 0
              */
             song_count: number;
+            /** Owner Email */
+            owner_email?: string | null;
             /**
              * Created At
              * Format: date-time
@@ -827,6 +953,44 @@ export interface components {
             duration_seconds?: number | null;
             /** Cover Key */
             cover_key?: string | null;
+        };
+        /**
+         * SongWithPlays
+         * @description Canción + métrica de reproducciones (ranking "populares").
+         */
+        SongWithPlays: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            artist: components["schemas"]["ArtistRead"];
+            /** Genres */
+            genres?: components["schemas"]["SongGenre"][];
+            /** Lyrics */
+            lyrics?: string | null;
+            /** Object Key */
+            object_key: string;
+            /** Cover Key */
+            cover_key?: string | null;
+            /** Duration Seconds */
+            duration_seconds?: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Stream Url */
+            stream_url?: string | null;
+            /** Cover Url */
+            cover_url?: string | null;
+            /**
+             * Play Count
+             * @default 0
+             */
+            play_count: number;
         };
         /**
          * UserCreate
@@ -1796,6 +1960,39 @@ export interface operations {
             };
         };
     };
+    popular_songs_songs_popular_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description Ventana en días */
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SongWithPlays"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_song_songs__song_id__get: {
         parameters: {
             query?: never;
@@ -1964,6 +2161,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PresignResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_public_playlists_playlists_public_get: {
+        parameters: {
+            query?: {
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_PlaylistRead_"];
                 };
             };
             /** @description Validation Error */
@@ -2301,6 +2530,71 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    record_play_me_listens_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ListenCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListenRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recently_played_me_recently_played_get: {
+        parameters: {
+            query?: {
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_SongRead_"];
+                };
             };
             /** @description Validation Error */
             422: {
