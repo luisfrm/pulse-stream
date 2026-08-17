@@ -4,6 +4,7 @@ import * as React from "react";
 
 import { listensService } from "@/lib/services/listens-service";
 import type { Song } from "@/lib/services/types";
+import { claimAudio, releaseAudio, type AudioHandle } from "./audio-orchestrator";
 
 interface PlayerState {
   current: Song | null;
@@ -15,6 +16,7 @@ interface PlayerState {
   duration: number;
   play: (song: Song, queue?: Song[]) => void;
   toggle: () => void;
+  pause: () => void;
   next: () => void;
   prev: () => void;
   seek: (time: number) => void;
@@ -35,6 +37,7 @@ function hasSessionCookie(): boolean {
  */
 export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
+  const handleRef = React.useRef<AudioHandle | null>(null);
   const [current, setCurrent] = React.useState<Song | null>(null);
   const [queue, setQueue] = React.useState<Song[]>([]);
   const [playing, setPlaying] = React.useState(false);
@@ -51,9 +54,17 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     const audio = new Audio();
     audio.preload = "none";
     audioRef.current = audio;
+    // Handle estable del reproductor global para el orquestador de audio.
+    handleRef.current = {
+      pause: () => {
+        audio.pause();
+      },
+    };
     return () => {
       audio.pause();
+      if (handleRef.current) releaseAudio(handleRef.current);
       audioRef.current = null;
+      handleRef.current = null;
     };
   }, []);
 
@@ -68,18 +79,28 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
     const audio = audioRef.current;
     if (!audio) return;
+    // Toma el turno: pausa cualquier preview/audio activo.
+    if (handleRef.current) claimAudio(handleRef.current);
     audio.src = song.stream_url ?? "";
     audio.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
+  }
+
+  function pause() {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.pause();
+    setPlaying(false);
+    if (handleRef.current) releaseAudio(handleRef.current);
   }
 
   function toggle() {
     const audio = audioRef.current;
     if (!audio || !current) return;
     if (audio.paused) {
+      if (handleRef.current) claimAudio(handleRef.current);
       audio.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
     } else {
-      audio.pause();
-      setPlaying(false);
+      pause();
     }
   }
 
@@ -142,9 +163,13 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         next();
       } else {
         setPlaying(false);
+        if (handleRef.current) releaseAudio(handleRef.current);
       }
     };
-    const onPause = () => setPlaying(false);
+    const onPause = () => {
+      setPlaying(false);
+      if (handleRef.current) releaseAudio(handleRef.current);
+    };
     const onPlay = () => {
       setPlaying(true);
       if (current) recordPlay(current);
@@ -181,6 +206,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       duration,
       play,
       toggle,
+      pause,
       next,
       prev,
       seek,
