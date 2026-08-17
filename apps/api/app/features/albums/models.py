@@ -2,25 +2,31 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, String, Uuid, func
+from sqlalchemy import DateTime, ForeignKey, String, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.config import settings
 from app.db.base import Base
 
 if TYPE_CHECKING:
-    from app.features.albums.models import Album
+    from app.features.artists.models import Artist
     from app.features.songs.models import Song
 
 
-class Artist(Base):
-    """Tabla `artists`."""
+class Album(Base):
+    """Tabla `albums`: un álbum pertenece a un artista y agrupa canciones.
 
-    __tablename__ = "artists"
+    `songs.album_id` apunta acá con ON DELETE SET NULL: borrar un álbum no
+    borra las canciones, solo las deja sin álbum.
+    """
+
+    __tablename__ = "albums"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
-    name: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
-    image_url: Mapped[str | None] = mapped_column(String(1024))
+    title: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    artist_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("artists.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     cover_key: Mapped[str | None] = mapped_column(String(1024))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -32,16 +38,12 @@ class Artist(Base):
         nullable=False,
     )
 
-    songs: Mapped[list["Song"]] = relationship(back_populates="artist")
-    albums: Mapped[list["Album"]] = relationship(back_populates="artist")
-    # Canciones donde el artista colaboró (relación N:M vía song_collaborators).
-    collaborations: Mapped[list["Song"]] = relationship(
-        secondary="song_collaborators", back_populates="collaborators"
-    )
+    artist: Mapped["Artist"] = relationship(back_populates="albums")
+    songs: Mapped[list["Song"]] = relationship(back_populates="album")
 
     @property
     def cover_url(self) -> str | None:
-        """URL pública del cover (cuadrícula) vía el dominio público de R2."""
+        """URL pública del cover vía el dominio público de R2."""
         if self.cover_key and settings.r2_public_base_url:
             return f"{settings.r2_public_base_url.rstrip('/')}/{self.cover_key}"
         return None

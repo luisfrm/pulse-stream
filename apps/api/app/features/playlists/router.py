@@ -2,13 +2,14 @@ import uuid
 
 from fastapi import APIRouter, Depends, Query, status
 
-from app.features.auth.manager import current_user
+from app.features.auth.manager import current_user, require_admin
 from app.features.playlists.models import Playlist
 from app.features.playlists.schemas import (
     PlaylistAddSong,
     PlaylistCreate,
     PlaylistDetail,
     PlaylistRead,
+    PlaylistSystemCreate,
     PlaylistUpdate,
 )
 from app.features.playlists.service import PlaylistService, get_playlist_service
@@ -16,6 +17,16 @@ from app.features.users.models import User
 from app.shared.pagination import Page, paginate
 
 router = APIRouter(prefix="/playlists", tags=["playlists"])
+
+
+@router.post("/system", response_model=PlaylistDetail, status_code=status.HTTP_201_CREATED)
+async def create_system_playlist(
+    payload: PlaylistSystemCreate,
+    service: PlaylistService = Depends(get_playlist_service),
+    admin: User = Depends(require_admin),
+) -> Playlist:
+    """Genera una playlist del sistema (snapshot de una query) — admin only."""
+    return await service.create_system_playlist(admin, payload)
 
 
 @router.get("/public", response_model=Page[PlaylistRead])

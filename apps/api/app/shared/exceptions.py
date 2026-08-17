@@ -56,6 +56,11 @@ class SongNotFoundError(NotFoundError):
         super().__init__(f"Canción {song_id} no existe")
 
 
+class AlbumNotFoundError(NotFoundError):
+    def __init__(self, album_id: uuid.UUID) -> None:
+        super().__init__(f"Álbum {album_id} no existe")
+
+
 class InvalidUploadError(AppError):
     status_code = 400
 

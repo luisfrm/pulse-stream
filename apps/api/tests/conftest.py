@@ -33,6 +33,7 @@ async def engine():
 
     # Importa los modelos para registrar TODAS las tablas en Base.metadata
     from app.db.base import Base
+    import app.features.albums.models  # noqa: F401
     import app.features.artists.models  # noqa: F401
     import app.features.songs.models  # noqa: F401
     import app.features.users.models  # noqa: F401

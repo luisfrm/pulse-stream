@@ -2,11 +2,12 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 from fastapi import Depends
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
 from app.features.listens.models import Listen
+from app.features.users.models import User
 
 
 class ListenRepository:
@@ -14,6 +15,14 @@ class ListenRepository:
 
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
+
+    async def increment_user_plays(self, user_id: uuid.UUID) -> None:
+        """+1 atómico al contador de reproducciones del usuario (race-safe)."""
+        await self._session.execute(
+            update(User)
+            .where(User.id == user_id)
+            .values(total_plays=User.total_plays + 1)
+        )
 
     async def add(self, user_id: uuid.UUID, song_id: uuid.UUID) -> Listen:
         listen = Listen(user_id=user_id, song_id=song_id)
@@ -67,6 +76,19 @@ class ListenRepository:
         )
         result = await self._session.execute(select(func.count()).select_from(ranked).where(ranked.c.rn == 1))
         return result.scalar_one()
+
+    async def play_counts_for_user(
+        self, user_id: uuid.UUID, song_ids: list[uuid.UUID]
+    ) -> dict[uuid.UUID, int]:
+        """Cuántas veces reprodujo el usuario cada canción (un solo query)."""
+        if not song_ids:
+            return {}
+        result = await self._session.execute(
+            select(Listen.song_id, func.count())
+            .where(Listen.user_id == user_id, Listen.song_id.in_(song_ids))
+            .group_by(Listen.song_id)
+        )
+        return {song_id: count for song_id, count in result.all()}
 
     async def play_count(self, song_id: uuid.UUID, since: datetime | None = None) -> int:
         """Cantidad de plays de una canción (opcionalmente desde una fecha)."""

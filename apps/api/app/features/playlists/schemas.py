@@ -1,15 +1,43 @@
 import uuid
 from datetime import datetime
+from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.features.songs.schemas import SongRead
 
 
+class PlaylistKind(str, Enum):
+    """Tipo de playlist (columna VARCHAR plana — regla de enums en Pydantic)."""
+
+    USER = "user"
+    SYSTEM = "system"
+
+
+class PlaylistSystemQuery(str, Enum):
+    """Fuente de datos de una playlist del sistema (se genera desde el panel)."""
+
+    TOP_WEEK = "top_week"
+    TOP_MONTH = "top_month"
+    NEW = "new"
+
+
 class PlaylistCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     description: str | None = None
     is_public: bool = False
+
+
+class PlaylistSystemCreate(BaseModel):
+    """Creación de una playlist del sistema (admin only).
+
+    La playlist se genera como snapshot de una query: top de la semana,
+    top del mes o canciones recién agregadas.
+    """
+
+    name: str = Field(min_length=1, max_length=255)
+    description: str | None = None
+    query: PlaylistSystemQuery
 
 
 class PlaylistUpdate(BaseModel):
@@ -27,6 +55,7 @@ class PlaylistRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
+    kind: PlaylistKind = PlaylistKind.USER
     name: str
     description: str | None = None
     is_public: bool = False

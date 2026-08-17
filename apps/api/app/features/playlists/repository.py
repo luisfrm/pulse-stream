@@ -1,7 +1,7 @@
 import uuid
 
 from fastapi import Depends
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -43,7 +43,8 @@ class PlaylistRepository:
                 selectinload(Playlist.items),
             )
             .where(Playlist.is_public.is_(True))
-            .order_by(Playlist.created_at.desc())
+            # Las del sistema primero (curated), después nuevas por fecha.
+            .order_by(Playlist.kind != "system", Playlist.created_at.desc())
             .offset(offset)
             .limit(limit)
         )
@@ -88,13 +89,30 @@ class PlaylistRepository:
         await self._session.delete(playlist)
 
     async def add_song(self, playlist: Playlist, song_id: uuid.UUID) -> None:
-        """Agrega la canción al final; no-op si ya está en la playlist."""
-        existing = [item.song_id for item in playlist.items]
-        if song_id in existing:
+        """Agrega la canción al final; no-op si ya está en la playlist.
+
+        No lee `playlist.items` (evita lazy-load en contexto async); la
+        existencia y la posición se resuelven con counts.
+        """
+        exists = await self._session.execute(
+            select(PlaylistSong.song_id).where(
+                PlaylistSong.playlist_id == playlist.id,
+                PlaylistSong.song_id == song_id,
+            )
+        )
+        if exists.scalar_one_or_none() is not None:
             return
-        position = len(playlist.items)
+        position = await self._session.execute(
+            select(func.count())
+            .select_from(PlaylistSong)
+            .where(PlaylistSong.playlist_id == playlist.id)
+        )
         self._session.add(
-            PlaylistSong(playlist_id=playlist.id, song_id=song_id, position=position)
+            PlaylistSong(
+                playlist_id=playlist.id,
+                song_id=song_id,
+                position=position.scalar_one(),
+            )
         )
         await self._session.flush()
 

@@ -7,6 +7,7 @@ from app.core.config import settings
 from app.core.logging import configure_logging
 from app.core.security import limiter, rate_limit_exceeded_handler
 from app.features.artists.router import router as artists_router
+from app.features.albums.router import router as albums_router
 from app.features.auth.router import router as auth_router
 from app.features.favorites.router import router as favorites_router
 from app.features.genres.router import router as genres_router
@@ -52,6 +53,7 @@ def create_app() -> FastAPI:
     app.include_router(auth_router)
     app.include_router(users_admin_router)
     app.include_router(artists_router)
+    app.include_router(albums_router)
     app.include_router(songs_router)
     app.include_router(genres_router)
     app.include_router(uploads_router)

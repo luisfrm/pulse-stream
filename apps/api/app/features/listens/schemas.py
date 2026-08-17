@@ -3,6 +3,14 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.features.songs.schemas import SongRead
+
+
+class RecentlyPlayedSong(SongRead):
+    """Canción del historial + cuántas veces la reprodujo el usuario."""
+
+    user_play_count: int = 0
+
 
 class ListenCreate(BaseModel):
     """Registro de una reproducción. El `user_id` lo da la sesión, no el body."""

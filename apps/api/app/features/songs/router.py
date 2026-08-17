@@ -18,10 +18,17 @@ async def list_songs(
     limit: int = Query(50, ge=1, le=100),
     q: str | None = Query(None, max_length=255, description="Búsqueda por título"),
     artist_id: uuid.UUID | None = Query(None, description="Filtrar por artista"),
+    collaborator_id: uuid.UUID | None = Query(
+        None, description="Filtrar por artista colaborador (no principal)"
+    ),
     service: SongService = Depends(),
 ) -> Page[SongRead]:
     songs, total = await service.list_songs(
-        offset=offset, limit=limit, search=q, artist_id=artist_id
+        offset=offset,
+        limit=limit,
+        search=q,
+        artist_id=artist_id,
+        collaborator_id=collaborator_id,
     )
     return paginate(songs, total, offset, limit)
 
@@ -29,11 +36,14 @@ async def list_songs(
 @router.get("/popular", response_model=list[SongWithPlays])
 async def popular_songs(
     limit: int = Query(10, ge=1, le=50),
-    days: int = Query(30, ge=1, le=365, description="Ventana en días"),
+    days: int = Query(30, ge=1, le=365, description="Ventana móvil en días"),
+    month: bool = Query(
+        False, description="Usar el mes calendario actual (UTC) en vez de `days`"
+    ),
     service: ListenService = Depends(get_listen_service),
 ) -> list[SongWithPlays]:
-    """Top canciones por reproducciones en los últimos `days` días."""
-    ranking = await service.popular_songs(limit=limit, days=days)
+    """Top canciones por reproducciones en una ventana (días o mes actual)."""
+    ranking = await service.popular_songs(limit=limit, days=days, month=month)
     items = []
     for song, plays in ranking:
         item = SongWithPlays.model_validate(song)
