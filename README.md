@@ -1,1 +1,127 @@
-��
+# Pulse Stream 🎧
+
+Spotify clone en monorepo. Stack: **pnpm workspaces · Next.js 16 · FastAPI (uv) · SQLAlchemy 2.0 async · Neon (Postgres serverless) · Cloudflare R2 · Tailwind v4 · PWA**.
+
+> 📋 El plan completo de implementación está en [`plan-implementacion.md`](./plan-implementacion.md) y las reglas de arquitectura del backend en [`AGENTS.md`](./AGENTS.md). Leelos antes de tocar código.
+
+## Estructura
+
+```
+pulse-stream/
+├── apps/
+│   ├── web/                      # Next.js 16 (App Router, Tailwind v4)
+│   └── api/                      # FastAPI + uv (capas por feature)
+├── packages/
+│   ├── api-types/                # Tipos TS generados desde el OpenAPI de FastAPI
+│   └── config/                   # tsconfigs compartidos
+├── pnpm-workspace.yaml
+├── package.json                  # scripts turbo
+└── turbo.json
+```
+
+## Requisitos
+
+- Node ≥ 20 (se usa 24) y pnpm ≥ 9 (se usa 11.5.3)
+- [uv](https://docs.astral.sh/uv/) ≥ 0.6 y Python ≥ 3.13
+- Una base **Postgres** (recomendado: [Neon](https://neon.tech), plan free) — no hay SQLite ni Docker en el flujo de desarrollo
+
+## Setup
+
+### 1. Backend (`apps/api`)
+
+```bash
+cd apps/api
+cp .env.example .env   # completá las variables (ver tabla abajo)
+uv sync --all-groups
+uv run alembic upgrade head   # crea las tablas (usa la conexión directa)
+uv run uvicorn app.main:app --reload   # http://localhost:8000
+```
+
+Swagger (solo en `ENV=local`): http://localhost:8000/docs
+
+### 2. Frontend (`apps/web`)
+
+```bash
+cd apps/web
+cp .env.example .env.local
+pnpm install
+pnpm dev   # http://localhost:3000
+```
+
+### 3. Tipos TS desde OpenAPI (regla de AGENTS.md)
+
+Los tipos del frontend se **generan**, nunca se declaran a mano:
+
+```bash
+# con la API corriendo en :8000
+pnpm gen:types   # regenera packages/api-types/src/generated.ts
+```
+
+### Scripts raíz
+
+```bash
+pnpm dev         # API + web (turbo)
+pnpm build
+pnpm lint
+pnpm typecheck
+pnpm test        # tests de la API (requieren TEST_DATABASE_URL)
+```
+
+## Variables de entorno
+
+### `apps/api/.env`
+
+| Variable | Obligatoria | Descripción |
+|---|---|---|
+| `ENV` | no (default `local`) | `local` \| `dev` \| `prod`. Decide cookies Secure/SameSite, Swagger y logs |
+| `AUTH_SECRET` | **sí** | Secreto para firmar los JWT de sesión. Generar con `python -c "import secrets; print(secrets.token_urlsafe(64))"` |
+| `DATABASE_URL` | **sí** | Conexión a Neon **pooled** (host con `-pooler`) con `postgresql+asyncpg://` |
+| `DATABASE_URL_DIRECT` | no | Conexión **directa** de Neon (sin `-pooler`). La usa Alembic para migraciones; sin ella, Alembic usa `DATABASE_URL` |
+| `CORS_ORIGIN_REGEX` | no | Regex de orígenes permitidos con cookies (default: subdominios de `tudominio.com` + `localhost:\d+`) |
+| `RATE_LIMIT_LOGIN` / `RATE_LIMIT_REGISTER` / `RATE_LIMIT_PRESIGN` | no | Límites de slowapi (defaults `5/minute`, `3/hour`, `10/minute`) |
+| `R2_ACCOUNT_ID` | Fase 1 | Account ID de Cloudflare (Dashboard > R2) — genera el endpoint `https://<id>.r2.cloudflarestorage.com` |
+| `R2_ACCESS_KEY_ID` | Fase 1 | Access Key del API Token de R2 (permiso "Object Read & Write") |
+| `R2_SECRET_ACCESS_KEY` | Fase 1 | Secret del API Token de R2 |
+| `R2_BUCKET_NAME` | Fase 1 | Nombre del bucket creado en R2 |
+| `R2_MAX_UPLOAD_BYTES` | no | Tamaño máximo de subida (default 50 MB) |
+| `TEST_DATABASE_URL` | solo tests | Base de tests (ej. branch efímera de Neon). Sin ella, `pytest` se salta |
+
+### `apps/web/.env.local`
+
+| Variable | Obligatoria | Descripción |
+|---|---|---|
+| `NEXT_PUBLIC_API_URL` | no (default `http://localhost:8000`) | URL base de la API FastAPI |
+
+## Estado del proyecto
+
+### Fase 0 — Fundaciones ✅
+
+- [x] Monorepo pnpm + turbo + CI básico
+- [x] API FastAPI: auth con `fastapi-users` (cookie HttpOnly + JWT, Argon2), rate limiting (slowapi), CORS por regex, capas por feature según `AGENTS.md`, Alembic async, tests de integración
+- [x] Web: login/registro/dashboard protegido (`proxy.ts`), tipos generados desde OpenAPI, theme Tailwind del plan
+- [x] Verificado contra Neon real: migraciones + 27 tests de integración verdes
+
+### Fase 1 — Catálogo ✅ (backend)
+
+- [x] CRUD de artistas (lectura pública, mutaciones admin, nombre único, búsqueda)
+- [x] CRUD de canciones (géneros validados en Pydantic, letra, `artist_name` inline que crea el artista en la misma operación, búsqueda)
+- [x] `GET /genres` (mismo set de valores que valida el backend)
+- [x] `POST /uploads/presign` (presigned PUT URL a R2 con boto3, validación `audio/mpeg` + tamaño, rate limit)
+- [x] Migraciones Alembic 0001/0002 aplicadas y tests (27/27)
+- [x] Panel de administración en el web: `/dashboard/artists` (listar/crear/borrar), `/dashboard/songs` (listar/reproducir/borrar), `/dashboard/songs/new` (artista select o crear nuevo, géneros, letra, subida directa a R2)
+- [x] `stream_url` en cada canción (dominio público de R2) para reproducir sin auth
+- [x] Verificado end-to-end real: registro → login → admin → artista → presign → PUT a R2 → canción → stream público 200
+- [ ] Pendiente: **CORS del bucket R2** para que el navegador pueda subir directo (curl ya funciona; el panel lo necesita para el PUT desde el browser)
+
+### Siguientes fases
+
+- [ ] Fase 2 — Experiencia usuario (home, búsqueda, reproductor persistente, letras)
+- [ ] Fase 3 — Gestión de usuarios + suite de tests completa
+- [ ] Fase 4 — PWA + pulido móvil (Serwist, Media Session, offline)
+- [ ] Fase 5 — Deploy (Vercel + Railway/Fly/Render, dominio propio)
+
+## Notas de seguridad pendientes antes de producción
+
+- [ ] CSRF (double-submit cookie / `fastapi-csrf-protect`) en endpoints mutantes — obligatorio con `SameSite=None` (ver `core/security.py`)
+- [ ] `slowapi` con storage Redis si hay más de un worker
+- [ ] Revisar checklist completa del plan (sección 13)
