@@ -123,9 +123,21 @@ pnpm test        # tests de la API (requieren TEST_DATABASE_URL)
 - [x] **UI kit** (`components/ui/`): Button/Badge/Card/Input/Title con `cva` + `cn` + `Slot` (asChild) según la guía de `packages/ui`
 - [x] Verificado end-to-end real: guards de `/panel` (sin cookie → login, usuario normal → home, admin → 200), subida real a R2 con CORS, páginas de artista/canción con datos reales
 
+### Fase 3 — Módulos estilo Spotify ✅
+
+- [x] **Playlists**: tablas `playlists` + `playlist_songs` (posición, PK compuesta, cascade). CRUD + agregar/quitar canciones con renumeración, reglas de acceso (privada = solo dueño, pública = visible)
+- [x] **Favoritos**: tabla `user_favorites` + `GET/PUT/DELETE /me/favorites` y `GET /me/favorites/ids`. Corazón en cada canción (home, artista, favoritos, playlists) con estado optimista
+- [x] **Covers**: `cover_key` + `cover_url` en canciones, artistas y playlists; `POST /uploads/presign-cover` (JPG ≤ 512 KB)
+- [x] **UI kit ampliado**: `Select` (combobox accesible con teclado, opcionalmente buscable) y `BottomSheet` (panel inferior con backdrop, ESC, reduced-motion)
+- [x] **Bottom-sheet del reproductor**: al tocar la barra inferior se abre la canción en grande (cover, progreso con seek, controles grandes, Media Session con artwork)
+- [x] **Playlists en la UI**: `/dashboard/playlists` (listado + crear) y `/dashboard/playlists/[id]` (detalle con canciones reproducibles, borrar)
+- [x] **Panel más útil**: stats del catálogo, últimas canciones con badge de cover, editor de cover por artista/canción con descripción de peso (≤512 KB) y tamaño sugerido (600×600)
+- [x] Migración 0004 aplicada y **45/45 tests** verdes (31 previos + 14 nuevos)
+- [x] Ledger de tareas en [`tasks.md`](./tasks.md)
+
 ### Siguientes fases
 
-- [ ] Fase 3 — Gestión de usuarios (CRUD completo) + suite de tests frontend
+- [ ] Fase 3b — Editar playlist en la UI, cover de playlist, CRUD de usuarios en el panel, tests frontend (ver `tasks.md`)
 - [ ] Fase 4 — PWA + pulido móvil (Serwist, Media Session avanzado, offline)
 - [ ] Fase 5 — Deploy (Vercel + Railway/Fly/Render, dominio propio)
 
