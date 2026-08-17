@@ -101,23 +101,32 @@ pnpm test        # tests de la API (requieren TEST_DATABASE_URL)
 - [x] Web: login/registro/dashboard protegido (`proxy.ts`), tipos generados desde OpenAPI, theme Tailwind del plan
 - [x] Verificado contra Neon real: migraciones + 27 tests de integración verdes
 
-### Fase 1 — Catálogo ✅ (backend)
+### Fase 1 — Catálogo ✅
 
 - [x] CRUD de artistas (lectura pública, mutaciones admin, nombre único, búsqueda)
-- [x] CRUD de canciones (géneros validados en Pydantic, letra, `artist_name` inline que crea el artista en la misma operación, búsqueda)
+- [x] CRUD de canciones (géneros validados en Pydantic, letra, `artist_name` inline que crea el artista en la misma operación, búsqueda, filtro por `artist_id`)
 - [x] `GET /genres` (mismo set de valores que valida el backend)
 - [x] `POST /uploads/presign` (presigned PUT URL a R2 con boto3, validación `audio/mpeg` + tamaño, rate limit)
-- [x] Migraciones Alembic 0001/0002 aplicadas y tests (27/27)
-- [x] Panel de administración en el web: `/dashboard/artists` (listar/crear/borrar), `/dashboard/songs` (listar/reproducir/borrar), `/dashboard/songs/new` (artista select o crear nuevo, géneros, letra, subida directa a R2)
+- [x] Migraciones Alembic 0001/0002 aplicadas
+- [x] Panel de administración en el web: `/panel/artists`, `/panel/songs`, `/panel/songs/new` (subida directa a R2)
 - [x] `stream_url` en cada canción (dominio público de R2) para reproducir sin auth
-- [x] Verificado end-to-end real: registro → login → admin → artista → presign → PUT a R2 → canción → stream público 200
-- [ ] Pendiente: **CORS del bucket R2** para que el navegador pueda subir directo (curl ya funciona; el panel lo necesita para el PUT desde el browser)
+- [x] Verificado end-to-end real: presign → PUT a R2 → canción → stream público 200
+- [x] **CORS del bucket R2 habilitado** (preflight `OPTIONS` 204 con `Allow-Origin: http://localhost:3000` + `PUT`) — la subida desde el navegador funciona
+
+### Fase 2 — Experiencia usuario ✅
+
+- [x] **Roles**: `role` nullable (`null` = usuario normal, `"admin"` = panel). Migración 0003 normaliza los `'user'` legacy → `NULL`. Endpoint `PATCH /admin/users/{id}/role` (promover/revocar, sin auto-revocación)
+- [x] **Dos áreas separadas**: `(protected)` → `/dashboard` (configuraciones del usuario normal, cualquier sesión) y `(panel)` → `/panel/*` (solo `role=admin`; sin sesión → `/login`, sin rol → `/`)
+- [x] **Home público** (`/`): hero + búsqueda con estado en URL + catálogo de canciones con play + sidebar de artistas
+- [x] **Páginas públicas**: `/artist/[id]` (canciones del artista, filtro `artist_id`) y `/song/[id]` (detalle + letra)
+- [x] **Reproductor persistente** (`components/player/`): barra fija inferior, cola por lista, **Media Session API** (controles de pantalla de bloqueo/notificación)
+- [x] **UI kit** (`components/ui/`): Button/Badge/Card/Input/Title con `cva` + `cn` + `Slot` (asChild) según la guía de `packages/ui`
+- [x] Verificado end-to-end real: guards de `/panel` (sin cookie → login, usuario normal → home, admin → 200), subida real a R2 con CORS, páginas de artista/canción con datos reales
 
 ### Siguientes fases
 
-- [ ] Fase 2 — Experiencia usuario (home, búsqueda, reproductor persistente, letras)
-- [ ] Fase 3 — Gestión de usuarios + suite de tests completa
-- [ ] Fase 4 — PWA + pulido móvil (Serwist, Media Session, offline)
+- [ ] Fase 3 — Gestión de usuarios (CRUD completo) + suite de tests frontend
+- [ ] Fase 4 — PWA + pulido móvil (Serwist, Media Session avanzado, offline)
 - [ ] Fase 5 — Deploy (Vercel + Railway/Fly/Render, dominio propio)
 
 ## Notas de seguridad pendientes antes de producción
