@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 
 from app.features.auth.manager import current_user
 from app.features.playlists.models import Playlist
@@ -13,8 +13,23 @@ from app.features.playlists.schemas import (
 )
 from app.features.playlists.service import PlaylistService, get_playlist_service
 from app.features.users.models import User
+from app.shared.pagination import Page, paginate
 
 router = APIRouter(prefix="/playlists", tags=["playlists"])
+
+
+@router.get("/public", response_model=Page[PlaylistRead])
+async def list_public_playlists(
+    offset: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
+    service: PlaylistService = Depends(get_playlist_service),
+) -> Page[PlaylistRead]:
+    """Feed público: playlists públicas de toda la comunidad (nuevas primero).
+
+    Público (sin sesión): son contenido visible para cualquiera por diseño.
+    """
+    playlists, total = await service.list_public_community(offset=offset, limit=limit)
+    return paginate(playlists, total, offset, limit)
 
 
 @router.get("", response_model=list[PlaylistRead])

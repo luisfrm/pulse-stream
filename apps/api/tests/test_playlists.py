@@ -134,3 +134,40 @@ async def test_playlist_requires_auth(client):
     assert resp.status_code == 401
     resp = await client.post("/playlists", json={"name": "X"})
     assert resp.status_code == 401
+
+
+async def test_public_feed_lists_all_community_playlists(client, session):
+    """GET /playlists/public: públicas de TODOS los usuarios, con autor."""
+    # usuario A crea una pública y una privada
+    user_a = await register_and_login(client)
+    await _create_playlist(client, "Pública de A", is_public=True)
+    await _create_playlist(client, "Privada de A", is_public=False)
+
+    # usuario B crea una pública
+    await register_and_login(client)
+    await _create_playlist(client, "Pública de B", is_public=True)
+
+    resp = await client.get("/playlists/public")
+    assert resp.status_code == 200
+    body = resp.json()
+    names = [p["name"] for p in body["items"]]
+
+    # La DB se comparte entre tests: asertamos PRESENCIA, no igualdad total.
+    assert "Pública de A" in names
+    assert "Pública de B" in names
+    assert "Privada de A" not in names  # las privadas jamás entran al feed
+
+    # ordenadas por más reciente (B creó la última) y con el autor en cada item
+    assert names.index("Pública de B") < names.index("Pública de A")
+    by_name = {p["name"]: p for p in body["items"]}
+    assert by_name["Pública de A"]["owner_email"] == user_a["email"]
+    assert by_name["Pública de B"]["owner_email"]  # autor presente
+
+
+async def test_public_feed_is_public(client):
+    """El feed de playlists públicas NO exige sesión (contenido comunitario)."""
+    resp = await client.get("/playlists/public")
+    assert resp.status_code == 200
+    body = resp.json()
+    # Shape de paginación estándar (puede traer playlists de otros tests)
+    assert set(body.keys()) == {"items", "total", "offset", "limit"}

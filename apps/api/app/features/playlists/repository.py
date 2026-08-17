@@ -17,11 +17,13 @@ class PlaylistRepository:
         self._session = session
 
     def _with_songs(self, query):
-        # items -> PlaylistSong -> Song -> Artist (para el detalle/listado)
+        # owner + items -> PlaylistSong -> Song -> Artist (para el detalle/listado)
+        # owner se carga SIEMPRE: `owner_email` se lee como propiedad del modelo.
         return query.options(
+            selectinload(Playlist.owner),
             selectinload(Playlist.items)
             .selectinload(PlaylistSong.song)
-            .selectinload(Song.artist)
+            .selectinload(Song.artist),
         )
 
     async def list_by_owner(self, owner_id: uuid.UUID) -> list[Playlist]:
@@ -35,12 +37,23 @@ class PlaylistRepository:
     async def list_public(self, offset: int = 0, limit: int = 50) -> list[Playlist]:
         result = await self._session.execute(
             select(Playlist)
+            .options(
+                selectinload(Playlist.owner),
+                # items (sin canciones) alcanza para `song_count` del feed
+                selectinload(Playlist.items),
+            )
             .where(Playlist.is_public.is_(True))
             .order_by(Playlist.created_at.desc())
             .offset(offset)
             .limit(limit)
         )
         return list(result.scalars().all())
+
+    async def count_public(self) -> int:
+        result = await self._session.execute(
+            select(Playlist.id).where(Playlist.is_public.is_(True))
+        )
+        return len(result.scalars().all())
 
     async def get(self, playlist_id: uuid.UUID) -> Playlist | None:
         result = await self._session.execute(

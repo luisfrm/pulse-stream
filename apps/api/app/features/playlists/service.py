@@ -32,6 +32,14 @@ class PlaylistService:
             return [p for p in all_public if p.owner_id == user.id]
         return await self._repository.list_by_owner(user.id)
 
+    async def list_public_community(
+        self, offset: int = 0, limit: int = 50
+    ) -> tuple[list[Playlist], int]:
+        """Feed público: playlists públicas de TODOS los usuarios, nuevas primero."""
+        playlists = await self._repository.list_public(offset=offset, limit=limit)
+        total = await self._repository.count_public()
+        return playlists, total
+
     async def get_playlist(self, playlist_id: uuid.UUID, user: User) -> Playlist:
         playlist = await self._repository.get(playlist_id)
         if playlist is None:

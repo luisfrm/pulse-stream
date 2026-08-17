@@ -59,6 +59,11 @@ class Playlist(Base):
         return len(self.items)
 
     @property
+    def owner_email(self) -> str | None:
+        """Email del dueño (para mostrar el autor en el feed público)."""
+        return self.owner.email if self.owner else None
+
+    @property
     def cover_url(self) -> str | None:
         """URL pública del cover vía el dominio público de R2."""
         if self.cover_key and settings.r2_public_base_url:
