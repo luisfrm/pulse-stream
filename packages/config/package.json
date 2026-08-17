@@ -1,0 +1,11 @@
+{
+  "name": "@pulse-stream/config",
+  "version": "0.1.0",
+  "private": true,
+  "files": [
+    "tsconfig"
+  ],
+  "exports": {
+    "./tsconfig/*": "./tsconfig/*"
+  }
+}

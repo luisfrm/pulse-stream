@@ -1,0 +1,8 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# Aprobaciones de build scripts (antes vivía en apps/web/pnpm-workspace.yaml).
+allowBuilds:
+  sharp: false
+  unrs-resolver: false
