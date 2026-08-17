@@ -15,8 +15,10 @@ from app.features.uploads.schemas import PresignRequest, PresignResponse
 from app.shared.exceptions import InvalidUploadError, R2NotConfiguredError
 
 ALLOWED_CONTENT_TYPES = {"audio/mpeg", "audio/mp3"}
-ALLOWED_COVER_TYPES = {"image/jpeg", "image/jpg"}
-# Covers son cuadrículas (portadas/artistas): JPG de hasta 512 KB.
+ALLOWED_COVER_TYPES = {"image/jpeg", "image/jpg", "image/webp"}
+# Extensión del object_key según el content type del cover.
+COVER_EXTENSIONS = {"image/jpeg": ".jpg", "image/jpg": ".jpg", "image/webp": ".webp"}
+# Covers son cuadrículas (portadas/artistas): JPG/WebP de hasta 512 KB.
 MAX_COVER_BYTES = 512 * 1024
 PRESIGN_EXPIRES_SECONDS = 600  # 5-10 min: ventana para subir el archivo
 
@@ -80,11 +82,11 @@ class UploadService:
         )
 
     async def presign_cover(self, payload: PresignRequest) -> PresignResponse:
-        """Presigned PUT para covers (cuadrículas): JPG <= 512 KB."""
+        """Presigned PUT para covers (cuadrículas): JPG o WebP <= 512 KB."""
         if payload.content_type not in ALLOWED_COVER_TYPES:
             raise InvalidUploadError(
                 f"Tipo de archivo no permitido: {payload.content_type}. "
-                "Los covers se suben en JPG (image/jpeg)."
+                "Los covers se suben en JPG o WebP (image/jpeg, image/webp)."
             )
         if payload.size > MAX_COVER_BYTES:
             raise InvalidUploadError(
@@ -94,7 +96,8 @@ class UploadService:
         if not self._storage.enabled:
             raise R2NotConfiguredError()
 
-        object_key = f"covers/{uuid.uuid4()}.jpg"
+        ext = COVER_EXTENSIONS[payload.content_type]
+        object_key = f"covers/{uuid.uuid4()}{ext}"
         url = self._storage.presign_put(object_key, payload.content_type)
         return PresignResponse(
             url=url,

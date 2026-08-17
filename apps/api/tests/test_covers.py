@@ -20,6 +20,21 @@ async def test_presign_cover_accepts_jpg(client, session):
     assert "X-Amz-Signature" in body["url"]
 
 
+async def test_presign_cover_accepts_webp(client, session):
+    await register_and_login(client, admin=True, session=session)
+    resp = await client.post(
+        "/uploads/presign-cover",
+        json={"filename": "cover.webp", "content_type": "image/webp", "size": 100_000},
+    )
+    if resp.status_code == 503:
+        pytest.skip("R2 no configurado en este entorno (test de comportamiento)")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["object_key"].startswith("covers/")
+    assert body["object_key"].endswith(".webp")
+    assert "X-Amz-Signature" in body["url"]
+
+
 async def test_presign_cover_rejects_non_jpg(client, session):
     await register_and_login(client, admin=True, session=session)
     resp = await client.post(
