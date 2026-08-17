@@ -38,6 +38,7 @@ async def engine():
     import app.features.users.models  # noqa: F401
     import app.features.playlists.models  # noqa: F401
     import app.features.favorites.models  # noqa: F401
+    import app.features.listens.models  # noqa: F401
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)

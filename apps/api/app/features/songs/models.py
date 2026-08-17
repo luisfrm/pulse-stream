@@ -11,6 +11,7 @@ from app.features.artists.models import Artist
 
 if TYPE_CHECKING:
     from app.features.favorites.models import UserFavorite
+    from app.features.listens.models import Listen
     from app.features.playlists.models import PlaylistSong
 
 
@@ -50,6 +51,9 @@ class Song(Base):
         back_populates="song", cascade="all, delete-orphan"
     )
     favorited_by: Mapped[list["UserFavorite"]] = relationship(
+        back_populates="song", cascade="all, delete-orphan"
+    )
+    listened_by: Mapped[list["Listen"]] = relationship(
         back_populates="song", cascade="all, delete-orphan"
     )
 

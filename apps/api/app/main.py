@@ -10,6 +10,7 @@ from app.features.artists.router import router as artists_router
 from app.features.auth.router import router as auth_router
 from app.features.favorites.router import router as favorites_router
 from app.features.genres.router import router as genres_router
+from app.features.listens.router import router as listens_router
 from app.features.playlists.router import router as playlists_router
 from app.features.songs.router import router as songs_router
 from app.features.uploads.router import router as uploads_router
@@ -56,6 +57,7 @@ def create_app() -> FastAPI:
     app.include_router(uploads_router)
     app.include_router(playlists_router)
     app.include_router(favorites_router)
+    app.include_router(listens_router)
 
     @app.get("/health", tags=["health"])
     async def health() -> dict[str, str]:
