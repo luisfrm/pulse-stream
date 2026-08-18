@@ -41,7 +41,7 @@ export default async function AlbumPage({ params }: AlbumPageProps) {
   const songs = album.songs ?? [];
 
   return (
-    <main className="flex-1">
+    <div className="flex flex-col gap-8">
       <section className="border-b border-bg-highlight bg-bg-elevated/60 px-6 py-10">
         <div className="mx-auto flex max-w-6xl flex-col items-start gap-5 sm:flex-row sm:items-end">
           <div className="h-40 w-40 shrink-0 overflow-hidden rounded-2xl border border-bg-highlight shadow-lg sm:h-52 sm:w-52">
@@ -80,25 +80,23 @@ export default async function AlbumPage({ params }: AlbumPageProps) {
         </div>
       </section>
 
-      <div className="mx-auto w-full max-w-6xl px-6 py-10">
-        {songs.length === 0 ? (
-          <p className="text-text-subdued">
-            Este álbum todavía no tiene canciones.
-          </p>
-        ) : (
-          <ul className="space-y-2.5">
-            {songs.map((song) => (
-              <SongItem
-                key={song.id}
-                song={song}
-                queue={songs}
-                favoriteIds={library?.favoriteIds}
-                playlists={library?.playlists}
-              />
-            ))}
-          </ul>
-        )}
-      </div>
-    </main>
+      {songs.length === 0 ? (
+        <p className="text-text-subdued">
+          Este álbum todavía no tiene canciones.
+        </p>
+      ) : (
+        <ul className="space-y-2.5">
+          {songs.map((song) => (
+            <SongItem
+              key={song.id}
+              song={song}
+              queue={songs}
+              favoriteIds={library?.favoriteIds}
+              playlists={library?.playlists}
+            />
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }

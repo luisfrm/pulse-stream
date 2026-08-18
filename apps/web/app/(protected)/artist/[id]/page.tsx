@@ -69,8 +69,8 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
   const totalSongs = songs.length + collaborations.length;
 
   return (
-    <main className="flex-1">
-      <section className="bg-brand-gradient px-6 py-12 text-bg-base">
+    <div className="flex flex-col gap-10">
+      <section className="bg-brand-gradient -mx-4 px-6 py-12 text-bg-base lg:-mx-8">
         <div className="mx-auto max-w-6xl">
           <p className="text-xs font-semibold uppercase tracking-widest opacity-80">
             Artista
@@ -87,7 +87,7 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
         </div>
       </section>
 
-      <div className="mx-auto w-full max-w-6xl space-y-10 px-6 py-10">
+      <div className="space-y-10">
         <section>
           <Title as="h2" size="section">
             Canciones
@@ -177,6 +177,6 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
           </section>
         )}
       </div>
-    </main>
+    </div>
   );
 }

@@ -68,13 +68,7 @@ export default async function PanelHome() {
               href="/panel/artists"
               className="rounded-xl border border-bg-highlight bg-bg-elevated px-4 py-3 text-sm transition-colors hover:border-brand-400"
             >
-              Artistas — crear, buscar, covers
-            </Link>
-            <Link
-              href="/panel/albums"
-              className="rounded-xl border border-bg-highlight bg-bg-elevated px-4 py-3 text-sm transition-colors hover:border-brand-400"
-            >
-              Álbumes — agrupar canciones, covers
+              Artistas — crear, álbumes, covers
             </Link>
             <Link
               href="/panel/playlists"
@@ -105,7 +99,7 @@ export default async function PanelHome() {
                 {songs.items.map((song) => (
                   <li key={song.id}>
                     <Link
-                      href={`/song/${song.id}`}
+                      href={`/panel/songs/${song.id}`}
                       className="flex items-center gap-3 rounded-xl border border-bg-highlight bg-bg-elevated px-3 py-2 transition-colors hover:border-brand-400"
                     >
                       <div className="h-8 w-8 shrink-0 overflow-hidden rounded-lg bg-bg-highlight/40">

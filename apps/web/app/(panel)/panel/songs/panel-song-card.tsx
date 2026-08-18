@@ -32,7 +32,7 @@ export function PanelSongCard({
     <li className="card-lift flex flex-col gap-3 rounded-2xl border border-bg-highlight bg-bg-elevated p-4">
       {/* Cover (cuadrado, tipo grid de streaming) */}
       <Link
-        href={`/song/${song.id}`}
+        href={`/panel/songs/${song.id}`}
         className="relative block aspect-square w-full overflow-hidden rounded-xl border border-bg-highlight bg-bg-highlight/40"
       >
         {song.cover_url ? (
@@ -52,13 +52,13 @@ export function PanelSongCard({
       {/* Metadatos */}
       <div className="min-w-0">
         <Link
-          href={`/song/${song.id}`}
+          href={`/panel/songs/${song.id}`}
           className="block truncate font-display text-base font-bold transition-colors hover:text-brand-400"
         >
           {song.title}
         </Link>
         <Link
-          href={`/artist/${song.artist.id}`}
+          href={`/panel/artists/${song.artist.id}`}
           className="mt-0.5 block truncate text-sm text-text-subdued transition-colors hover:text-text-primary"
         >
           {song.artist.name}

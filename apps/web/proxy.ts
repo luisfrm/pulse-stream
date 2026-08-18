@@ -9,9 +9,14 @@ export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const hasSession = request.cookies.has("session");
 
-  // Protege el panel y el área de usuario: sin cookie -> login (recordando a dónde iba)
+  // Protege el panel, el área de usuario y las páginas de catálogo
+  // (artista/álbum/canción viven en el grupo protegido): sin cookie -> login.
   if (
-    (pathname.startsWith("/dashboard") || pathname.startsWith("/panel")) &&
+    (pathname.startsWith("/dashboard") ||
+      pathname.startsWith("/panel") ||
+      pathname.startsWith("/artist") ||
+      pathname.startsWith("/album") ||
+      pathname.startsWith("/song")) &&
     !hasSession
   ) {
     const url = new URL("/login", request.url);
@@ -28,5 +33,13 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/panel/:path*", "/login", "/register"],
+  matcher: [
+    "/dashboard/:path*",
+    "/panel/:path*",
+    "/artist/:path*",
+    "/album/:path*",
+    "/song/:path*",
+    "/login",
+    "/register",
+  ],
 };

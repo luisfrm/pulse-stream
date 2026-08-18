@@ -93,7 +93,7 @@ export function ArtistsResults({
             >
               <div className="flex items-center gap-4">
                 <Link
-                  href={`/artist/${artist.id}`}
+                  href={`/panel/artists/${artist.id}`}
                   className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-bg-highlight bg-bg-highlight/40"
                 >
                   {artist.cover_url ? (
@@ -107,7 +107,7 @@ export function ArtistsResults({
                 </Link>
                 <div className="min-w-0 flex-1">
                   <Link
-                    href={`/artist/${artist.id}`}
+                    href={`/panel/artists/${artist.id}`}
                     className="block truncate font-display font-bold hover:underline"
                   >
                     {artist.name}
