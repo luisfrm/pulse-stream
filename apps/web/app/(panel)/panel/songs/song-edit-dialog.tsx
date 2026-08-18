@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useState } from "react";
 
-import { Button, Modal, Input, Select, Textarea } from "@/components/ui";
+import { Button, Checkbox, Modal, Input, Select, Textarea } from "@/components/ui";
 import { songsService } from "@/lib/services/songs-service";
 import type { Album, Artist, Song } from "@/lib/services/types";
 import { friendlyError } from "@/lib/utils/error";
@@ -116,35 +116,38 @@ export function SongEditDialog({
           emptyLabel="Este artista no tiene álbumes"
         />
 
-        <fieldset className="flex flex-col gap-2 text-sm font-medium">
-          <legend>Géneros</legend>
+        <fieldset className="flex flex-col text-sm font-medium">
+          <legend className="mb-2">Géneros</legend>
           <div className="flex flex-wrap gap-2">
             {genres.map((genre) => {
               const selected = selectedGenres.includes(genre);
               return (
                 <label
                   key={genre}
-                  className={`cursor-pointer rounded-pill border px-3 py-1.5 text-sm transition-colors ${
-                    selected
-                      ? "border-brand-400 bg-brand-400/20 text-brand-200"
-                      : "border-bg-highlight text-text-subdued hover:border-brand-400"
-                  }`}
+                  className="cursor-pointer select-none"
                 >
-                  <input
-                    type="checkbox"
-                    className="sr-only"
+                  <Checkbox
+                    className="peer absolute size-px opacity-0"
                     checked={selected}
-                    onChange={() => toggleGenre(genre)}
+                    onCheckedChange={() => toggleGenre(genre)}
                   />
-                  {formatGenre(genre)}
+                  <span
+                    className={`inline-flex items-center rounded-pill border px-3 py-1.5 text-sm leading-none transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-brand-400/40 ${
+                      selected
+                        ? "border-brand-400 bg-brand-400/20 text-brand-200"
+                        : "border-bg-highlight text-text-subdued hover:border-brand-400"
+                    }`}
+                  >
+                    {formatGenre(genre)}
+                  </span>
                 </label>
               );
             })}
           </div>
         </fieldset>
 
-        <fieldset className="flex flex-col gap-2 text-sm font-medium">
-          <legend>Colaboradores</legend>
+        <fieldset className="flex flex-col text-sm font-medium">
+          <legend className="mb-2">Colaboradores</legend>
           <div className="flex flex-wrap gap-2">
             {artists
               .filter((a) => a.id !== song?.artist.id)
@@ -153,19 +156,22 @@ export function SongEditDialog({
                 return (
                   <label
                     key={artist.id}
-                    className={`cursor-pointer rounded-pill border px-3 py-1.5 text-sm transition-colors ${
-                      selected
-                        ? "border-brand-400 bg-brand-400/20 text-brand-200"
-                        : "border-bg-highlight text-text-subdued hover:border-brand-400"
-                    }`}
+                    className="cursor-pointer select-none"
                   >
-                    <input
-                      type="checkbox"
-                      className="sr-only"
+                    <Checkbox
+                      className="peer absolute size-px opacity-0"
                       checked={selected}
-                      onChange={() => toggleCollaborator(artist.id)}
+                      onCheckedChange={() => toggleCollaborator(artist.id)}
                     />
-                    {artist.name}
+                    <span
+                      className={`inline-flex items-center rounded-pill border px-3 py-1.5 text-sm leading-none transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-brand-400/40 ${
+                        selected
+                          ? "border-brand-400 bg-brand-400/20 text-brand-200"
+                          : "border-bg-highlight text-text-subdued hover:border-brand-400"
+                      }`}
+                    >
+                      {artist.name}
+                    </span>
                   </label>
                 );
               })}

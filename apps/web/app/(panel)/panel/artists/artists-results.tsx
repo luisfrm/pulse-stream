@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { CoverUploader } from "@/components/cover-uploader";
-import { Button, Modal } from "@/components/ui";
+import { Button, Input, Modal } from "@/components/ui";
 import { artistsService } from "@/lib/services/artists-service";
 import type { Artist } from "@/lib/services/types";
 import { friendlyError } from "@/lib/utils/error";
@@ -219,11 +219,10 @@ function CreateArtistForm({
     <div className="mb-6 rounded-2xl border border-bg-highlight bg-bg-elevated p-5">
       <h2 className="font-display font-bold">Nuevo artista</h2>
       <form onSubmit={handleSubmit} className="mt-4 flex max-w-md flex-col gap-4">
-        <input
+        <Input
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Nombre del artista (ej. Soda Stereo)"
-          className="flex-1 rounded-xl border border-bg-highlight bg-bg-elevated px-4 py-3 text-text-primary outline-none transition-colors placeholder:text-text-subdued focus:border-brand-400"
         />
         <CoverUploader value={coverKey} onChange={setCoverKey} label="Cover (opcional)" />
         <button

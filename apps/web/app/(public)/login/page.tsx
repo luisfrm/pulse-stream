@@ -9,6 +9,7 @@ import { authService } from "@/lib/services/auth-service";
 import { friendlyError } from "@/lib/utils/error";
 import { AuthBackground } from "@/components/auth-background";
 import { BrandLogo } from "@/components/brand-logo";
+import { Checkbox, Input } from "@/components/ui";
 import { toast } from "sonner";
 
 function LoginForm() {
@@ -52,48 +53,41 @@ function LoginForm() {
           </p>
 
           <form onSubmit={onSubmit} className="mt-8 flex flex-col gap-5">
-            <label className="flex flex-col gap-1.5 text-sm font-medium">
-              Email
-              <input
-                type="email"
-                required
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="rounded-xl border border-bg-highlight bg-bg-elevated px-4 py-3 text-text-primary outline-none transition-colors placeholder:text-text-subdued hover:border-bg-highlight/80 focus:border-brand-400 focus:ring-2 focus:ring-brand-400/25"
-                placeholder="vos@ejemplo.com"
-              />
-            </label>
+            <Input
+              label="Email"
+              type="email"
+              required
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="vos@ejemplo.com"
+            />
 
-          <label className="flex flex-col gap-1.5 text-sm font-medium">
-            Contraseña
-            <span className="relative">
-              <input
-                type={showPassword ? "text" : "password"}
-                required
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-xl border border-bg-highlight bg-bg-elevated py-3 pl-4 pr-11 text-text-primary outline-none transition-colors placeholder:text-text-subdued hover:border-bg-highlight/80 focus:border-brand-400 focus:ring-2 focus:ring-brand-400/25"
-                placeholder="••••••••"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword((v) => !v)}
-                aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
-                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-pill p-1.5 text-text-subdued transition-colors hover:bg-bg-highlight hover:text-text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-400"
-              >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
-            </span>
-          </label>
+            <Input
+              label="Contraseña"
+              type={showPassword ? "text" : "password"}
+              required
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              rightElement={
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  className="rounded-pill p-1.5 text-text-subdued transition-colors hover:bg-bg-highlight hover:text-text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-400"
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              }
+            />
 
           <label className="flex cursor-pointer select-none items-center gap-2.5 text-sm text-text-subdued">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={remember}
-              onChange={(e) => setRemember(e.target.checked)}
-              className="size-4 accent-brand-400"
+              onCheckedChange={(v) => setRemember(v === true)}
+              aria-label="Recordarme"
             />
             Recordarme
           </label>

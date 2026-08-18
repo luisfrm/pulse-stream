@@ -5,6 +5,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { Check, ChevronDown, Search } from "lucide-react";
 
 import { cn } from "./utils";
+import { Input } from "./input";
 
 const selectTriggerVariants = cva(
   "relative flex items-center justify-between gap-2 border rounded-xl transition-colors focus-within:outline-none focus-visible:outline-none",
@@ -184,10 +185,11 @@ export function Select<T extends string = string>({
           className="animate-dropdown-in mt-1.5 max-h-64 overflow-auto rounded-xl border border-bg-highlight bg-bg-elevated p-1.5 shadow-xl"
         >
           {searchable && (
-            <div className="mb-1 flex items-center gap-2 border-b border-bg-highlight px-2 pb-1.5">
-              <Search size={14} className="shrink-0 text-text-subdued" />
-              <input
+            <div className="mb-1 border-b border-bg-highlight px-2 pb-1.5">
+              <Input
                 ref={searchRef}
+                inputSize="sm"
+                wrapperClassName="h-9"
                 type="text"
                 value={query}
                 onChange={(e) => {
@@ -195,7 +197,7 @@ export function Select<T extends string = string>({
                   setHighlighted(0);
                 }}
                 placeholder="Buscar…"
-                className="w-full bg-transparent py-1 text-sm text-text-primary outline-none placeholder:text-text-subdued"
+                leftIcon={<Search size={14} />}
               />
             </div>
           )}

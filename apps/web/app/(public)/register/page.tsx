@@ -9,11 +9,13 @@ import { authService } from "@/lib/services/auth-service";
 import { friendlyError } from "@/lib/utils/error";
 import { AuthBackground } from "@/components/auth-background";
 import { BrandLogo } from "@/components/brand-logo";
+import { Input } from "@/components/ui";
 import { toast } from "sonner";
 
 const MIN_PASSWORD = 3;
 
 function PasswordInput({
+  label,
   value,
   onChange,
   show,
@@ -21,6 +23,7 @@ function PasswordInput({
   autoComplete,
   placeholder,
 }: {
+  label: string;
   value: string;
   onChange: (v: string) => void;
   show: boolean;
@@ -29,26 +32,26 @@ function PasswordInput({
   placeholder: string;
 }) {
   return (
-    <span className="relative">
-      <input
-        type={show ? "text" : "password"}
-        required
-        minLength={MIN_PASSWORD}
-        autoComplete={autoComplete}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-xl border border-bg-highlight bg-bg-elevated py-3 pl-4 pr-11 text-text-primary outline-none transition-colors placeholder:text-text-subdued hover:border-bg-highlight/80 focus:border-brand-400 focus:ring-2 focus:ring-brand-400/25"
-        placeholder={placeholder}
-      />
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-label={show ? "Ocultar contraseña" : "Mostrar contraseña"}
-        className="absolute right-3 top-1/2 -translate-y-1/2 rounded-pill p-1.5 text-text-subdued transition-colors hover:bg-bg-highlight hover:text-text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-400"
-      >
-        {show ? <EyeOff size={18} /> : <Eye size={18} />}
-      </button>
-    </span>
+    <Input
+      label={label}
+      type={show ? "text" : "password"}
+      required
+      minLength={MIN_PASSWORD}
+      autoComplete={autoComplete}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      rightElement={
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-label={show ? "Ocultar contraseña" : "Mostrar contraseña"}
+          className="rounded-pill p-1.5 text-text-subdued transition-colors hover:bg-bg-highlight hover:text-text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-400"
+        >
+          {show ? <EyeOff size={18} /> : <Eye size={18} />}
+        </button>
+      }
+    />
   );
 }
 
@@ -93,9 +96,6 @@ export default function RegisterPage() {
     }
   }
 
-  const inputClass =
-    "rounded-xl border border-bg-highlight bg-bg-elevated px-4 py-3 text-text-primary outline-none transition-colors placeholder:text-text-subdued hover:border-bg-highlight/80 focus:border-brand-400 focus:ring-2 focus:ring-brand-400/25";
-
   return (
     <main className="relative flex flex-1 items-center justify-center overflow-hidden px-6 py-24">
       <AuthBackground />
@@ -110,57 +110,47 @@ export default function RegisterPage() {
           </p>
 
         <form onSubmit={onSubmit} className="mt-8 flex flex-col gap-5">
-          <label className="flex flex-col gap-1.5 text-sm font-medium">
-            Nombre de usuario
-            <input
-              type="text"
-              required
-              autoComplete="username"
-              minLength={2}
-              maxLength={50}
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className={inputClass}
-              placeholder="Tu nombre o apodo"
-            />
-          </label>
+          <Input
+            label="Nombre de usuario"
+            type="text"
+            required
+            autoComplete="username"
+            minLength={2}
+            maxLength={50}
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="Tu nombre o apodo"
+          />
 
-          <label className="flex flex-col gap-1.5 text-sm font-medium">
-            Email
-            <input
-              type="email"
-              required
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className={inputClass}
-              placeholder="vos@ejemplo.com"
-            />
-          </label>
+          <Input
+            label="Email"
+            type="email"
+            required
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="vos@ejemplo.com"
+          />
 
-          <label className="flex flex-col gap-1.5 text-sm font-medium">
-            Contraseña
-            <PasswordInput
-              value={password}
-              onChange={setPassword}
-              show={showPassword}
-              onToggle={() => setShowPassword((v) => !v)}
-              autoComplete="new-password"
-              placeholder={`Mínimo ${MIN_PASSWORD} caracteres`}
-            />
-          </label>
+          <PasswordInput
+            label="Contraseña"
+            value={password}
+            onChange={setPassword}
+            show={showPassword}
+            onToggle={() => setShowPassword((v) => !v)}
+            autoComplete="new-password"
+            placeholder={`Mínimo ${MIN_PASSWORD} caracteres`}
+          />
 
-          <label className="flex flex-col gap-1.5 text-sm font-medium">
-            Confirmar contraseña
-            <PasswordInput
-              value={confirmPassword}
-              onChange={setConfirmPassword}
-              show={showConfirm}
-              onToggle={() => setShowConfirm((v) => !v)}
-              autoComplete="new-password"
-              placeholder="Repetí la contraseña"
-            />
-          </label>
+          <PasswordInput
+            label="Confirmar contraseña"
+            value={confirmPassword}
+            onChange={setConfirmPassword}
+            show={showConfirm}
+            onToggle={() => setShowConfirm((v) => !v)}
+            autoComplete="new-password"
+            placeholder="Repetí la contraseña"
+          />
 
           <button
             type="submit"

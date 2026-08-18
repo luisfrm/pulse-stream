@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
 import { CoverUploader } from "@/components/cover-uploader";
-import { Button } from "@/components/ui";
+import { Button, Input } from "@/components/ui";
 import { authService } from "@/lib/services/auth-service";
 import type { User } from "@/lib/services/types";
 import { friendlyError } from "@/lib/utils/error";
@@ -74,9 +74,6 @@ export function AccountForm({ user }: { user: User }) {
     }
   }
 
-  const inputClass =
-    "rounded-xl border border-bg-highlight bg-bg-elevated px-4 py-3 text-text-primary outline-none transition-colors placeholder:text-text-subdued focus:border-brand-400";
-
   return (
     <div className="flex flex-col gap-8">
       <section className="rounded-2xl border border-bg-highlight bg-bg-elevated/50 p-6">
@@ -101,48 +98,37 @@ export function AccountForm({ user }: { user: User }) {
         <h2 className="font-display text-lg font-bold">Datos personales</h2>
 
         <div className="mt-5 flex flex-col gap-5">
-          <label className="flex flex-col gap-1.5 text-sm font-medium">
-            Nombre de usuario
-            <input
-              type="text"
-              required
-              minLength={2}
-              maxLength={50}
-              autoComplete="username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className={inputClass}
-              placeholder="Tu nombre o apodo"
-            />
-          </label>
+          <Input
+            label="Nombre de usuario"
+            type="text"
+            required
+            minLength={2}
+            maxLength={50}
+            autoComplete="username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="Tu nombre o apodo"
+          />
 
-          <label className="flex flex-col gap-1.5 text-sm font-medium">
-            Email
-            <input
-              type="email"
-              required
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className={inputClass}
-            />
-          </label>
+          <Input
+            label="Email"
+            type="email"
+            required
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
 
-          <label className="flex flex-col gap-1.5 text-sm font-medium">
-            Contraseña
-            <input
-              type="password"
-              minLength={MIN_PASSWORD}
-              autoComplete="new-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className={inputClass}
-              placeholder="Dejalo vacío para no cambiarla"
-            />
-            <span className="text-xs text-text-subdued">
-              Mínimo {MIN_PASSWORD} caracteres. Dejá vacío si no querés cambiarla.
-            </span>
-          </label>
+          <Input
+            label="Contraseña"
+            type="password"
+            minLength={MIN_PASSWORD}
+            autoComplete="new-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Dejalo vacío para no cambiarla"
+            hint={`Mínimo ${MIN_PASSWORD} caracteres. Dejá vacío si no querés cambiarla.`}
+          />
 
           {error && (
             <p className="rounded-xl bg-brand-900/30 px-4 py-3 text-sm text-brand-200">

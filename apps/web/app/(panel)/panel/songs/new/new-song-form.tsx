@@ -3,10 +3,10 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Music2 } from "lucide-react";
 
 import { CoverUploader } from "@/components/cover-uploader";
-import { Select } from "@/components/ui";
+import { Checkbox, FileInput, Input, Select, Textarea } from "@/components/ui";
 import { albumsService } from "@/lib/services/albums-service";
 import { songsService } from "@/lib/services/songs-service";
 import type { Album, Artist } from "@/lib/services/types";
@@ -145,9 +145,6 @@ export function NewSongForm({
     }
   }
 
-  const inputClass =
-    "rounded-xl border border-bg-highlight bg-bg-elevated px-4 py-3 text-text-primary outline-none transition-colors placeholder:text-text-subdued focus:border-brand-400";
-
   return (
     <div className="mx-auto w-full max-w-2xl">
       <Link
@@ -159,26 +156,22 @@ export function NewSongForm({
       <h1 className="font-display mt-2 text-3xl font-bold">Subir canción</h1>
 
       <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-5">
-        <label className="flex flex-col gap-1.5 text-sm font-medium">
-          Título
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            required
-            placeholder="Ej. De Música Ligera"
-            className={inputClass}
-          />
-        </label>
+        <Input
+          label="Título"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          required
+          placeholder="Ej. De Música Ligera"
+        />
 
         {/* 1) Artista */}
-        <fieldset className="flex flex-col gap-1.5 text-sm font-medium">
-          <legend>Artista</legend>
+        <fieldset className="flex flex-col text-sm font-medium">
+          <legend className="mb-1.5">Artista</legend>
           {createNewArtist ? (
-            <input
+            <Input
               value={newArtistName}
               onChange={(e) => setNewArtistName(e.target.value)}
               placeholder="Nombre del artista nuevo"
-              className={inputClass}
             />
           ) : (
             <Select
@@ -190,11 +183,10 @@ export function NewSongForm({
             />
           )}
           <label className="mt-1 flex items-center gap-2 text-text-subdued">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={createNewArtist}
-              onChange={(e) => {
-                setCreateNewArtist(e.target.checked);
+              onCheckedChange={(v) => {
+                setCreateNewArtist(v === true);
                 setAlbumId("");
               }}
             />
@@ -204,8 +196,8 @@ export function NewSongForm({
 
         {/* 2) Álbum del artista */}
         {!createNewArtist && artistId && (
-          <fieldset className="flex flex-col gap-1.5 text-sm font-medium">
-            <legend>Álbum</legend>
+          <fieldset className="flex flex-col text-sm font-medium">
+            <legend className="mb-1.5">Álbum</legend>
             <Select
               options={albumOptions}
               value={albumId}
@@ -238,25 +230,27 @@ export function NewSongForm({
         )}
 
         {/* 3) Géneros */}
-        <fieldset className="flex flex-col gap-2 text-sm font-medium">
-          <legend>Géneros</legend>
+        <fieldset className="flex flex-col text-sm font-medium">
+          <legend className="mb-2">Géneros</legend>
           <div className="flex flex-wrap gap-2">
             {initialGenres.map((genre) => (
               <label
                 key={genre}
-                className={`cursor-pointer rounded-pill border px-3 py-1.5 text-sm transition-colors ${
-                  selectedGenres.includes(genre)
+                className="cursor-pointer select-none"
+              >
+                <Checkbox
+                  className="peer absolute size-px opacity-0"
+                  checked={selectedGenres.includes(genre)}
+                  onCheckedChange={() => toggleGenre(genre)}
+                />
+                <span
+                  className={`inline-flex items-center rounded-pill border px-3 py-1.5 text-sm leading-none transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-brand-400/40 ${selectedGenres.includes(genre)
                     ? "border-brand-400 bg-brand-400/20 text-brand-200"
                     : "border-bg-highlight text-text-subdued hover:border-brand-400"
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  className="sr-only"
-                  checked={selectedGenres.includes(genre)}
-                  onChange={() => toggleGenre(genre)}
-                />
-                {formatGenre(genre)}
+                    }`}
+                >
+                  {formatGenre(genre)}
+                </span>
               </label>
             ))}
           </div>
@@ -264,8 +258,8 @@ export function NewSongForm({
 
         {/* Colaboradores */}
         {!createNewArtist && artistId && (
-          <fieldset className="flex flex-col gap-2 text-sm font-medium">
-            <legend>Colaboradores (opcional)</legend>
+          <fieldset className="flex flex-col text-sm font-medium">
+            <legend className="mb-2">Colaboradores (opcional)</legend>
             <div className="flex flex-wrap gap-2">
               {initialArtists
                 .filter((a) => a.id !== artistId)
@@ -274,19 +268,21 @@ export function NewSongForm({
                   return (
                     <label
                       key={artist.id}
-                      className={`cursor-pointer rounded-pill border px-3 py-1.5 text-sm transition-colors ${
-                        selected
+                      className="cursor-pointer select-none"
+                    >
+                      <Checkbox
+                        className="peer absolute size-px opacity-0"
+                        checked={selected}
+                        onCheckedChange={() => toggleCollaborator(artist.id)}
+                      />
+                      <span
+                        className={`inline-flex items-center rounded-pill border px-3 py-1.5 text-sm leading-none transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-brand-400/40 ${selected
                           ? "border-brand-400 bg-brand-400/20 text-brand-200"
                           : "border-bg-highlight text-text-subdued hover:border-brand-400"
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        className="sr-only"
-                        checked={selected}
-                        onChange={() => toggleCollaborator(artist.id)}
-                      />
-                      {artist.name}
+                          }`}
+                      >
+                        {artist.name}
+                      </span>
                     </label>
                   );
                 })}
@@ -294,33 +290,26 @@ export function NewSongForm({
           </fieldset>
         )}
 
-        <label className="flex flex-col gap-1.5 text-sm font-medium">
-          Letra (opcional)
-          <textarea
-            value={lyrics}
-            onChange={(e) => setLyrics(e.target.value)}
-            rows={5}
-            placeholder="La letra de la canción…"
-            className={inputClass}
-          />
-        </label>
+        <Textarea
+          label="Letra (opcional)"
+          value={lyrics}
+          onChange={(e) => setLyrics(e.target.value)}
+          rows={5}
+          placeholder="La letra de la canción…"
+        />
 
         <CoverUploader value={coverKey} onChange={setCoverKey} label="Cover (opcional)" />
 
-        <label className="flex flex-col gap-1.5 text-sm font-medium">
-          Archivo de audio (.mp3)
-          <input
-            type="file"
-            accept="audio/mpeg,.mp3"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            className="rounded-xl border border-bg-highlight bg-bg-elevated px-4 py-3 text-sm text-text-primary file:mr-3 file:rounded-pill file:border-0 file:bg-brand-400 file:px-4 file:py-2 file:font-semibold file:text-bg-base"
-          />
-          {file && (
-            <span className="text-xs text-text-subdued">
-              {file.name} · {(file.size / 1024 / 1024).toFixed(2)} MB
-            </span>
-          )}
-        </label>
+        <div className="flex flex-col gap-1.5">
+          <FileInput
+          label="Archivo de audio (.mp3, .aac)"
+          icon={<Music2 size={16} />}
+          accept="audio/mpeg,.mp3,audio/aac,.aac"
+          value={file}
+          onChange={setFile}
+          hint="Formatos MP3 o AAC · máximo 50 MB"
+        />
+        </div>
 
         {error && (
           <p className="rounded-xl bg-brand-900/30 px-4 py-3 text-sm text-brand-200">
@@ -375,20 +364,16 @@ function CreateAlbumInline({
     }
   }
 
-  const inputClass =
-    "rounded-xl border border-bg-highlight bg-bg-elevated px-4 py-3 text-text-primary outline-none transition-colors placeholder:text-text-subdued focus:border-brand-400";
-
   return (
     <div className="mt-2 rounded-xl border border-bg-highlight bg-bg-elevated p-3">
       <p className="mb-2 text-xs text-text-subdued">
         Álbum nuevo para <strong className="text-text-primary">{artistName}</strong>:
       </p>
       <form onSubmit={handleSubmit} className="flex flex-col gap-2">
-        <input
+        <Input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Título del álbum (ej. Bocanada)"
-          className={inputClass}
         />
         <CoverUploader value={coverKey} onChange={setCoverKey} label="Cover (opcional)" />
         {error && (

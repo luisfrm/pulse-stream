@@ -110,7 +110,7 @@ export function CoverUploader({
         </div>
 
         <div className="flex min-w-0 flex-col gap-2">
-          <label className="inline-flex cursor-pointer items-center gap-2">
+          <label className="inline-flex w-fit cursor-pointer items-center gap-2">
             <input
               type="file"
               accept="image/jpeg,.jpg,.jpeg,image/webp,.webp"
@@ -119,10 +119,11 @@ export function CoverUploader({
             />
             <span
               className={cn(
-                "rounded-pill border border-bg-highlight px-4 py-2 text-sm font-medium text-text-primary transition-colors hover:border-brand-400",
+                "inline-flex items-center gap-2 rounded-pill border border-bg-highlight bg-bg-elevated px-4 py-2.5 text-sm font-medium text-text-primary transition-colors hover:border-brand-400 hover:bg-bg-highlight/50",
                 pending && "pointer-events-none opacity-60"
               )}
             >
+              <ImagePlus size={16} className="shrink-0 text-brand-400" aria-hidden />
               {pending ? "Subiendo…" : value ? "Cambiar cover" : "Subir cover"}
             </span>
           </label>
@@ -135,7 +136,7 @@ export function CoverUploader({
               }}
               className="inline-flex w-fit items-center gap-1 text-xs text-text-subdued transition-colors hover:text-brand-400"
             >
-              <X size={12} /> Quitar cover
+              <X size={12} aria-hidden /> Quitar cover
             </button>
           )}
         </div>
