@@ -131,11 +131,21 @@ class Settings(BaseSettings):
         # en local casi siempre corremos sobre http plano.
         return not self.is_local
 
-    @property
-    def cookie_samesite(self) -> Literal["lax", "none"]:
-        # local: front y back comparten "site" (localhost:puerto) -> lax basta
-        # dev/prod: dominios distintos, acceso cross-site real -> none
-        return "lax" if self.is_local else "none"
+    # SameSite de la cookie de sesión. Default "lax": cubre local (front/back
+    # en localhost) y prod cuando front y API son subdominios del mismo dominio
+    # registrable (same-site, ej. pulse-stream.luisrivas.site +
+    # pulse-stream-api.luisrivas.site). Seteá "none" SOLO si front y API viven
+    # en dominios completamente distintos (cross-site real) — en ese caso el
+    # navegador exige además Secure=True (ya lo garantiza cookie_secure).
+    cookie_samesite: Literal["lax", "none"] = "lax"
+
+    # Dominio de la cookie de sesión. En local NO se setea (cookie host-only
+    # para localhost, que el navegador comparte entre puertos). En prod con
+    # subdominios (front en pulse-stream.luisrivas.site + API en
+    # pulse-stream-api.luisrivas.site) seteá el dominio registrable
+    # ("luisrivas.site") para que la cookie viaje a todos los subdominios —
+    # sin esto el proxy del front nunca ve la cookie y se bucla en /login.
+    cookie_domain: str | None = None
 
     @property
     def docs_enabled(self) -> bool:
