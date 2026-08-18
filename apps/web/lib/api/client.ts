@@ -4,7 +4,7 @@ import type { ApiFetchOptions } from "./types";
 
 export type { ApiFetchOptions };
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 const isServer = typeof window === "undefined";
 
