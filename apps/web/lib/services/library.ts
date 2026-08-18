@@ -1,6 +1,6 @@
 import { favoritesService } from "./favorites-service";
 import { playlistsService } from "./playlists-service";
-import { sessionService } from "./session-service";
+import { getSession } from "./session-service";
 import type { Playlist } from "./types";
 
 export interface UserLibrary {
@@ -16,7 +16,7 @@ export interface UserLibrary {
  * NUNCA se cachea: son datos por usuario (cache: "no-store").
  */
 export async function getUserLibrary(): Promise<UserLibrary | null> {
-  const user = await sessionService.getSession();
+  const user = await getSession();
   if (!user) return null;
 
   const [ids, playlists] = await Promise.all([
