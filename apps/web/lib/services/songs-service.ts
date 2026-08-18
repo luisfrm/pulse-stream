@@ -31,6 +31,7 @@ export interface CreateSongPayload {
 
 export interface UpdateSongPayload {
   title?: string;
+  artist_id?: string;
   /** null = quitar la canción del álbum. */
   album_id?: string | null;
   genres?: string[];

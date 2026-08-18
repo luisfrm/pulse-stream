@@ -3,8 +3,11 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Loader2 } from "lucide-react";
 
 import { CoverUploader } from "@/components/cover-uploader";
+import { Select } from "@/components/ui";
+import { albumsService } from "@/lib/services/albums-service";
 import { songsService } from "@/lib/services/songs-service";
 import type { Album, Artist } from "@/lib/services/types";
 import {
@@ -18,22 +21,31 @@ interface NewSongFormProps {
   readonly initialArtists: Artist[];
   readonly initialAlbums: Album[];
   readonly initialGenres: string[];
+  readonly initialArtistId?: string;
+  readonly initialAlbumId?: string;
   readonly onCreated: () => Promise<void>;
 }
 
+/**
+ * Flujo de alta: primero el artista (o se crea), después el álbum (o se crea
+ * inline para ese artista) y recién ahí los datos de la canción.
+ */
 export function NewSongForm({
   initialArtists,
   initialAlbums,
   initialGenres,
+  initialArtistId = "",
+  initialAlbumId = "",
   onCreated,
 }: NewSongFormProps) {
   const router = useRouter();
 
   const [title, setTitle] = useState("");
-  const [artistId, setArtistId] = useState("");
+  const [artistId, setArtistId] = useState(initialArtistId);
   const [newArtistName, setNewArtistName] = useState("");
   const [createNewArtist, setCreateNewArtist] = useState(false);
-  const [albumId, setAlbumId] = useState("");
+  const [albumId, setAlbumId] = useState(initialAlbumId);
+  const [albumCreateOpen, setAlbumCreateOpen] = useState(false);
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [collaboratorIds, setCollaboratorIds] = useState<string[]>([]);
   const [lyrics, setLyrics] = useState("");
@@ -46,6 +58,8 @@ export function NewSongForm({
   const artistAlbums = artistId
     ? initialAlbums.filter((a) => a.artist.id === artistId)
     : [];
+  const artistOptions = initialArtists.map((a) => ({ value: a.id, label: a.name }));
+  const albumOptions = artistAlbums.map((a) => ({ value: a.id, label: a.title }));
 
   function toggleGenre(genre: string) {
     setSelectedGenres((prev) =>
@@ -57,6 +71,25 @@ export function NewSongForm({
     setCollaboratorIds((prev) =>
       prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
     );
+  }
+
+  function handleArtistChange(id: string) {
+    setArtistId(id);
+    setAlbumId("");
+    setAlbumCreateOpen(false);
+  }
+
+  async function handleCreateAlbum(title: string, coverKey: string | null) {
+    if (!artistId) return;
+    const album = await albumsService.create({
+      title,
+      artist_id: artistId,
+      ...(coverKey ? { cover_key: coverKey } : {}),
+    });
+    setAlbumId(album.id);
+    setAlbumCreateOpen(false);
+    await onCreated();
+    router.refresh();
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -72,6 +105,10 @@ export function NewSongForm({
         ? { artist_id: artistId }
         : null;
     if (!artistSpec) return setError("Elegí o creá un artista.");
+
+    if (!createNewArtist && !albumId) {
+      return setError("El flujo requiere un álbum: elegí uno o crealo para el artista.");
+    }
 
     setPending(true);
     try {
@@ -133,6 +170,7 @@ export function NewSongForm({
           />
         </label>
 
+        {/* 1) Artista */}
         <fieldset className="flex flex-col gap-1.5 text-sm font-medium">
           <legend>Artista</legend>
           {createNewArtist ? (
@@ -143,51 +181,63 @@ export function NewSongForm({
               className={inputClass}
             />
           ) : (
-            <select
+            <Select
+              options={artistOptions}
               value={artistId}
-              onChange={(e) => {
-                setArtistId(e.target.value);
-                setAlbumId(""); // el álbum pertenece al artista recién elegido
-              }}
-              className={inputClass}
-            >
-              <option value="">Elegí un artista…</option>
-              {initialArtists.map((artist) => (
-                <option key={artist.id} value={artist.id}>
-                  {artist.name}
-                </option>
-              ))}
-            </select>
+              onChange={handleArtistChange}
+              placeholder="Elegí un artista…"
+              searchable
+            />
           )}
-          <label className="mt-2 flex items-center gap-2 text-text-subdued">
+          <label className="mt-1 flex items-center gap-2 text-text-subdued">
             <input
               type="checkbox"
               checked={createNewArtist}
-              onChange={(e) => setCreateNewArtist(e.target.checked)}
+              onChange={(e) => {
+                setCreateNewArtist(e.target.checked);
+                setAlbumId("");
+              }}
             />
             Crear artista nuevo
           </label>
         </fieldset>
 
-        {!createNewArtist && (
-          <label className="flex flex-col gap-1.5 text-sm font-medium">
-            Álbum (opcional)
-            <select
+        {/* 2) Álbum del artista */}
+        {!createNewArtist && artistId && (
+          <fieldset className="flex flex-col gap-1.5 text-sm font-medium">
+            <legend>Álbum</legend>
+            <Select
+              options={albumOptions}
               value={albumId}
-              onChange={(e) => setAlbumId(e.target.value)}
-              className={inputClass}
-              disabled={artistAlbums.length === 0}
+              onChange={setAlbumId}
+              placeholder={
+                artistAlbums.length === 0
+                  ? "Este artista no tiene álbumes"
+                  : "Elegí un álbum…"
+              }
+              emptyLabel="Este artista no tiene álbumes todavía"
+              searchable
+            />
+            <button
+              type="button"
+              onClick={() => setAlbumCreateOpen((o) => !o)}
+              className="mt-1 w-fit text-xs font-medium text-brand-400 transition-colors hover:text-brand-200"
             >
-              <option value="">Sin álbum</option>
-              {artistAlbums.map((album) => (
-                <option key={album.id} value={album.id}>
-                  {album.title}
-                </option>
-              ))}
-            </select>
-          </label>
+              {albumCreateOpen ? "Cancelar creación" : "+ Crear álbum para este artista"}
+            </button>
+
+            {albumCreateOpen && (
+              <CreateAlbumInline
+                artistName={
+                  initialArtists.find((a) => a.id === artistId)?.name ?? "el artista"
+                }
+                onCreated={handleCreateAlbum}
+              />
+            )}
+          </fieldset>
         )}
 
+        {/* 3) Géneros */}
         <fieldset className="flex flex-col gap-2 text-sm font-medium">
           <legend>Géneros</legend>
           <div className="flex flex-wrap gap-2">
@@ -212,6 +262,7 @@ export function NewSongForm({
           </div>
         </fieldset>
 
+        {/* Colaboradores */}
         {!createNewArtist && artistId && (
           <fieldset className="flex flex-col gap-2 text-sm font-medium">
             <legend>Colaboradores (opcional)</legend>
@@ -282,7 +333,75 @@ export function NewSongForm({
           disabled={pending}
           className="rounded-pill bg-brand-400 px-6 py-3 font-semibold text-bg-base transition-colors hover:bg-brand-200 disabled:opacity-60"
         >
-          {pending ? "Subiendo…" : "Subir canción"}
+          {pending ? (
+            <>
+              <Loader2 size={16} className="mr-1 inline animate-spin" aria-hidden />
+              Subiendo…
+            </>
+          ) : (
+            "Subir canción"
+          )}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+function CreateAlbumInline({
+  artistName,
+  onCreated,
+}: {
+  artistName: string;
+  onCreated: (title: string, coverKey: string | null) => Promise<void>;
+}) {
+  const [title, setTitle] = useState("");
+  const [coverKey, setCoverKey] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!title.trim()) return setError("Falta el título del álbum.");
+    setPending(true);
+    setError(null);
+    try {
+      await onCreated(title.trim(), coverKey);
+      setTitle("");
+      setCoverKey(null);
+    } catch (err) {
+      setError(friendlyError(err));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  const inputClass =
+    "rounded-xl border border-bg-highlight bg-bg-elevated px-4 py-3 text-text-primary outline-none transition-colors placeholder:text-text-subdued focus:border-brand-400";
+
+  return (
+    <div className="mt-2 rounded-xl border border-bg-highlight bg-bg-elevated p-3">
+      <p className="mb-2 text-xs text-text-subdued">
+        Álbum nuevo para <strong className="text-text-primary">{artistName}</strong>:
+      </p>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Título del álbum (ej. Bocanada)"
+          className={inputClass}
+        />
+        <CoverUploader value={coverKey} onChange={setCoverKey} label="Cover (opcional)" />
+        {error && (
+          <p className="rounded-xl bg-brand-900/30 px-3 py-2 text-xs text-brand-200">
+            {error}
+          </p>
+        )}
+        <button
+          type="submit"
+          disabled={pending}
+          className="w-fit rounded-pill bg-brand-400 px-4 py-2 text-sm font-semibold text-bg-base transition-colors hover:bg-brand-200 disabled:opacity-60"
+        >
+          {pending ? "Creando…" : "Crear y elegir este álbum"}
         </button>
       </form>
     </div>

@@ -12,7 +12,15 @@ export const metadata: Metadata = { title: "Subir canción" };
 
 export const dynamic = "force-dynamic";
 
-export default async function NewSongPage() {
+export default async function NewSongPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ artist?: string; album?: string }>;
+}) {
+  const params = await searchParams;
+  const initialArtistId = params.artist ?? "";
+  const initialAlbumId = params.album ?? "";
+
   // Lecturas en paralelo en el servidor: cero waterfalls
   const [artistsPage, albumsPage, genres] = await Promise.all([
     artistsService.getArtists(undefined, {
@@ -41,6 +49,8 @@ export default async function NewSongPage() {
       initialArtists={artistsPage.items}
       initialAlbums={albumsPage.items}
       initialGenres={genres}
+      initialArtistId={initialArtistId}
+      initialAlbumId={initialAlbumId}
       onCreated={refreshCatalog}
     />
   );

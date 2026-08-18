@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useState } from "react";
 
-import { Button, Dialog, Input, Textarea } from "@/components/ui";
+import { Button, Dialog, Input, Select, Textarea } from "@/components/ui";
 import { songsService } from "@/lib/services/songs-service";
 import type { Album, Artist, Song } from "@/lib/services/types";
 import { friendlyError } from "@/lib/utils/error";
@@ -49,6 +49,7 @@ export function SongEditDialog({
   const artistAlbums = song
     ? albums.filter((a) => a.artist.id === song.artist.id)
     : [];
+  const albumOptions = artistAlbums.map((a) => ({ value: a.id, label: a.title }));
 
   function toggleGenre(genre: string) {
     setSelectedGenres((prev) =>
@@ -104,21 +105,16 @@ export function SongEditDialog({
           placeholder="Nombre de la canción"
         />
 
-        <label className="flex flex-col gap-1.5 text-sm font-medium">
-          Álbum
-          <select
-            value={albumId}
-            onChange={(e) => setAlbumId(e.target.value)}
-            className="rounded-xl border border-bg-highlight bg-bg-elevated px-4 py-3 text-text-primary outline-none transition-colors focus:border-brand-400"
-          >
-            <option value="">Sin álbum</option>
-            {artistAlbums.map((album) => (
-              <option key={album.id} value={album.id}>
-                {album.title}
-              </option>
-            ))}
-          </select>
-        </label>
+        <Select
+          label="Álbum"
+          options={albumOptions}
+          value={albumId}
+          onChange={setAlbumId}
+          placeholder={
+            artistAlbums.length === 0 ? "Sin álbumes de este artista" : "Sin álbum"
+          }
+          emptyLabel="Este artista no tiene álbumes"
+        />
 
         <fieldset className="flex flex-col gap-2 text-sm font-medium">
           <legend>Géneros</legend>
