@@ -8,7 +8,6 @@ import {
   Heart,
   Home,
   ListMusic,
-  Menu,
   Search,
   Shield,
   X,
@@ -17,6 +16,7 @@ import {
 import LogoutButton from "@/components/logout-button";
 import { cn } from "@/components/ui";
 import type { User } from "@/lib/services/types";
+import { BottomNav } from "./bottom-nav";
 import { BrandLogo } from "./brand-logo";
 
 interface DashboardShellProps {
@@ -187,30 +187,16 @@ export function DashboardShell({ user, isAdmin, children }: DashboardShellProps)
         <SidebarNav user={user} isAdmin={isAdmin} />
       </aside>
 
-      {/* Barra superior móvil */}
-      <header className="sticky top-0 z-40 flex items-center justify-between border-b border-bg-highlight bg-bg-base/90 px-4 py-3 backdrop-blur-md lg:hidden">
-        <button
-          type="button"
-          onClick={() => setDrawerOpen(true)}
-          aria-label="Abrir menú"
-          className="rounded-pill p-2 text-text-subdued transition-colors hover:bg-bg-highlight hover:text-text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-400"
-        >
-          <Menu size={22} />
-        </button>
-        <Link
-          href="/dashboard"
-          className="flex items-center gap-2 font-display text-base font-bold text-text-primary"
-        >
-          <BrandLogo size={24} />
-          Pulse Stream
-        </Link>
-        <span className="w-9" />
-      </header>
+      {/* Barra superior móvil: ya no existe — en mobile el estándar es la
+          bottom nav (BottomNav). La cuenta se abre desde el avatar de ahí. */}
 
       {/* Contenido */}
-      <main className="min-w-0 flex-1 px-4 pb-32 pt-5 lg:px-8 lg:pt-8">
+      <main className="min-w-0 flex-1 px-4 pb-44 pt-5 lg:px-8 lg:pb-32 lg:pt-8">
         <div className="mx-auto w-full max-w-6xl">{children}</div>
       </main>
+
+      {/* Navegación inferior (móvil) */}
+      <BottomNav user={user} isAdmin={isAdmin} onOpenMenu={() => setDrawerOpen(true)} />
     </div>
   );
 }
