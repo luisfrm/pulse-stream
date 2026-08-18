@@ -7,7 +7,7 @@ import { Trash2 } from "lucide-react";
 
 import { AudioPreviewPlayer } from "@/components/audio-preview-player";
 import { CoverUploader } from "@/components/cover-uploader";
-import { Button, Dialog, Input, Select, Textarea } from "@/components/ui";
+import { Button, Modal, Input, Select, Textarea } from "@/components/ui";
 import { songsService } from "@/lib/services/songs-service";
 import type { Album, Artist, Song } from "@/lib/services/types";
 import { friendlyError } from "@/lib/utils/error";
@@ -284,7 +284,7 @@ export function SongManager({
       </form>
 
       {/* Confirmación de borrado */}
-      <Dialog
+      <Modal
         open={deleting}
         onClose={() => setDeleting(false)}
         title="¿Borrar esta canción?"
@@ -298,7 +298,7 @@ export function SongManager({
             Sí, eliminar
           </Button>
         </div>
-      </Dialog>
+      </Modal>
     </div>
   );
 }

@@ -20,6 +20,20 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 
   --radius-pill: 9999px;
+
+  /* Animaciones — utilidades reales (variants data-state/motion-safe) */
+  --animate-player-in: ps-player-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-fade-in: ps-fade-in 200ms ease-out both;
+  --animate-fade-out: ps-fade-out 150ms ease-in both;
+  --animate-rise: ps-rise 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-spin: ps-spin 1s linear infinite;
+  --animate-collapse: ps-collapse 200ms ease-in both;
+  --animate-dropdown-in: ps-dropdown-in 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-option-in: ps-option-in 160ms ease-out both;
+  --animate-sheet-in: ps-sheet-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-sheet-out: ps-sheet-out 220ms ease-in both;
+  --animate-modal-in: ps-modal-in 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-modal-out: ps-modal-out 180ms ease-in both;
 }
 
 @layer utilities {
@@ -68,6 +82,10 @@
   from { opacity: 0; }
   to { opacity: 1; }
 }
+@keyframes ps-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
 @keyframes ps-rise {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
@@ -99,14 +117,26 @@
   from { opacity: 0; transform: translateY(3px); }
   to { opacity: 1; transform: translateY(0); }
 }
+@keyframes ps-sheet-in {
+  from { translate: 0 100%; }
+  to { translate: 0 0; }
+}
+@keyframes ps-sheet-out {
+  from { translate: 0 0; }
+  to { translate: 0 100%; }
+}
+@keyframes ps-modal-in {
+  from { opacity: 0; translate: -50% -48%; scale: 0.96; }
+  to { opacity: 1; translate: -50% -50%; scale: 1; }
+}
+@keyframes ps-modal-out {
+  from { opacity: 1; translate: -50% -50%; scale: 1; }
+  to { opacity: 0; translate: -50% -48%; scale: 0.96; }
+}
 
-.animate-player-in { animation: ps-player-in 320ms var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1)) both; }
-.animate-fade-in { animation: ps-fade-in 200ms ease-out both; }
-.animate-rise { animation: ps-rise 360ms cubic-bezier(0.22, 1, 0.36, 1) both; }
-.animate-spin { animation: ps-spin 1s linear infinite; }
-.animate-collapse { animation: ps-collapse 200ms ease-in both; }
-.animate-dropdown-in { animation: ps-dropdown-in 180ms cubic-bezier(0.22, 1, 0.36, 1) both; }
-.animate-option-in { animation: ps-option-in 160ms ease-out both; }
+/* Movimiento: solo transform/opacity/translate/scale, sin animar layout.
+   Las utilidades `animate-*` se generan desde los tokens `--animate-*` del
+   @theme (así soportan variants como motion-safe: y data-[state=...]:). */
 
 .eq-bar {
   display: inline-block;
@@ -149,8 +179,11 @@
   }
 }
 
-/* Escritura de discos: evita scroll horizontal en cualquier ancho */
-html,
+/* Escritura de discos: evita scroll horizontal en cualquier ancho.
+   ⚠️ El clip vive SOLO en `body` — jamás en `html`: el lock de scroll de los
+   modales (Radix setea `overflow: hidden` inline en body) se propaga al
+   viewport únicamente si el root queda con overflow visible. Con `clip` en
+   `html` el lock nunca llega y la página scrollea con el modal abierto. */
 body {
   overflow-x: clip;
 }

@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { Button, Dialog } from "@/components/ui";
+import { Button, Modal } from "@/components/ui";
 import { songsService } from "@/lib/services/songs-service";
 import type { Album, Artist, Song } from "@/lib/services/types";
 import { friendlyError } from "@/lib/utils/error";
@@ -110,7 +110,7 @@ export function SongsResults({
       </p>
 
       {/* Confirmación de borrado */}
-      <Dialog
+      <Modal
         open={deleting !== null}
         onClose={() => setDeleting(null)}
         title="¿Borrar esta canción?"
@@ -132,7 +132,7 @@ export function SongsResults({
             Sí, eliminar
           </Button>
         </div>
-      </Dialog>
+      </Modal>
 
       {/* Edición de metadatos */}
       {isAdmin && (

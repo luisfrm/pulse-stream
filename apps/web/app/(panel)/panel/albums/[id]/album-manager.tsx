@@ -7,7 +7,7 @@ import { Plus } from "lucide-react";
 
 import { AudioPreviewPlayer } from "@/components/audio-preview-player";
 import { CoverUploader } from "@/components/cover-uploader";
-import { Button, Dialog, Input } from "@/components/ui";
+import { Button, Modal, Input } from "@/components/ui";
 import { albumsService } from "@/lib/services/albums-service";
 import type { AlbumDetail } from "@/lib/services/types";
 import { friendlyError } from "@/lib/utils/error";
@@ -208,7 +208,7 @@ export function AlbumManager({ album, onMutated }: AlbumManagerProps) {
       </section>
 
       {/* Confirmación de borrado */}
-      <Dialog
+      <Modal
         open={deleting}
         onClose={() => setDeleting(false)}
         title="¿Borrar este álbum?"
@@ -222,7 +222,7 @@ export function AlbumManager({ album, onMutated }: AlbumManagerProps) {
             Sí, eliminar
           </Button>
         </div>
-      </Dialog>
+      </Modal>
     </div>
   );
 }

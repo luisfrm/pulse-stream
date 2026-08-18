@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { CoverUploader } from "@/components/cover-uploader";
-import { Button, Dialog } from "@/components/ui";
+import { Button, Modal } from "@/components/ui";
 import { artistsService } from "@/lib/services/artists-service";
 import type { Artist } from "@/lib/services/types";
 import { friendlyError } from "@/lib/utils/error";
@@ -159,7 +159,7 @@ export function ArtistsResults({
       </p>
 
       {/* Confirmación de borrado */}
-      <Dialog
+      <Modal
         open={deleting !== null}
         onClose={() => setDeleting(null)}
         title="¿Borrar este artista?"
@@ -181,7 +181,7 @@ export function ArtistsResults({
             Sí, eliminar
           </Button>
         </div>
-      </Dialog>
+      </Modal>
     </div>
   );
 }

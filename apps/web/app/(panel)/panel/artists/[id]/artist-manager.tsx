@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Disc3, Loader2, Minus, Music, Plus, Trash2 } from "lucide-react";
 
 import { CoverUploader } from "@/components/cover-uploader";
-import { Button, cn, Dialog, Input } from "@/components/ui";
+import { Button, cn, Modal, Input } from "@/components/ui";
 import { albumsService } from "@/lib/services/albums-service";
 import { artistsService } from "@/lib/services/artists-service";
 import type { Album, Artist, Song } from "@/lib/services/types";
@@ -363,7 +363,7 @@ export function ArtistManager({
       )}
 
       {/* Confirmación de borrado del artista */}
-      <Dialog
+      <Modal
         open={deleting}
         onClose={() => setDeleting(false)}
         title="¿Borrar este artista?"
@@ -377,7 +377,7 @@ export function ArtistManager({
             Sí, eliminar
           </Button>
         </div>
-      </Dialog>
+      </Modal>
     </div>
   );
 }

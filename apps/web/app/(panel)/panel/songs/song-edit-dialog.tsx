@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useState } from "react";
 
-import { Button, Dialog, Input, Select, Textarea } from "@/components/ui";
+import { Button, Modal, Input, Select, Textarea } from "@/components/ui";
 import { songsService } from "@/lib/services/songs-service";
 import type { Album, Artist, Song } from "@/lib/services/types";
 import { friendlyError } from "@/lib/utils/error";
@@ -91,7 +91,7 @@ export function SongEditDialog({
   }
 
   return (
-    <Dialog
+    <Modal
       open={song !== null}
       onClose={onClose}
       title="Editar canción"
@@ -193,6 +193,6 @@ export function SongEditDialog({
           </Button>
         </div>
       </form>
-    </Dialog>
+    </Modal>
   );
 }
