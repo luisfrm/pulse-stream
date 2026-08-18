@@ -14,8 +14,15 @@ from app.core.config import settings
 from app.features.uploads.schemas import PresignRequest, PresignResponse
 from app.shared.exceptions import InvalidUploadError, R2NotConfiguredError
 
-ALLOWED_CONTENT_TYPES = {"audio/mpeg", "audio/mp3"}
+ALLOWED_CONTENT_TYPES = {"audio/mpeg", "audio/mp3", "audio/aac", "audio/x-hx-aac-adts"}
 ALLOWED_COVER_TYPES = {"image/jpeg", "image/jpg", "image/webp"}
+# Extensión del object_key según el content type del audio.
+AUDIO_EXTENSIONS = {
+    "audio/mpeg": ".mp3",
+    "audio/mp3": ".mp3",
+    "audio/aac": ".aac",
+    "audio/x-hx-aac-adts": ".aac",
+}
 # Extensión del object_key según el content type del cover.
 COVER_EXTENSIONS = {"image/jpeg": ".jpg", "image/jpg": ".jpg", "image/webp": ".webp"}
 # Covers son cuadrículas (portadas/artistas): JPG/WebP de hasta 512 KB.
@@ -62,7 +69,8 @@ class UploadService:
         if payload.content_type not in ALLOWED_CONTENT_TYPES:
             raise InvalidUploadError(
                 f"Tipo de archivo no permitido: {payload.content_type}. "
-                "Solo se aceptan archivos de audio MP3 (audio/mpeg)."
+                "Solo se aceptan archivos de audio MP3 o AAC "
+                "(audio/mpeg, audio/aac)."
             )
         if payload.size > settings.r2_max_upload_bytes:
             raise InvalidUploadError(
@@ -72,7 +80,8 @@ class UploadService:
         if not self._storage.enabled:
             raise R2NotConfiguredError()
 
-        object_key = f"songs/{uuid.uuid4()}.mp3"
+        ext = AUDIO_EXTENSIONS[payload.content_type]
+        object_key = f"songs/{uuid.uuid4()}{ext}"
         url = self._storage.presign_put(object_key, payload.content_type)
         return PresignResponse(
             url=url,

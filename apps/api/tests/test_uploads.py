@@ -31,6 +31,22 @@ async def test_presign_too_large(client):
     assert "tamaño máximo" in resp.json()["detail"]
 
 
+async def test_presign_aac(client):
+    """AAC (audio/aac) es válido y firma un object_key .aac."""
+    await register_and_login(client)
+    resp = await client.post(
+        "/uploads/presign",
+        json={"filename": "tema.aac", "content_type": "audio/aac", "size": 1024 * 1024},
+    )
+
+    if resp.status_code == 503:
+        assert "R2" in resp.json()["detail"]
+        return
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["object_key"].endswith(".aac")
+
+
 async def test_presign_behavior(client):
     """Sin R2 configurado -> 503 con mensaje claro; con R2 -> URL firmada válida."""
     await register_and_login(client)
