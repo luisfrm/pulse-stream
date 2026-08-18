@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { PwaRegister } from "@/components/pwa-register";
 import { PlayerBar } from "@/components/player/player-bar";
 import { PlayerProvider } from "@/components/player/player-provider";
+import { Toaster } from "@/components/ui/sonner";
 
 import "./globals.css";
 
@@ -28,6 +29,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           {children}
           <PlayerBar />
         </PlayerProvider>
+        <Toaster />
       </body>
     </html>
   );

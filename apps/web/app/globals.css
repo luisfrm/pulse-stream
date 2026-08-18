@@ -34,6 +34,8 @@
   --animate-sheet-out: ps-sheet-out 220ms ease-in both;
   --animate-modal-in: ps-modal-in 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-modal-out: ps-modal-out 180ms ease-in both;
+  --animate-aurora-pan: ps-aurora-pan 26s ease-in-out infinite alternate;
+  --animate-aurora-breathe: ps-aurora-breathe 9s ease-in-out infinite;
 }
 
 @layer utilities {
@@ -133,6 +135,15 @@
   from { opacity: 1; translate: -50% -50%; scale: 1; }
   to { opacity: 0; translate: -50% -48%; scale: 0.96; }
 }
+/* Fondo de auth ("Smoked Emerald"): pan lento de las rayas + respiración del glow */
+@keyframes ps-aurora-pan {
+  from { transform: translate3d(-2.5%, -1%, 0); }
+  to { transform: translate3d(2.5%, 1.5%, 0); }
+}
+@keyframes ps-aurora-breathe {
+  0%, 100% { opacity: 0.72; }
+  50% { opacity: 1; }
+}
 
 /* Movimiento: solo transform/opacity/translate/scale, sin animar layout.
    Las utilidades `animate-*` se generan desde los tokens `--animate-*` del
@@ -170,6 +181,8 @@
   .animate-dropdown-in,
   .animate-option-in,
   .animate-spin,
+  .animate-aurora-pan,
+  .animate-aurora-breathe,
   .eq-bar {
     animation: none !important;
   }

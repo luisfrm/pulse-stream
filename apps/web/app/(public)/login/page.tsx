@@ -7,6 +7,9 @@ import { Eye, EyeOff } from "lucide-react";
 
 import { authService } from "@/lib/services/auth-service";
 import { friendlyError } from "@/lib/utils/error";
+import { AuthBackground } from "@/components/auth-background";
+import { BrandLogo } from "@/components/brand-logo";
+import { toast } from "sonner";
 
 function LoginForm() {
   const router = useRouter();
@@ -17,45 +20,50 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setPending(true);
-    setError(null);
     try {
       await authService.login(email, password, remember);
       router.push(next);
       router.refresh();
     } catch (err) {
-      setError(friendlyError(err));
+      toast.error(friendlyError(err));
     } finally {
       setPending(false);
     }
   }
 
   return (
-    <main className="flex flex-1 items-center justify-center px-6 py-16">
-      <div className="w-full max-w-sm">
-        <h1 className="font-display text-3xl font-bold">Bienvenido de nuevo</h1>
-        <p className="mt-2 text-sm text-text-subdued">
-          Iniciá sesión para seguir escuchando.
-        </p>
+    <main className="relative flex flex-1 items-center justify-center overflow-hidden px-6 py-24">
+      <AuthBackground />
+      <div className="relative z-10 w-full max-w-sm">
+        <div className="rounded-3xl border border-white/10 bg-bg-base/70 p-8 shadow-2xl shadow-black/40 backdrop-blur-xl">
+          <div className="mb-6 flex justify-center">
+            <BrandLogo size={44} />
+          </div>
+          <h1 className="text-center font-display text-3xl font-bold">
+            Bienvenido de nuevo
+          </h1>
+          <p className="mt-2 text-center text-sm text-text-subdued">
+            Iniciá sesión para seguir escuchando.
+          </p>
 
-        <form onSubmit={onSubmit} className="mt-8 flex flex-col gap-5">
-          <label className="flex flex-col gap-1.5 text-sm font-medium">
-            Email
-            <input
-              type="email"
-              required
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="rounded-xl border border-bg-highlight bg-bg-elevated px-4 py-3 text-text-primary outline-none transition-colors placeholder:text-text-subdued focus:border-brand-400"
-              placeholder="vos@ejemplo.com"
-            />
-          </label>
+          <form onSubmit={onSubmit} className="mt-8 flex flex-col gap-5">
+            <label className="flex flex-col gap-1.5 text-sm font-medium">
+              Email
+              <input
+                type="email"
+                required
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="rounded-xl border border-bg-highlight bg-bg-elevated px-4 py-3 text-text-primary outline-none transition-colors placeholder:text-text-subdued hover:border-bg-highlight/80 focus:border-brand-400 focus:ring-2 focus:ring-brand-400/25"
+                placeholder="vos@ejemplo.com"
+              />
+            </label>
 
           <label className="flex flex-col gap-1.5 text-sm font-medium">
             Contraseña
@@ -66,7 +74,7 @@ function LoginForm() {
                 autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-xl border border-bg-highlight bg-bg-elevated py-3 pl-4 pr-11 text-text-primary outline-none transition-colors placeholder:text-text-subdued focus:border-brand-400"
+                className="w-full rounded-xl border border-bg-highlight bg-bg-elevated py-3 pl-4 pr-11 text-text-primary outline-none transition-colors placeholder:text-text-subdued hover:border-bg-highlight/80 focus:border-brand-400 focus:ring-2 focus:ring-brand-400/25"
                 placeholder="••••••••"
               />
               <button
@@ -90,20 +98,15 @@ function LoginForm() {
             Recordarme
           </label>
 
-          {error && (
-            <p className="rounded-xl bg-brand-900/30 px-4 py-3 text-sm text-brand-200">
-              {error}
-            </p>
-          )}
-
           <button
             type="submit"
             disabled={pending}
-            className="rounded-pill bg-brand-400 px-6 py-3 font-semibold text-bg-base transition-colors hover:bg-brand-200 disabled:opacity-60"
+            className="rounded-pill bg-brand-400 px-6 py-3 font-semibold text-bg-base transition-all hover:bg-brand-200 active:scale-[0.99] disabled:opacity-60"
           >
             {pending ? "Entrando…" : "Iniciar sesión"}
           </button>
         </form>
+        </div>
 
         <p className="mt-6 text-center text-sm text-text-subdued">
           ¿No tenés cuenta?{" "}
