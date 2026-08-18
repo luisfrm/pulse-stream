@@ -13,8 +13,10 @@ const inputWrapperVariants = cva(
         glass: "bg-bg-highlight/40 border-bg-highlight hover:bg-bg-highlight/60 focus-within:border-brand-400",
       },
       inputSize: {
-        sm: "h-10 text-xs",
-        base: "h-12 text-sm",
+        // text-base (16px) debajo de lg: iOS hace zoom automático al enfocar
+        // inputs con font < 16px. En lg+ vuelve al tamaño original.
+        sm: "h-10 text-base lg:text-xs",
+        base: "h-12 text-base lg:text-sm",
         lg: "h-14 text-base",
       },
       state: {

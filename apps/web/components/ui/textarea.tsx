@@ -4,7 +4,9 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "./utils";
 
 const textareaVariants = cva(
-  "w-full rounded-xl border bg-bg-elevated px-3.5 py-3 text-sm text-text-primary outline-none transition-colors placeholder:text-text-subdued",
+  // text-base (16px) debajo de lg: iOS hace zoom automático al enfocar
+  // textareas con font < 16px. En lg+ vuelve al tamaño original.
+  "w-full rounded-xl border bg-bg-elevated px-3.5 py-3 text-base text-text-primary outline-none transition-colors placeholder:text-text-subdued lg:text-sm",
   {
     variants: {
       variant: {
