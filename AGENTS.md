@@ -87,6 +87,20 @@ registrable: sin eso la cookie es host-only de la API y el guard del front
 (`proxy.ts`) nunca la ve → bucle en `/login?next=…` (en local funciona porque
 el navegador comparte la cookie entre puertos de `localhost`).
 
+**Logout = responsabilidad del web, no de la API.** `session` es HttpOnly
+(solo una respuesta HTTP la borra) y la respuesta de `POST /auth/logout` es
+cross-origin desde el browser (localhost:3000 → localhost:8000), así que el
+Set-Cookie de la API puede no aplicarse y la sesión queda viva. El botón de
+logout es un `<form method="POST" action="/api/logout">` (`app/api/logout/
+route.ts`): el web emite el Set-Cookie de expiración en una respuesta
+same-origin (dos variantes: host-only y con `Domain`) y responde 303 → `/login`
+(navegación dura, el proxy re-corre sin cookie). Atributos leídos del env del
+web con los MISMOS nombres que el backend (`ENV` → Secure si ≠ local,
+`COOKIE_DOMAIN`, `COOKIE_SAMESITE`): si el API setea `COOKIE_DOMAIN`, el web
+debe tener el mismo valor o el borrado no matchea. No llama a la API (JWT
+stateless: borrar la cookie ES cerrar sesión). CSRF del logout = solo molesto
+(te desloguea), mismo riesgo que la API; pendiente del work de CSRF general.
+
 **Datos de Fase 4 (columnas y relaciones no obvias):**
 - `playlists.kind` es VARCHAR `'user' | 'system'`. Las `system` son snapshots
   de queries (`top_week`/`top_month`/`new`) generadas por admin; **solo un admin
@@ -195,7 +209,13 @@ audio con CORS → `caches`).
 **UI kit** (`components/ui/`): `Button/Badge/Card/Input/Textarea/Title/Select/
 BottomSheet/Dialog` con `cva` + `cn` + `Slot` (asChild). Reutilizarlo; los 8
 estados (default/hover/focus/active/disabled/loading/error/success) son
-obligatorios.
+obligatorios. El modal (`components/ui/modal.tsx`) es Radix Dialog
+(`@radix-ui/react-dialog`, no el paquete unificado `radix-ui`): bottom sheet en
+mobile (drag-to-close) + modal centrado en desktop; Radix lockea el scroll de
+la página. **No poner `overflow-x: clip` en `html` en `globals.css`**: rompe la
+propagación del overflow del body al viewport y el lock de scroll de los
+modales deja de funcionar (la página scrollea con el modal abierto). El clip
+horizontal vive solo en `body`.
 
 ---
 
