@@ -119,7 +119,7 @@ export function PlayerFullscreen({ open, onClose }: PlayerFullscreenProps) {
           />
         </div>
 
-        <div className="flex flex-1 flex-col gap-6 overflow-hidden sm:grid sm:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] sm:items-center">
+        <div className="flex flex-1 flex-col gap-6 lg:overflow-hidden sm:grid sm:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] sm:items-center">
           {/* Columna 1: cover + info + controles */}
           <div
             className={cn(
