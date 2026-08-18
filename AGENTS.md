@@ -150,8 +150,41 @@ crear entidades vía API, assert status + shape del JSON.
 
 **Guards:** `apps/web/proxy.ts` chequea **solo la presencia** de la cookie
 `session` a nivel request. La validación REAL ocurre en los layouts vía
-`sessionService.getSession()` (`GET /users/me`, nunca cacheado — `cache:
-"no-store"`).
+`getSession()` (`GET /users/me`, nunca cacheado entre requests — `cache:
+"no-store"`; deduplicada con `React.cache` dentro del mismo request).
+
+**Carga y navegación (page transitions):** los layouts de las áreas protegidas
+(`app/(protected)/layout.tsx`, `app/(panel)/layout.tsx`) **NO son async**:
+envuelven el shell (`ProtectedShell`/`PanelGate`) en `<Suspense fallback=
+{<FullScreenLoader/>}>` y la sesión + redirect siguen siendo server-side en el
+componente hijo — el full-screen solo aparece en la entrada al área
+(post-login/hard load), no en cada navegación. El nav público
+(`app/(public)/layout.tsx`) resuelve la sesión en un
+`<Suspense fallback={<PillSkeleton/>}>` para no bloquear el primer chunk.
+
+- `getSession` (`lib/services/session-service.ts`) está envuelta en
+  `React.cache()`: deduplica `GET /users/me` DENTRO del mismo request (layout +
+  página = 1 sola llamada). Se mantiene `sessionService.getSession` como wrapper
+  por compat; en el server usá `getSession` directo.
+- **Skeletons por página** (patrón estándar de loading): primitiva
+  `components/ui/skeleton.tsx` (`cva`+`cn`, variantes `default`/`elevated`/
+  `brand`, shapes `rect`/`circle`/`pill`, `aria-hidden`) exportada desde
+  `components/ui/index.ts`; composiciones en `components/loading-skeletons.tsx`
+  (`MediaCardSkeleton`, `SongItemSkeleton`, `SectionGridSkeleton`,
+  `PanelCardSkeleton`). Cada ruta con datos tiene su `loading.tsx`.
+- **Streaming por sección**: el dashboard usa `<Suspense>` por sección (cada
+  sección es un componente async propio en `dashboard/page.tsx`) y `search`
+  envuelve solo los resultados (el input queda fuera para no perder foco).
+- **Paralelismo**: las páginas resuelven sesión + datos con `Promise.all`
+  (dashboard, favorites, artist/album/playlist detail, home público, panel).
+- **`PlayerFullscreen` lazy** (`next/dynamic`, `ssr: false` en
+  `components/player/player-bar.tsx`): el fullscreen (con OfflineButton + letra)
+  no viaja en el chunk del root layout ni se descarga en páginas que nunca lo
+  abren.
+- `error.tsx` branded por área: `(protected)/error.tsx` y `(panel)/error.tsx`.
+- `app/globals.css`: `.animate-pulse` vive en el bloque `prefers-reduced-motion`
+  (los skeletons respetan reduced motion). `components/ui/button.tsx`: `loading`
+  muestra `Loader2` spinner + `aria-busy`.
 
 **Cliente API** (`lib/api/client.ts`): instancia `ofetch` isomórfica.
 - Server (RSC/Server Action): reenvía la cookie del request vía `next/headers`

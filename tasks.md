@@ -34,6 +34,12 @@
 | 29 | **Colaboradores en canciones** | Tabla `song_collaborators` (N:M canción ↔ artista). `SongRead.collaborators`, filtro `GET /songs?collaborator_id=X` (excluye al artista principal). Sección **Colaboraciones** en la página de artista; forms de canción (crear/editar) con álbum + colaboradores. Migración 0007 |
 | 30 | **Tests Fase 4** | 78 tests de integración verdes (albums, plays, username, playlists system) + 19 unitarios de frontend; typecheck y lint limpios |
 
+## ✅ Resueltas (optimización de navegación / page transitions)
+
+| # | Tarea | Resolución |
+|---|---|---|
+| 32 | **Optimización de navegación (page transitions)** | Layouts de áreas protegidas **no-async** con `<Suspense fallback={<FullScreenLoader/>}>` (full-screen solo en la entrada al área, no en cada navegación); nav público con `PillSkeleton`; `getSession` con `React.cache()` (dedupe de `GET /users/me` por request, `sessionService.getSession` queda como wrapper); primitiva `Skeleton` (`components/ui/skeleton.tsx`) + composiciones (`components/loading-skeletons.tsx`); `loading.tsx` por ruta; dashboard con Suspense por sección (streaming) y `search` con Suspense solo en resultados; `Promise.all` para sesión + datos; `PlayerFullscreen` lazy (`next/dynamic`, `ssr: false`); `error.tsx` branded por área; `.animate-pulse` en `prefers-reduced-motion` y `Button` con `Loader2` + `aria-busy`. Verificado: typecheck, lint, 22 tests y build OK |
+
 ## ⏳ Roadmap propuesto para una app de música (próximas pasadas)
 
 | Feature | Por qué | Estado |
