@@ -1,5 +1,6 @@
 import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
+import { CircleX, Loader2 } from "lucide-react";
 
 import { cn } from "./utils";
 
@@ -10,7 +11,6 @@ const inputWrapperVariants = cva(
       variant: {
         default:
           "bg-bg-elevated border-bg-highlight hover:bg-bg-highlight/50 focus-within:border-brand-400 focus-within:ring-1 focus-within:ring-brand-400",
-        glass: "bg-bg-highlight/40 border-bg-highlight hover:bg-bg-highlight/60 focus-within:border-brand-400",
       },
       inputSize: {
         // text-base (16px) debajo de lg: iOS hace zoom automático al enfocar
@@ -22,6 +22,8 @@ const inputWrapperVariants = cva(
       state: {
         default: "",
         error: "border-brand-900 focus-within:border-brand-900 focus-within:ring-brand-900",
+        loading: "",
+        success: "border-brand-400 focus-within:border-brand-400 focus-within:ring-brand-400",
       },
     },
     defaultVariants: {
@@ -39,15 +41,53 @@ export interface InputProps
   hint?: string;
   leftIcon?: React.ReactNode;
   rightElement?: React.ReactNode;
+  /** Solo aplica a type="number": bloquea "-" y "e" (exponente). Default: false. */
+  allowNegative?: boolean;
+  /** Clases extra para el wrapper (el className del consumidor va al input interno). */
+  wrapperClassName?: string;
 }
 
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(
   (
-    { className, variant, inputSize, state, label, hint, leftIcon, rightElement, id, disabled, ...props },
+    {
+      className,
+      wrapperClassName,
+      variant,
+      inputSize,
+      state,
+      label,
+      hint,
+      leftIcon,
+      rightElement,
+      allowNegative = false,
+      id,
+      disabled,
+      type,
+      onChange,
+      ...props
+    },
     ref
   ) => {
     const generatedId = React.useId();
     const inputId = id || generatedId;
+
+    const hasRightElement =
+      Boolean(rightElement) || state === "error" || state === "loading";
+
+    function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+      if (type === "number") {
+        const value = e.target.value;
+        // Bloquea "-" y "e" (exponente) si no se permiten negativos. El input es
+        // controlado: sin onChange el valor no cambia.
+        if (!allowNegative && (value.includes("-") || value.toLowerCase().includes("e"))) {
+          return;
+        }
+        // Strippea ceros a la izquierda ("02" -> "2"); conserva "0" y "0.x".
+        const cleaned = value.replace(/^0+(?=\d)/, "");
+        if (cleaned !== value) e.target.value = cleaned;
+      }
+      onChange?.(e);
+    }
 
     return (
       <div className="flex w-full flex-col gap-1.5">
@@ -60,6 +100,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
         <div
           className={cn(
             inputWrapperVariants({ variant, inputSize, state }),
+            wrapperClassName,
             disabled && "pointer-events-none opacity-40"
           )}
         >
@@ -68,16 +109,29 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           <input
             ref={ref}
             id={inputId}
+            type={type}
             disabled={disabled}
+            onChange={handleChange}
             className={cn(
-              "flex-1 h-full bg-transparent px-3.5 text-text-primary outline-none border-none placeholder:text-text-subdued",
+              "flex-1 min-w-0 bg-transparent px-3.5 text-text-primary outline-none border-none placeholder:text-text-subdued",
               leftIcon && "pl-2",
+              hasRightElement && "pr-2",
               className
             )}
             {...props}
           />
 
-          {rightElement && <span className="pr-3.5">{rightElement}</span>}
+          {hasRightElement && (
+            <span className="flex shrink-0 items-center gap-1.5 pr-3.5">
+              {state === "loading" && (
+                <Loader2 size={16} className="animate-spin text-text-subdued" aria-hidden />
+              )}
+              {state === "error" && (
+                <CircleX size={16} className="text-brand-200" aria-hidden />
+              )}
+              {rightElement}
+            </span>
+          )}
         </div>
 
         {hint && (
