@@ -207,6 +207,18 @@ body {
   font-family: var(--font-sans);
 }
 
+/* iOS hace zoom al enfocar inputs con font < 16px: debajo de lg (sm, md y
+   default) todo input/select/textarea queda en 16px (1rem) siempre, incluso
+   si una utilidad text-sm del label le llegaba por herencia. En lg+ mandan
+   las utilidades del componente (p. ej. lg:text-xs de ui/Input). */
+@media (max-width: 1023.98px) {
+  input,
+  select,
+  textarea {
+    font-size: 1rem !important;
+  }
+}
+
 button {
   cursor: pointer;
 }
