@@ -77,8 +77,15 @@ apps/api/app/
 
 **Auth (fastapi-users):** cookie HttpOnly + JWT (nombre de cookie: `session`).
 `current_user` exige sesión activa; `require_admin` exige `role=admin` o
-`is_superuser` (endpoints mutantes de artists/albums/songs/users). **CSRF sigue
-pendiente** antes de producción (`SameSite=None` + `double-submit`).
+`is_superuser` (endpoints mutantes de artists/albums/songs/users). SameSite de
+la cookie: default `lax` (cubre localhost y subdominios del mismo dominio
+registrable); `COOKIE_SAMESITE=none` solo si front y API viven en dominios
+distintos. **CSRF sigue pendiente** antes de producción (double-submit); con
+`lax` el vector cross-site queda mitigado, con `none` es obligatorio. Si front
+y API son subdominios distintos (prod), seteá `COOKIE_DOMAIN` al dominio
+registrable: sin eso la cookie es host-only de la API y el guard del front
+(`proxy.ts`) nunca la ve → bucle en `/login?next=…` (en local funciona porque
+el navegador comparte la cookie entre puertos de `localhost`).
 
 **Datos de Fase 4 (columnas y relaciones no obvias):**
 - `playlists.kind` es VARCHAR `'user' | 'system'`. Las `system` son snapshots
