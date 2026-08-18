@@ -4,7 +4,7 @@ import { updateTag } from "next/cache";
 import { Pagination } from "@/components/pagination";
 import { SearchInput } from "@/components/search-input";
 import { artistsService } from "@/lib/services/artists-service";
-import { sessionService } from "@/lib/services/session-service";
+import { getSession } from "@/lib/services/session-service";
 import { CACHE_TAGS } from "@/lib/services/tags";
 
 import { ArtistsResults } from "./artists-results";
@@ -26,16 +26,16 @@ export default async function ArtistsPage({
   const offset = Math.max(0, Number(params.offset) || 0);
   const page = Math.floor(offset / PAGE_LIMIT) + 1;
 
-  // Sesión para decidir la UI (los datos del catálogo son públicos)
-  const user = await sessionService.getSession();
+  // Sesión (deduplicada con el layout) y catálogo en paralelo.
+  const [user, { items, total }] = await Promise.all([
+    getSession(),
+    artistsService.getArtists(
+      { query: query || undefined, offset, limit: PAGE_LIMIT },
+      { next: { revalidate: 60, tags: [CACHE_TAGS.artists] } },
+    ),
+  ]);
   const isAdmin = Boolean(
     user && (user.is_superuser || user.role === "admin")
-  );
-
-  // Lectura cacheada con tags (catálogo público y compartido)
-  const { items, total } = await artistsService.getArtists(
-    { query: query || undefined, offset, limit: PAGE_LIMIT },
-    { next: { revalidate: 60, tags: [CACHE_TAGS.artists] } },
   );
 
   // Server Action: purga el tag bajo demanda (después de mutar)

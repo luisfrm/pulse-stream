@@ -29,15 +29,20 @@ export const dynamic = "force-dynamic";
 
 export default async function AlbumPage({ params }: AlbumPageProps) {
   const { id } = await params;
-  const album = await albumsService
-    .getAlbumById(id, {
-      next: { revalidate: 60, tags: [CACHE_TAGS.albums] },
-    })
-    .catch(() => null);
+
+  // Álbum y biblioteca del usuario en paralelo (la biblioteca no depende del
+  // álbum; el session del layout ya está deduplicado con React.cache).
+  const [album, library] = await Promise.all([
+    albumsService
+      .getAlbumById(id, {
+        next: { revalidate: 60, tags: [CACHE_TAGS.albums] },
+      })
+      .catch(() => null),
+    getUserLibrary(),
+  ]);
 
   if (!album) notFound();
 
-  const library = await getUserLibrary();
   const songs = album.songs ?? [];
 
   return (

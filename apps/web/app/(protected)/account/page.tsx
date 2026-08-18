@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { sessionService } from "@/lib/services/session-service";
+import { getSession } from "@/lib/services/session-service";
 
 import { AccountForm } from "./account-form";
 
@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 /** Página de perfil: username, email, contraseña y foto de portada. */
 export default async function AccountPage() {
-  const user = await sessionService.getSession();
+  const user = await getSession();
   if (!user) return null; // el layout redirige a /login
 
   return (

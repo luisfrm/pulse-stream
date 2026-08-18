@@ -7,7 +7,7 @@ import { SearchInput } from "@/components/search-input";
 import { albumsService } from "@/lib/services/albums-service";
 import { artistsService } from "@/lib/services/artists-service";
 import { genresService } from "@/lib/services/genres-service";
-import { sessionService } from "@/lib/services/session-service";
+import { getSession } from "@/lib/services/session-service";
 import { songsService } from "@/lib/services/songs-service";
 import { CACHE_TAGS } from "@/lib/services/tags";
 
@@ -29,12 +29,8 @@ export default async function SongsPage({
   const offset = Math.max(0, Number(params.offset) || 0);
   const page = Math.floor(offset / PAGE_LIMIT) + 1;
 
-  const user = await sessionService.getSession();
-  const isAdmin = Boolean(
-    user && (user.is_superuser || user.role === "admin")
-  );
-
-  const [songsPage, genres, albumsPage, artistsPage] = await Promise.all([
+  const [user, songsPage, genres, albumsPage, artistsPage] = await Promise.all([
+    getSession(),
     songsService.getSongs(
       { query: query || undefined, offset, limit: PAGE_LIMIT },
       { next: { revalidate: 60, tags: [CACHE_TAGS.songs] } },
@@ -51,6 +47,10 @@ export default async function SongsPage({
       { next: { revalidate: 60, tags: [CACHE_TAGS.artists] } }
     ),
   ]);
+
+  const isAdmin = Boolean(
+    user && (user.is_superuser || user.role === "admin")
+  );
 
   const refreshSongs = async () => {
     "use server";

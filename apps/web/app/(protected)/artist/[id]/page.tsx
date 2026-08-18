@@ -41,30 +41,29 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
     .catch(() => null);
   if (!artist) notFound();
 
-  const [{ items: songs }, { items: collaborations }, albums] = await Promise.all([
-    songsService
-      .getSongs(
-        { artistId: id, limit: 50 },
-        { next: { revalidate: 60, tags: [CACHE_TAGS.songs] } }
-      )
-      .catch(() => ({ items: [] as never[] })),
-    songsService
-      .getSongs(
-        { collaboratorId: id, limit: 50 },
-        { next: { revalidate: 60, tags: [CACHE_TAGS.songs] } }
-      )
-      .catch(() => ({ items: [] as never[] })),
-    albumsService
-      .getAlbums(
-        { artistId: id, limit: 50 },
-        { next: { revalidate: 60, tags: [CACHE_TAGS.albums] } }
-      )
-      .then((p) => p.items)
-      .catch(() => []),
-  ]);
-
-  // Biblioteca del usuario para las acciones por canción
-  const library = await getUserLibrary();
+  const [{ items: songs }, { items: collaborations }, albums, library] =
+    await Promise.all([
+      songsService
+        .getSongs(
+          { artistId: id, limit: 50 },
+          { next: { revalidate: 60, tags: [CACHE_TAGS.songs] } }
+        )
+        .catch(() => ({ items: [] as never[] })),
+      songsService
+        .getSongs(
+          { collaboratorId: id, limit: 50 },
+          { next: { revalidate: 60, tags: [CACHE_TAGS.songs] } }
+        )
+        .catch(() => ({ items: [] as never[] })),
+      albumsService
+        .getAlbums(
+          { artistId: id, limit: 50 },
+          { next: { revalidate: 60, tags: [CACHE_TAGS.albums] } }
+        )
+        .then((p) => p.items)
+        .catch(() => []),
+      getUserLibrary(),
+    ]);
 
   const totalSongs = songs.length + collaborations.length;
 

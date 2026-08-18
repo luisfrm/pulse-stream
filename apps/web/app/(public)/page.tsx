@@ -7,7 +7,7 @@ import { PlaylistCard } from "@/components/playlist-card";
 import { SongCard } from "@/components/song-card";
 import { artistsService } from "@/lib/services/artists-service";
 import { playlistsService } from "@/lib/services/playlists-service";
-import { sessionService } from "@/lib/services/session-service";
+import { getSession } from "@/lib/services/session-service";
 import { songsService } from "@/lib/services/songs-service";
 import { CACHE_TAGS } from "@/lib/services/tags";
 
@@ -19,27 +19,32 @@ const SECTION_LIMIT = 10;
 
 export default async function HomePage() {
   // Con sesión, el home es el dashboard: el catálogo público vive en el board.
-  const user = await sessionService.getSession();
+  // La sesión y el catálogo se resuelven en paralelo (el catálogo está cacheado
+  // por tags; si hay sesión el redirect corta igual).
+  const [user, catalog] = await Promise.all([
+    getSession(),
+    Promise.all([
+      songsService.getSongs(
+        { limit: SECTION_LIMIT },
+        { next: { revalidate: 60, tags: [CACHE_TAGS.songs] } }
+      ),
+      artistsService.getArtists(
+        { limit: 6 },
+        { next: { revalidate: 60, tags: [CACHE_TAGS.artists] } }
+      ),
+      // Playlists públicas de la comunidad (visible sin sesión).
+      playlistsService
+        .getPublicPlaylists(
+          { limit: SECTION_LIMIT },
+          { next: { revalidate: 60, tags: [CACHE_TAGS.playlists] } }
+        )
+        .then((page) => page.items)
+        .catch(() => []),
+    ]),
+  ]);
   if (user) redirect("/dashboard");
 
-  const [{ items: songs }, { items: artists }, publicPlaylists] = await Promise.all([
-    songsService.getSongs(
-      { limit: SECTION_LIMIT },
-      { next: { revalidate: 60, tags: [CACHE_TAGS.songs] } }
-    ),
-    artistsService.getArtists(
-      { limit: 6 },
-      { next: { revalidate: 60, tags: [CACHE_TAGS.artists] } }
-    ),
-    // Playlists públicas de la comunidad (visible sin sesión).
-    playlistsService
-      .getPublicPlaylists(
-        { limit: SECTION_LIMIT },
-        { next: { revalidate: 60, tags: [CACHE_TAGS.playlists] } }
-      )
-      .then((page) => page.items)
-      .catch(() => []),
-  ]);
+  const [{ items: songs }, { items: artists }, publicPlaylists] = catalog;
 
   return (
     <main className="bg-blooms flex-1">

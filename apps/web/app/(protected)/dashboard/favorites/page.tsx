@@ -22,13 +22,14 @@ export default async function FavoritesPage({
   const offset = Math.max(0, Number(params.offset) || 0);
   const page = Math.floor(offset / PAGE_LIMIT) + 1;
 
-  // Biblioteca (favoritos + playlists) para las acciones
-  const library = await getUserLibrary();
-
-  const { items: songs, total } = await favoritesService.getFavorites({
-    offset,
-    limit: PAGE_LIMIT,
-  });
+  // Biblioteca (favoritos + playlists) y favoritos de esta página, en paralelo.
+  const [library, { items: songs, total }] = await Promise.all([
+    getUserLibrary(),
+    favoritesService.getFavorites({
+      offset,
+      limit: PAGE_LIMIT,
+    }),
+  ]);
 
   // Server Action: purga tags de usuario tras una mutación
   const refreshLibrary = async () => {

@@ -32,10 +32,12 @@ export async function generateMetadata({
 export default async function PlaylistDetailPage({ params }: PlaylistDetailPageProps) {
   const { id } = await params;
 
-  const playlist = await playlistsService.getPlaylistById(id).catch(() => null);
+  // Playlist y biblioteca del usuario en paralelo.
+  const [playlist, library] = await Promise.all([
+    playlistsService.getPlaylistById(id).catch(() => null),
+    getUserLibrary(),
+  ]);
   if (!playlist) notFound();
-
-  const library = await getUserLibrary();
 
   const refreshPlaylist = async () => {
     "use server";
