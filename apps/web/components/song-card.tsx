@@ -56,7 +56,9 @@ export function SongCard({ song, queue, className, badge }: SongCardProps) {
           aria-label={isPlaying ? "Pausar" : "Reproducir"}
           className={cn(
             "absolute bottom-2 right-2 rounded-full bg-brand-400 p-3 text-bg-base shadow-lg transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-200",
-            "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100",
+            // Desktop: se revela al hover/focus; touch (mobile): siempre visible
+            // porque no hay hover — sin esto no hay forma de reproducir sin entrar al detalle.
+            "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-coarse:opacity-100",
             isCurrent && "opacity-100"
           )}
         >

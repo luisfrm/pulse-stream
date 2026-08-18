@@ -46,7 +46,11 @@ export default async function SongPage({ params }: SongPageProps) {
     <div className="flex flex-col gap-8">
       <section className="border-b border-bg-highlight bg-bg-elevated/60 px-6 py-10">
         <div className="mx-auto flex max-w-3xl flex-col items-start gap-4">
-          <PlayButton song={song} size="lg" />
+          <PlayButton
+            song={song}
+            size="lg"
+            className="h-14 w-14 shrink-0 rounded-full p-0"
+          />
           <div>
             <h1 className="font-display text-3xl font-extrabold tracking-tight sm:text-5xl">
               {song.title}

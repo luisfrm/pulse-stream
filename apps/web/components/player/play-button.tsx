@@ -10,13 +10,15 @@ interface PlayButtonProps {
   song: Song;
   queue?: Song[];
   size?: "sm" | "md" | "lg";
+  className?: string;
 }
 
 /** Botón play/pausa por canción — carga la canción en el reproductor persistente. */
-export function PlayButton({ song, queue, size = "sm" }: PlayButtonProps) {
+export function PlayButton({ song, queue, size = "sm", className }: PlayButtonProps) {
   const { current, playing, play, toggle } = usePlayer();
   const isCurrent = current?.id === song.id;
   const isPlaying = isCurrent && playing;
+  const iconSize = size === "lg" ? 26 : size === "md" ? 20 : 16;
 
   function handleClick() {
     if (isCurrent) {
@@ -28,12 +30,13 @@ export function PlayButton({ song, queue, size = "sm" }: PlayButtonProps) {
 
   return (
     <Button
-      variant={isCurrent ? "primary" : "outline"}
+      variant="primary"
       size={size}
+      className={className}
       aria-label={isPlaying ? "Pausar" : "Reproducir"}
       onClick={handleClick}
     >
-      {isPlaying ? <Pause size={16} /> : <Play size={16} />}
+      {isPlaying ? <Pause size={iconSize} /> : <Play size={iconSize} />}
     </Button>
   );
 }
