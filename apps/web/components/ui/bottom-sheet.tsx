@@ -56,7 +56,7 @@ export function BottomSheet({ open, onClose, title, children, className }: Botto
       <div
         ref={sheetRef}
         className={cn(
-          "relative z-10 flex max-h-[85dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl border border-bg-highlight bg-bg-elevated shadow-2xl",
+          "relative z-10 flex max-h-[85svh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl border border-bg-highlight bg-bg-elevated shadow-2xl",
           "motion-safe:animate-[sheet-up_250ms_ease-out]",
           className
         )}
