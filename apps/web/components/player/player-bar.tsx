@@ -19,7 +19,7 @@ export function PlayerBar() {
 
   return (
     <>
-      <footer className="animate-player-in fixed inset-x-0 bottom-0 z-40">
+      <footer className="animate-player-in fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 lg:bottom-0">
         {/* Línea de progreso fina en el borde superior de la barra */}
         <div className="h-0.5 w-full bg-bg-highlight/60">
           <div
@@ -69,7 +69,7 @@ export function PlayerBar() {
               toggle();
             }}
             aria-label={playing ? "Pausar" : "Reproducir"}
-            className="rounded-full bg-bg-elevated p-3 text-text-primary transition-colors hover:bg-bg-highlight focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-400"
+            className="rounded-full bg-brand-400 p-3 text-bg-base transition-colors hover:bg-brand-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-400"
           >
             {playing ? <Pause size={20} /> : <Play size={20} className="translate-x-[1px]" />}
           </button>

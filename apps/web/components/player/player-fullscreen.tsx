@@ -43,7 +43,7 @@ export function PlayerFullscreen({ open, onClose }: PlayerFullscreenProps) {
 
   return (
     <div
-      className="animate-fade-in fixed inset-0 z-50 flex flex-col bg-bg-base"
+      className="animate-fade-in fixed inset-x-0 top-0 z-[60] flex h-svh flex-col bg-bg-base"
       role="dialog"
       aria-modal="true"
       aria-label={`Reproductor: ${current.title} de ${current.artist.name}`}
@@ -82,9 +82,11 @@ export function PlayerFullscreen({ open, onClose }: PlayerFullscreenProps) {
         <div className="w-11" />
       </div>
 
-      {/* Tabs (móvil) / división (desktop) */}
-      <div className="relative z-10 mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 overflow-hidden px-5 pb-[max(env(safe-area-inset-bottom),1rem)] pt-4">
-        <div className="flex justify-center gap-2 sm:hidden">
+      {/* Tabs (móvil) / división (desktop) — en móvil el contenido scrollea
+          (svh + overflow-y-auto) para que nada quede cortado; en desktop se
+          mantiene fijo con scroll interno en la letra. */}
+      <div className="relative z-10 mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 overflow-y-auto overscroll-contain px-5 pb-[max(env(safe-area-inset-bottom),1rem)] pt-4 sm:overflow-hidden">
+        <div className="relative flex items-center justify-center gap-2 sm:hidden">
           <button
             type="button"
             onClick={() => setTab("now")}
@@ -109,6 +111,12 @@ export function PlayerFullscreen({ open, onClose }: PlayerFullscreenProps) {
           >
             Letra
           </button>
+
+          {/* Descarga flotando a la derecha de las tabs (móvil) */}
+          <OfflineButton
+            song={current}
+            className="absolute right-0 top-1/2 -translate-y-1/2"
+          />
         </div>
 
         <div className="flex flex-1 flex-col gap-6 overflow-hidden sm:grid sm:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] sm:items-center">
@@ -206,7 +214,9 @@ export function PlayerFullscreen({ open, onClose }: PlayerFullscreenProps) {
               </button>
             </div>
 
-            <OfflineButton song={current} withLabel />
+            <div className="hidden sm:flex">
+              <OfflineButton song={current} withLabel />
+            </div>
           </div>
 
           {/* Columna 2: letra */}
