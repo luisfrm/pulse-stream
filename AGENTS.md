@@ -34,6 +34,9 @@ uv run pytest                          # integración; exige TEST_DATABASE_URL
   `TEST_DATABASE_URL`. Sin esa variable se **saltan** con un mensaje claro
   (`apps/api/tests/conftest.py`). No hay SQLite ni Docker en el flujo.
 - Frontend usa **alias `@/*` → `apps/web/*`** (tsconfig paths).
+- Solo un paquete: `pnpm --filter @pulse-stream/web <lint|typecheck|test|build>`
+  (`test` del web = `vitest run`). El CI (`.github/workflows/ci.yml`) corre
+  exactamente: API `uv run pytest` + web `typecheck → lint → build`.
 
 ---
 
@@ -46,8 +49,8 @@ apps/api/app/
 ├── db/                      # session.py (get_session), base.py (Base declarativa)
 ├── features/
 │   ├── auth/                # fastapi-users: backend cookie JWT, manager, require_admin
-│   ├── users/ · artists/ · songs/ · genres/ · playlists/ · favorites/ · uploads/
-│   └── listens/             # historial de reproducciones (play + fecha)
+│   ├── users/ · artists/ · albums/ · songs/ · genres/ · playlists/ · favorites/
+│   └── uploads/ · listens/  # uploads: presign R2; listens: historial + contadores
 └── shared/                  # pagination.py, exceptions.py
 ```
 
@@ -74,15 +77,31 @@ apps/api/app/
 
 **Auth (fastapi-users):** cookie HttpOnly + JWT (nombre de cookie: `session`).
 `current_user` exige sesión activa; `require_admin` exige `role=admin` o
-`is_superuser` (endpoints mutantes de artists/songs/users). **CSRF sigue
+`is_superuser` (endpoints mutantes de artists/albums/songs/users). **CSRF sigue
 pendiente** antes de producción (`SameSite=None` + `double-submit`).
 
+**Datos de Fase 4 (columnas y relaciones no obvias):**
+- `playlists.kind` es VARCHAR `'user' | 'system'`. Las `system` son snapshots
+  de queries (`top_week`/`top_month`/`new`) generadas por admin; **solo un admin
+  las muta** (`service._get_mutable`) y el feed público las ordena primero.
+- `songs.play_count` y `users.total_plays` se incrementan con UPDATEs atómicos
+  en `listens.service.record_play` (respetando el dedupe de 30 s).
+- `song_collaborators` (N:M canción↔artista): el filtro `collaborator_id` en
+  `GET /songs` excluye al artista principal. `song_collaborators` **no usa
+  `distinct()`** (PK compuesta no duplica; `distinct()` sobre `songs.*` rompe en
+  Postgres por la columna JSON).
+- `AlbumDetail` (con canciones) vive en `albums/router.py`, no en `schemas.py`,
+  para evitar el ciclo de imports albums↔songs.
+- Covers (canciones/artistas/álbumes/perfil) aceptan **JPG y WebP ≤ 512 KB**
+  (`uploads.service.ALLOWED_COVER_TYPES` + `COVER_EXTENSIONS` para el
+  `object_key`).
+
 **Migraciones Alembic:** se escriben **a mano** (no autogen), estilo
-`0004_playlists_favorites_covers.py`: `revision: str = "0004"`,
-`down_revision` encadenado. Nueva tabla → también hay que importar el modelo en
-`apps/api/tests/conftest.py` (los tests registran `Base.metadata` manualmente)
-y el `session` scope es único (config en `pyproject.toml`:
-`asyncio_default_*_loop_scope = "session"`).
+`0007_albums_collaborators.py` (la más reciente): `revision: str = "0007"`,
+`down_revision` encadenado (0001…0007). Nueva tabla → también hay que importar
+el modelo en `apps/api/tests/conftest.py` (los tests registran
+`Base.metadata` manualmente) y el `session` scope es único (config en
+`pyproject.toml`: `asyncio_default_*_loop_scope = "session"`).
 
 **Tests:** helpers en `apps/api/tests/helpers.py` — `register_and_login(client,
 admin=...)` (admin se promueve por DB), `PASSWORD` constante. Patrón típico:
@@ -93,11 +112,20 @@ crear entidades vía API, assert status + shape del JSON.
 ## 2. Frontend (`apps/web`) — Next.js 16 App Router
 
 **Grupos de rutas:**
-- `(public)/` — home, `/login`, `/register`, `/artist/[id]`, `/song/[id]`. Sin
-  sesión requerida. El home **redirige al dashboard si hay sesión**.
-- `(protected)/` — `/dashboard/*`: cualquier sesión. Layout con **sidebar**
-  (escritorio) + drawer (móvil) — reemplazó el top-nav viejo.
-- `(panel)/` — `/panel/*`: solo `role=admin`. Sin sesión → `/login`; sin rol → `/`.
+- `(public)/` — home promocional, `/login`, `/register`. Sin sesión requerida;
+  el home **redirige al dashboard si hay sesión**. Las páginas de detalle
+  (artista/álbum/canción) NO viven acá: exigen sesión.
+- `(protected)/` — `/dashboard/*`, `/account`, y las páginas de catálogo
+  `/artist/[id]`, `/album/[id]`, `/song/[id]` (top-level, NO bajo `/dashboard`):
+  cualquier sesión. Layout con **sidebar** (escritorio) + drawer (móvil).
+  Nota: el `proxy.ts` matchea `/dashboard`, `/panel` y `/artist|/album|/song`;
+  `/account` lo protege únicamente el layout.
+- `(panel)/` — `/panel/*` (artists, songs, playlists) + detalles
+  `/panel/artists/[id]`, `/panel/albums/[id]`, `/panel/songs/[id]`: solo
+  `role=admin`. Sin sesión → `/login`; sin rol → `/`. **El panel NO linkea al
+  sitio público**: artista/álbum/canción abren su página admin interna.
+  **Flujo de alta de canciones: artista → álbum → canción.** Los álbumes se
+  crean desde la página del artista (no hay nav ni página propia de álbumes).
 
 **Guards:** `apps/web/proxy.ts` chequea **solo la presencia** de la cookie
 `session` a nivel request. La validación REAL ocurre en los layouts vía
@@ -120,6 +148,9 @@ el cliente. Convenciones:
 - Catálogo público se cachea por tags (`lib/services/tags.ts`) y se revalida con
   Server Actions `updateTag(CACHE_TAGS.x)` (patrón visto en las páginas de
   `dashboard/`).
+- Géneros y roles llegan en minúscula desde la API (`"hip-hop"`, `"admin"`);
+  para mostrar usar `formatGenre`/`formatRole` de `lib/utils/format.ts`
+  (testeado en Vitest).
 
 **Design system:** Tailwind v4 `@theme` en `app/globals.css` (único lugar de
 tokens). Paleta oscura esmeralda en OKLCH (`--color-bg-base`, `--color-brand-*`)
@@ -129,19 +160,35 @@ estos tokens** — no crear paletas paralelas. Para diseño UI usar el skill
 
 **Reproductor** (`components/player/`): un único `<audio>` global en
 `PlayerProvider` (montado en el root layout, sobrevive navegación). API vía
-`usePlayer()`: `play(song, queue)`, `toggle`, `next`, `prev`, `seek`, más
-`current/playing/progress/duration`. `PlayerBar` (barra inferior fija, animada)
-abre `PlayerFullscreen` (pantalla completa con cover, controles y letra).
-Media Session API integrada. El provider **registra cada play** (`POST
-/me/listens`) cuando una canción empieza a reproducirse (solo con sesión).
+`usePlayer()`: `play(song, queue)`, `toggle`, `pause`, `next`, `prev`, `seek`,
+más `current/playing/progress/duration`. `PlayerBar` (barra inferior fija,
+animada) abre `PlayerFullscreen` (pantalla completa con cover, controles y
+letra). Media Session API integrada. El provider **registra cada play** (`POST
+/me/listens`) cuando una canción empieza a reproducirse.
+
+> ⚠️ La cookie `session` es **HttpOnly** (`auth/backend.py`): NO se puede leer
+> con `document.cookie`. No gates de sesión basados en cookies client-side (el
+> `recordPlay` usa una marca en memoria y descarta el 401 de anónimos).
+
+**Audio único en toda la app:** `components/player/audio-orchestrator.ts`
+(`claimAudio`/`releaseAudio`) garantiza que **solo suene una fuente a la vez**:
+el reproductor global y los previews del panel (`AudioPreviewPlayer`, que usan
+`new Audio()` propio) compiten por el "turno" — empezar uno pausa el otro. No
+crear más sistemas de audio sueltos sin pasar por el orquestador. El ecualizador
+solo se muestra en la fuente activa.
 
 **PWA:** `app/manifest.ts` (dinámico) + `public/sw.js` (service worker manual,
-sin integración de build) registrado desde un client component. Descarga offline
-= Cache API (fetch completo del audio con CORS → `caches`).
+sin integración de build) registrado desde un client component. **En dev la SW
+no se registra** (`pwa-register.tsx` la desregistra): su stale-while-revalidate
+cachea chunks viejos de `/_next/static` → hydration mismatch y errores de
+Turbopack (`chunk.reason.enqueueModel`). Si ves esos errores en dev, limpiá
+`.next` y reiniciá el server. Descarga offline = Cache API (fetch completo del
+audio con CORS → `caches`).
 
 **UI kit** (`components/ui/`): `Button/Badge/Card/Input/Textarea/Title/Select/
-BottomSheet` con `cva` + `cn` + `Slot` (asChild). Reutilizarlo; los 8 estados
-(default/hover/focus/active/disabled/loading/error/success) son obligatorios.
+BottomSheet/Dialog` con `cva` + `cn` + `Slot` (asChild). Reutilizarlo; los 8
+estados (default/hover/focus/active/disabled/loading/error/success) son
+obligatorios.
 
 ---
 

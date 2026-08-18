@@ -62,3 +62,4 @@
 | 1–10 | Fase 3 resuelta | Ver sección anterior |
 | 11–21 | Fase 3b resuelta | Ver sección anterior |
 | 16 | CRUD de usuarios en el panel | Backend listo (`/admin/users`, `PATCH role`); falta pantalla |
+| 31 | Bugs funcionales | Al cargar un nuevo album y subirlo, no se elimina el preview, no se cierra el form y no se hace refetch
