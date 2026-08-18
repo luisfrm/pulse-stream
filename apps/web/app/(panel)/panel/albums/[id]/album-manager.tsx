@@ -141,7 +141,7 @@ export function AlbumManager({ album, onMutated }: AlbumManagerProps) {
           <h2 className="font-display text-lg font-bold">Acciones</h2>
           <div className="mt-4 flex flex-col gap-3">
             <Link
-              href={`/panel/songs/new?album=${album.id}`}
+              href={`/panel/songs/new?artist=${album.artist.id}&album=${album.id}`}
               className="flex items-center gap-2 rounded-pill bg-brand-400 px-4 py-2.5 text-sm font-semibold text-bg-base transition-colors hover:bg-brand-200"
             >
               <Plus size={16} aria-hidden /> Subir canción a este álbum

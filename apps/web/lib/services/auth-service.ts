@@ -28,12 +28,17 @@ export const authService = {
       body: payload,
     }),
 
-  /** /auth/login espera form-urlencoded (OAuth2PasswordRequestForm). */
-  login: (email: string, password: string) =>
+  /** /auth/login espera form-urlencoded (OAuth2PasswordRequestForm).
+   *  `remember` -> cookie persistente (7 días); sin él, cookie de sesión. */
+  login: (email: string, password: string, remember = false) =>
     api<void>("/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ username: email, password }),
+      body: new URLSearchParams({
+        username: email,
+        password,
+        remember: String(remember),
+      }),
     }),
 
   logout: () => api<void>("/auth/logout", { method: "POST" }),

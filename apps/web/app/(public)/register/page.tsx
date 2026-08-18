@@ -3,11 +3,51 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 
 import { authService } from "@/lib/services/auth-service";
 import { friendlyError } from "@/lib/utils/error";
 
 const MIN_PASSWORD = 3;
+
+function PasswordInput({
+  value,
+  onChange,
+  show,
+  onToggle,
+  autoComplete,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  show: boolean;
+  onToggle: () => void;
+  autoComplete: string;
+  placeholder: string;
+}) {
+  return (
+    <span className="relative">
+      <input
+        type={show ? "text" : "password"}
+        required
+        minLength={MIN_PASSWORD}
+        autoComplete={autoComplete}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-xl border border-bg-highlight bg-bg-elevated py-3 pl-4 pr-11 text-text-primary outline-none transition-colors placeholder:text-text-subdued focus:border-brand-400"
+        placeholder={placeholder}
+      />
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-label={show ? "Ocultar contraseña" : "Mostrar contraseña"}
+        className="absolute right-3 top-1/2 -translate-y-1/2 rounded-pill p-1.5 text-text-subdued transition-colors hover:bg-bg-highlight hover:text-text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-400"
+      >
+        {show ? <EyeOff size={18} /> : <Eye size={18} />}
+      </button>
+    </span>
+  );
+}
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -16,6 +56,8 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -39,8 +81,8 @@ export default function RegisterPage() {
         password,
         username: username.trim() || undefined,
       });
-      // Registro exitoso -> login automático y al dashboard
-      await authService.login(email, password);
+      // Registro exitoso -> login automático y al dashboard (cookie persistente)
+      await authService.login(email, password, true);
       router.push("/dashboard");
       router.refresh();
     } catch (err) {
@@ -92,28 +134,24 @@ export default function RegisterPage() {
 
           <label className="flex flex-col gap-1.5 text-sm font-medium">
             Contraseña
-            <input
-              type="password"
-              required
-              minLength={MIN_PASSWORD}
-              autoComplete="new-password"
+            <PasswordInput
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className={inputClass}
+              onChange={setPassword}
+              show={showPassword}
+              onToggle={() => setShowPassword((v) => !v)}
+              autoComplete="new-password"
               placeholder={`Mínimo ${MIN_PASSWORD} caracteres`}
             />
           </label>
 
           <label className="flex flex-col gap-1.5 text-sm font-medium">
             Confirmar contraseña
-            <input
-              type="password"
-              required
-              minLength={MIN_PASSWORD}
-              autoComplete="new-password"
+            <PasswordInput
               value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className={inputClass}
+              onChange={setConfirmPassword}
+              show={showConfirm}
+              onToggle={() => setShowConfirm((v) => !v)}
+              autoComplete="new-password"
               placeholder="Repetí la contraseña"
             />
           </label>
