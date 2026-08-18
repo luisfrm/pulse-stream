@@ -1,5 +1,6 @@
 import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
+import { Loader2 } from "lucide-react";
 import { Slot } from "@radix-ui/react-slot";
 
 import { cn } from "./utils";
@@ -51,10 +52,18 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         data-variant={variant}
         data-size={size}
         disabled={disabled || loading}
+        aria-busy={loading || undefined}
         className={cn(buttonVariants({ variant, size }), className)}
         {...props}
       >
-        {loading ? "…" : children}
+        {loading ? (
+          <>
+            <Loader2 size={16} className="animate-spin" aria-hidden />
+            {children}
+          </>
+        ) : (
+          children
+        )}
       </Comp>
     );
   }

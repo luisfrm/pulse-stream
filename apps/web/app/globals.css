@@ -183,7 +183,8 @@
   .animate-spin,
   .animate-aurora-pan,
   .animate-aurora-breathe,
-  .eq-bar {
+  .eq-bar,
+  .animate-pulse {
     animation: none !important;
   }
   .card-lift {

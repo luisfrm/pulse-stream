@@ -1,11 +1,22 @@
 "use client";
 
 import * as React from "react";
+import dynamic from "next/dynamic";
 import { ChevronUp, Pause, Play } from "lucide-react";
 
 import { formatTime } from "@/lib/utils/format";
 import { usePlayer } from "./player-provider";
-import { PlayerFullscreen } from "./player-fullscreen";
+
+// Lazy: el fullscreen (con OfflineButton + letra) es pesado; no debe viajar en
+// el chunk del root layout ni descargarse en páginas que nunca lo abren.
+const PlayerFullscreen = dynamic(
+  () =>
+    import("./player-fullscreen").then((m) => m.PlayerFullscreen),
+  {
+    ssr: false,
+    loading: () => null,
+  }
+);
 
 /** Barra inferior fija del reproductor. Entra animada; al tocarla abre el
  *  fullscreen. El progreso vive en una línea fina en el borde superior. */
