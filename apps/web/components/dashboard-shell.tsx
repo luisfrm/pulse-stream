@@ -175,8 +175,9 @@ export function DashboardShell({ user, isAdmin, children }: DashboardShellProps)
         </div>
       )}
 
-      {/* Sidebar desktop */}
-      <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-bg-highlight bg-bg-base/60 px-4 py-5 backdrop-blur lg:flex">
+      {/* Sidebar desktop. `lg:pb-28` deja aire bajo el chip del usuario: la
+          barra del reproductor (fixed bottom, z-40) lo taparía sin esto. */}
+      <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-bg-highlight bg-bg-base/60 px-4 pb-28 pt-5 backdrop-blur lg:flex">
         <Link
           href="/dashboard"
           className="mb-6 flex items-center gap-2 px-3 font-display text-lg font-bold text-text-primary"
