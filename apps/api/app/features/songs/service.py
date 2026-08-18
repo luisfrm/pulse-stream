@@ -91,6 +91,7 @@ class SongService:
             genres=genres,
             lyrics=payload.lyrics,
             object_key=payload.object_key,
+            cover_key=payload.cover_key,
             duration_seconds=payload.duration_seconds,
         )
         if payload.collaborator_ids:

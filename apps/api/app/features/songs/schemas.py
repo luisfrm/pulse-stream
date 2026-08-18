@@ -17,6 +17,7 @@ class SongCreate(BaseModel):
     genres: list[SongGenre] = Field(default_factory=list)
     lyrics: str | None = None
     object_key: str = Field(min_length=1, max_length=1024)
+    cover_key: str | None = None
     duration_seconds: int | None = Field(default=None, ge=0)
     collaborator_ids: list[uuid.UUID] = Field(default_factory=list)
 
