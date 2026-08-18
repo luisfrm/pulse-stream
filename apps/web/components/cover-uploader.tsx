@@ -23,6 +23,10 @@ interface CoverUploaderProps {
  * Subida de cover (cuadrícula): JPG/WebP <= 512 KB, subida directa a R2 vía
  * presign. Muestra el peso y el tamaño sugerido como ayuda (el backend
  * valida lo mismo). `onChange` recibe el object_key (o null al quitar).
+ *
+ * El preview usa un object URL local del archivo elegido apenas se selecciona
+ * (no espera a que el RSC se refresque con la URL pública de R2), y recién
+ * cae al `previewUrl` del servidor cuando el padre lo actualiza.
  */
 export function CoverUploader({
   value,
@@ -32,6 +36,18 @@ export function CoverUploader({
 }: CoverUploaderProps) {
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  // URL local del archivo recién elegido (object URL) — el preview inmediato.
+  const [localPreview, setLocalPreview] = React.useState<string | null>(null);
+  const objectUrlRef = React.useRef<string | null>(null);
+
+  // Limpia el object URL anterior (si hay) y revoca al desmontar. NO se revoca
+  // al terminar la subida: el preview local sigue mostrando la imagen hasta
+  // que el padre confirme con su previewUrl (refresh del RSC).
+  React.useEffect(() => {
+    return () => {
+      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+    };
+  }, []);
 
   async function handleFile(file: File | undefined) {
     if (!file) return;
@@ -51,6 +67,12 @@ export function CoverUploader({
       return;
     }
 
+    // Preview inmediato con el archivo local (antes de subir).
+    if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+    const objectUrl = URL.createObjectURL(file);
+    objectUrlRef.current = objectUrl;
+    setLocalPreview(objectUrl);
+
     setPending(true);
     try {
       const presign = await uploadsService.presignCover(file.name, file.type, file.size);
@@ -58,10 +80,13 @@ export function CoverUploader({
       onChange(presign.object_key);
     } catch (err) {
       setError(friendlyError(err));
+      setLocalPreview(null);
     } finally {
       setPending(false);
     }
   }
+
+  const shownPreview = localPreview ?? previewUrl;
 
   return (
     <div className="flex flex-col gap-2">
@@ -70,9 +95,13 @@ export function CoverUploader({
       <div className="flex items-center gap-4">
         {/* Preview / placeholder */}
         <div className="h-24 w-24 shrink-0 overflow-hidden rounded-xl border border-bg-highlight bg-bg-highlight/40">
-          {previewUrl ? (
+          {shownPreview ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={previewUrl} alt="Vista previa del cover" className="h-full w-full object-cover" />
+            <img
+              src={shownPreview}
+              alt="Vista previa del cover"
+              className="h-full w-full object-cover"
+            />
           ) : (
             <div className="bg-brand-gradient flex h-full w-full items-center justify-center text-text-primary/60">
               {pending ? <Loader2 size={20} className="animate-spin" /> : <ImagePlus size={20} />}
@@ -100,7 +129,10 @@ export function CoverUploader({
           {value && (
             <button
               type="button"
-              onClick={() => onChange(null)}
+              onClick={() => {
+                setLocalPreview(null);
+                onChange(null);
+              }}
               className="inline-flex w-fit items-center gap-1 text-xs text-text-subdued transition-colors hover:text-brand-400"
             >
               <X size={12} /> Quitar cover

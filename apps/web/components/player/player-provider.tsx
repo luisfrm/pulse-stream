@@ -24,10 +24,15 @@ interface PlayerState {
 
 const PlayerContext = React.createContext<PlayerState | null>(null);
 
-/** ¿Hay sesión? Solo se registran plays de usuarios autenticados. */
-function hasSessionCookie(): boolean {
-  return typeof document !== "undefined" && document.cookie.includes("session=");
-}
+/**
+ * Marca en memoria de "ya sabemos que hay sesión": evita repetir 401 de
+ * `POST /me/listens` por cada play de un usuario anónimo.
+ *
+ * NO se puede leer la cookie `session` desde JS (es HttpOnly — ver
+ * `apps/api/app/features/auth/backend.py`), así que la detección no puede
+ * basarse en `document.cookie`.
+ */
+let knownAuthenticated: boolean | null = null;
 
 /**
  * Reproductor persistente: un único <audio> global en el root layout,
@@ -45,9 +50,17 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [duration, setDuration] = React.useState(0);
 
   const recordPlay = React.useCallback((song: Song) => {
-    if (!hasSessionCookie() || !song.id) return;
-    // Fire-and-forget: el backend deduplica plays consecutivos.
-    listensService.recordPlay(song.id).catch(() => {});
+    // Fire-and-forget: el backend deduplica plays consecutivos. Si no hay
+    // sesión el POST devuelve 401 y lo ignoramos (una vez, con memoria).
+    if (knownAuthenticated === false) return;
+    listensService
+      .recordPlay(song.id)
+      .then(() => {
+        knownAuthenticated = true;
+      })
+      .catch(() => {
+        knownAuthenticated = false;
+      });
   }, []);
 
   React.useEffect(() => {

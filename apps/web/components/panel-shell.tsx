@@ -4,8 +4,6 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Disc3,
-  ExternalLink,
   LayoutDashboard,
   ListMusic,
   Menu,
@@ -36,7 +34,6 @@ interface NavItem {
 const NAV: NavItem[] = [
   { href: "/panel", label: "Panel", icon: LayoutDashboard, exact: true },
   { href: "/panel/artists", label: "Artistas", icon: Mic2 },
-  { href: "/panel/albums", label: "Álbumes", icon: Disc3 },
   { href: "/panel/songs", label: "Canciones", icon: Music },
   { href: "/panel/playlists", label: "Playlists", icon: ListMusic },
 ];
@@ -84,24 +81,27 @@ function PanelNav({ user, onNavigate }: { user: User; onNavigate?: () => void })
         >
           <Upload size={16} /> Subir canción
         </Link>
-        <Link
-          href="/"
-          onClick={onNavigate}
-          className="mt-2 flex items-center justify-center gap-2 rounded-pill border border-bg-highlight px-4 py-2 text-sm text-text-subdued transition-colors hover:border-brand-400 hover:text-text-primary"
-        >
-          <ExternalLink size={14} /> Ver sitio
-        </Link>
       </div>
 
       <div className="mt-auto">
         <div className="flex items-center gap-3 rounded-xl border border-bg-highlight bg-bg-elevated/60 px-3 py-2.5">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-gradient font-display text-sm font-extrabold text-bg-base">
-            {user.email.charAt(0).toUpperCase()}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">{user.email}</p>
-            <p className="text-xs text-text-subdued">{formatRole(user.role)}</p>
-          </div>
+          <Link
+            href="/account"
+            className="flex min-w-0 flex-1 items-center gap-3 rounded-lg transition-colors hover:opacity-80"
+          >
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-gradient font-display text-sm font-extrabold text-bg-base">
+              {user.cover_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={user.cover_url} alt="" className="h-full w-full object-cover" />
+              ) : (
+                (user.username ?? user.email).charAt(0).toUpperCase()
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium">{user.username ?? user.email}</p>
+              <p className="truncate text-xs text-text-subdued">{formatRole(user.role)}</p>
+            </div>
+          </Link>
           <LogoutButton variant="icon" />
         </div>
       </div>
