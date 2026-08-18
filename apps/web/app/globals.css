@@ -87,11 +87,26 @@
   0%, 100% { transform: scaleY(0.6); }
   50% { transform: scaleY(1); }
 }
+@keyframes ps-collapse {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-6px); }
+}
+@keyframes ps-dropdown-in {
+  from { opacity: 0; transform: translateY(-4px) scaleY(0.98); }
+  to { opacity: 1; transform: translateY(0) scaleY(1); }
+}
+@keyframes ps-option-in {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
 .animate-player-in { animation: ps-player-in 320ms var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1)) both; }
 .animate-fade-in { animation: ps-fade-in 200ms ease-out both; }
 .animate-rise { animation: ps-rise 360ms cubic-bezier(0.22, 1, 0.36, 1) both; }
 .animate-spin { animation: ps-spin 1s linear infinite; }
+.animate-collapse { animation: ps-collapse 200ms ease-in both; }
+.animate-dropdown-in { animation: ps-dropdown-in 180ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.animate-option-in { animation: ps-option-in 160ms ease-out both; }
 
 .eq-bar {
   display: inline-block;
@@ -121,6 +136,9 @@
   .animate-player-in,
   .animate-fade-in,
   .animate-rise,
+  .animate-collapse,
+  .animate-dropdown-in,
+  .animate-option-in,
   .animate-spin,
   .eq-bar {
     animation: none !important;
@@ -145,4 +163,37 @@ body {
 
 button {
   cursor: pointer;
+}
+
+/* ============================================================
+   Scrollbars globales (todas las áreas de la app, incl. panel).
+   Firefox usa scrollbar-width/color; WebKit/Chromium usan pseudo.
+   ============================================================ */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklch, var(--color-brand-400) 45%, var(--color-bg-highlight))
+    transparent;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: color-mix(in oklch, var(--color-brand-400) 35%, var(--color-bg-highlight));
+  border-radius: 9999px;
+  border: 2px solid var(--color-bg-base);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklch, var(--color-brand-400) 55%, var(--color-bg-highlight));
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
 }

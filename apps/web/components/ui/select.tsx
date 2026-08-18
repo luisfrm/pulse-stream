@@ -181,7 +181,7 @@ export function Select<T extends string = string>({
           id={listboxId}
           role="listbox"
           aria-label={label ?? placeholder}
-          className="mt-1.5 max-h-64 overflow-auto rounded-xl border border-bg-highlight bg-bg-elevated p-1.5 shadow-xl"
+          className="animate-dropdown-in mt-1.5 max-h-64 overflow-auto rounded-xl border border-bg-highlight bg-bg-elevated p-1.5 shadow-xl"
         >
           {searchable && (
             <div className="mb-1 flex items-center gap-2 border-b border-bg-highlight px-2 pb-1.5">
@@ -218,8 +218,9 @@ export function Select<T extends string = string>({
                     onChange(option.value);
                     setOpen(false);
                   }}
+                  style={{ animationDelay: `${Math.min(index, 8) * 20}ms` }}
                   className={cn(
-                    "flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-400",
+                    "animate-option-in flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-400",
                     isHighlighted
                       ? "bg-bg-highlight text-text-primary"
                       : "text-text-primary",
