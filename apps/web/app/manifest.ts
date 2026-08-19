@@ -43,9 +43,9 @@ export default function manifest(): MetadataRoute.Manifest {
         url: "/dashboard/search",
       },
       {
-        name: "Tus favoritos",
-        short_name: "Favoritos",
-        url: "/dashboard/favorites",
+        name: "Mi catálogo",
+        short_name: "Catálogo",
+        url: "/dashboard/catalogo",
       },
       {
         name: "Playlists",

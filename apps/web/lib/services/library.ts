@@ -5,12 +5,17 @@ import type { Playlist } from "./types";
 
 export interface UserLibrary {
   favoriteIds: Set<string>;
+  albumIds: Set<string>;
+  playlistIds: Set<string>;
   playlists: Playlist[];
 }
 
 /**
  * Datos de la biblioteca del usuario (favoritos + playlists) para pintar
- * corazones y menús "agregar a playlist" en listas de canciones.
+ * corazones, menús "agregar a playlist" y likes en listas de canciones.
+ *
+ * Los 3 sets de IDs (canciones, álbumes, playlists) salen de UN solo
+ * `GET /me/library/ids` — no de tres llamadas.
  *
  * Devuelve `null` si no hay sesión (la UI se renderiza sin acciones).
  * NUNCA se cachea: son datos por usuario (cache: "no-store").
@@ -20,9 +25,14 @@ export async function getUserLibrary(): Promise<UserLibrary | null> {
   if (!user) return null;
 
   const [ids, playlists] = await Promise.all([
-    favoritesService.getFavoriteIds(),
+    favoritesService.getLibraryIds(),
     playlistsService.getMyPlaylists(),
   ]);
 
-  return { favoriteIds: new Set(ids), playlists };
+  return {
+    favoriteIds: new Set(ids.song_ids),
+    albumIds: new Set(ids.album_ids),
+    playlistIds: new Set(ids.playlist_ids),
+    playlists,
+  };
 }

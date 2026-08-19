@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { Pause, Play } from "lucide-react";
 
-import type { Song } from "@/lib/services/types";
+import type { Playlist, Song } from "@/lib/services/types";
 import { cn } from "@/components/ui";
 import { usePlayer } from "./player/player-provider";
+import { FavoriteButton } from "./favorite-button";
+import { PlaylistPicker } from "./playlist-picker";
 
 interface SongCardProps {
   song: Song;
@@ -13,13 +15,31 @@ interface SongCardProps {
   className?: string;
   /** Badge superior (ej. "3×" = plays del usuario en recientes). */
   badge?: string;
+  /** Con sesión: playlists del usuario → corner con "+" (PlaylistPicker). */
+  playlists?: Playlist[];
+  /** Con sesión: IDs favoritos → corner con corazón. */
+  favoriteIds?: Set<string>;
+  onMutated?: () => Promise<void>;
 }
 
 /** Tarjeta de canción estilo Spotify: cover + play en hover + metadatos. */
-export function SongCard({ song, queue, className, badge }: SongCardProps) {
+export function SongCard({
+  song,
+  queue,
+  className,
+  badge,
+  playlists,
+  favoriteIds,
+  onMutated,
+}: SongCardProps) {
   const { current, playing, play, toggle } = usePlayer();
   const isCurrent = current?.id === song.id;
   const isPlaying = isCurrent && playing;
+
+  // Sin props de usuario NO se renderiza nada (home público y cards sin sesión).
+  const showPicker = playlists !== undefined;
+  const showHeart = favoriteIds !== undefined;
+  const showActions = showPicker || showHeart;
 
   function handlePlay() {
     if (isCurrent) toggle();
@@ -81,8 +101,37 @@ export function SongCard({ song, queue, className, badge }: SongCardProps) {
         </Link>
       </div>
 
+      {/* Acciones de usuario (solo con sesión): corazón + "+" en el corner.
+          El ecualizador se corre a la izquierda para no pisarse. */}
+      {showActions && (
+        <div className="absolute right-2 top-2 z-10 flex items-center gap-1">
+          {showHeart && (
+            <FavoriteButton
+              songId={song.id}
+              initialFavorited={favoriteIds!.has(song.id)}
+              onMutated={onMutated}
+              className="bg-bg-base/70 backdrop-blur-sm hover:bg-bg-highlight/80"
+            />
+          )}
+          {showPicker && (
+            <PlaylistPicker
+              song={song}
+              playlists={playlists}
+              onMutated={onMutated}
+              triggerClassName="bg-bg-base/70 backdrop-blur-sm hover:bg-bg-highlight/80"
+            />
+          )}
+        </div>
+      )}
+
       {isPlaying && (
-        <div className="absolute right-4 top-4 flex h-5 items-end gap-0.5 text-brand-400" aria-label="Reproduciendo">
+        <div
+          className={cn(
+            "absolute top-4 flex h-5 items-end gap-0.5 text-brand-400",
+            showActions ? "left-4" : "right-4"
+          )}
+          aria-label="Reproduciendo"
+        >
           <span className="eq-bar h-3" />
           <span className="eq-bar h-3" />
           <span className="eq-bar h-3" />

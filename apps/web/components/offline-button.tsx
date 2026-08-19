@@ -17,10 +17,17 @@ interface OfflineButtonProps {
   className?: string;
   /** Label descriptivo (para usar dentro del reproductor fullscreen). */
   withLabel?: boolean;
+  /** Modo icono compacto (filas/cards): sin borde ni label, estilo icon-button. */
+  compact?: boolean;
 }
 
 /** Botón "descargar para escuchar offline": guarda el audio en la Cache API. */
-export function OfflineButton({ song, className, withLabel }: OfflineButtonProps) {
+export function OfflineButton({
+  song,
+  className,
+  withLabel,
+  compact,
+}: OfflineButtonProps) {
   const [saved, setSaved] = React.useState(false);
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -56,6 +63,8 @@ export function OfflineButton({ song, className, withLabel }: OfflineButtonProps
     }
   }
 
+  const label = saved ? "Quitar descarga offline" : "Descargar para escuchar offline";
+
   return (
     <span className={cn("inline-flex flex-col items-center gap-1", className)}>
       <button
@@ -63,14 +72,19 @@ export function OfflineButton({ song, className, withLabel }: OfflineButtonProps
         onClick={toggle}
         disabled={pending}
         aria-pressed={saved}
-        aria-label={saved ? "Quitar descarga offline" : "Descargar para escuchar offline"}
-        title={saved ? "Guardada para escuchar offline" : "Descargar para escuchar offline"}
+        aria-label={label}
+        title={error ?? (saved ? "Guardada para escuchar offline" : "Descargar para escuchar offline")}
         className={cn(
-          "flex items-center gap-2 rounded-pill border px-3.5 py-2 text-sm font-medium transition-colors",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 disabled:opacity-50",
-          saved
-            ? "border-brand-400/60 bg-brand-900/30 text-brand-200"
-            : "border-bg-highlight bg-bg-elevated text-text-subdued hover:border-brand-400 hover:text-text-primary"
+          compact
+            ? "rounded-pill p-2 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-400 disabled:opacity-50"
+            : "flex items-center gap-2 rounded-pill border px-3.5 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 disabled:opacity-50",
+          compact
+            ? saved
+              ? "text-brand-400"
+              : "text-text-subdued hover:text-brand-400"
+            : saved
+              ? "border-brand-400/60 bg-brand-900/30 text-brand-200"
+              : "border-bg-highlight bg-bg-elevated text-text-subdued hover:border-brand-400 hover:text-text-primary"
         )}
       >
         {pending ? (
@@ -80,9 +94,11 @@ export function OfflineButton({ song, className, withLabel }: OfflineButtonProps
         ) : (
           <Download size={16} />
         )}
-        {withLabel && <span>{saved ? "Descargada" : "Descargar"}</span>}
+        {withLabel && !compact && <span>{saved ? "Descargada" : "Descargar"}</span>}
       </button>
-      {error && <span className="max-w-[12rem] text-center text-xs text-brand-200">{error}</span>}
+      {error && !compact && (
+        <span className="max-w-[12rem] text-center text-xs text-brand-200">{error}</span>
+      )}
     </span>
   );
 }

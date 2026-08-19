@@ -3,6 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // Mock de la Cache API con un Map en memoria.
 const store = new Map<string, Response>();
 
+// Nombres de caché existentes: la de descargas y la del shell del SW.
+const cacheNames = new Set<string>(["pulse-offline-v1", "pulse-shell-v1"]);
+
 const fakeCache: Cache = {
   async match(request: RequestInfo | URL) {
     const key = typeof request === "string" ? request : request.toString();
@@ -26,7 +29,14 @@ const fakeCache: Cache = {
   addAll: vi.fn(),
 };
 
-const fakeCaches = { open: async () => fakeCache };
+const fakeCaches = {
+  open: async (name: string) => {
+    cacheNames.add(name);
+    return fakeCache;
+  },
+  keys: async () => [...cacheNames],
+  delete: async (name: string) => cacheNames.delete(name),
+};
 
 const fakeSong = {
   id: "abc",
@@ -96,5 +106,30 @@ describe("offline (Cache API)", () => {
     await offline.saveSong(fakeSong);
     const urls = await offline.getSavedSongUrls();
     expect(urls).toContain(fakeSong.stream_url);
+  });
+
+  it("clearOfflineCache borra la caché de descargas y NO la del shell", async () => {
+    expect(cacheNames.has("pulse-offline-v1")).toBe(true);
+    expect(cacheNames.has("pulse-shell-v1")).toBe(true);
+
+    await offline.clearOfflineCache();
+
+    expect(cacheNames.has("pulse-offline-v1")).toBe(false);
+    expect(cacheNames.has("pulse-shell-v1")).toBe(true);
+  });
+
+  it("clearOfflineCache no rompe sin soporte de Cache API", async () => {
+    vi.stubGlobal("window", {});
+    await expect(offline.clearOfflineCache()).resolves.toBeUndefined();
+  });
+
+  it("getOfflineCacheSize suma el peso de las descargas guardadas", async () => {
+    await offline.saveSong(fakeSong);
+    const size = await offline.getOfflineCacheSize();
+    expect(size).toBe("audio-bytes".length);
+  });
+
+  it("getOfflineCacheSize devuelve 0 sin descargas", async () => {
+    expect(await offline.getOfflineCacheSize()).toBe(0);
   });
 });

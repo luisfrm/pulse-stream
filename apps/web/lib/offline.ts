@@ -53,6 +53,30 @@ export async function getSavedSongUrls(): Promise<string[]> {
   return (await cache.keys()).map((request) => request.url);
 }
 
+/**
+ * Elimina TODAS las descargas offline. Borra solo `OFFLINE_CACHE`
+ * (`pulse-offline-v1`): la caché del shell del service worker
+ * (`pulse-shell-v1`, navegación offline) queda intacta.
+ */
+export async function clearOfflineCache(): Promise<void> {
+  if (!canCacheOffline()) return;
+  await caches.delete(OFFLINE_CACHE);
+}
+
+/** Peso en bytes de las descargas offline (suma de los blobs guardados). */
+export async function getOfflineCacheSize(): Promise<number | null> {
+  if (!canCacheOffline()) return null;
+  const cache = await offlineCache();
+  const responses = await cache.matchAll();
+  const sizes = await Promise.all(
+    responses.map(async (response) => {
+      const blob = await response.clone().blob();
+      return blob.size;
+    })
+  );
+  return sizes.reduce((acc, size) => acc + size, 0);
+}
+
 /** Espacio usado/disponible del storage del dispositivo (para el UI). */
 export async function getStorageEstimate(): Promise<{
   usage: number;
