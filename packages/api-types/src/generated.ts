@@ -566,6 +566,9 @@ export interface paths {
         /**
          * List My Playlists
          * @description Playlists del usuario actual (para el menú "agregar a playlist").
+         *
+         *     Incluye `song_ids` por playlist (orden por posición) para que el picker
+         *     muestre "Ya está en esta playlist" sin traer las canciones completas.
          */
         get: operations["list_my_playlists_me_playlists_get"];
         put?: never;
@@ -1059,6 +1062,51 @@ export interface components {
              * Format: date-time
              */
             played_at: string;
+        };
+        /**
+         * MyPlaylistRead
+         * @description Playlist del usuario para el PlaylistPicker (GET /me/playlists).
+         *
+         *     Expone `song_ids` —ordenados por posición— para que el frontend muestre
+         *     "Ya está en esta playlist" sin traer las canciones completas. Schema
+         *     exclusivo de /me/playlists: NO reemplaza a `PlaylistRead`.
+         */
+        MyPlaylistRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** @default user */
+            kind: components["schemas"]["PlaylistKind"];
+            /** Name */
+            name: string;
+            /** Description */
+            description?: string | null;
+            /**
+             * Is Public
+             * @default false
+             */
+            is_public: boolean;
+            /** Cover Key */
+            cover_key?: string | null;
+            /** Cover Url */
+            cover_url?: string | null;
+            /**
+             * Song Count
+             * @default 0
+             */
+            song_count: number;
+            query?: components["schemas"]["PlaylistSystemQuery"] | null;
+            /** Owner Email */
+            owner_email?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Song Ids */
+            song_ids?: string[];
         };
         /** Page[AlbumRead] */
         Page_AlbumRead_: {
@@ -3116,7 +3164,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PlaylistRead"][];
+                    "application/json": components["schemas"]["MyPlaylistRead"][];
                 };
             };
         };
