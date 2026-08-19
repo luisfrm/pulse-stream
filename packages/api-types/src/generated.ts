@@ -434,6 +434,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/playlists/system/{playlist_id}/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh System Playlist
+         * @description Regenera el snapshot de una playlist del sistema — admin only.
+         *
+         *     Recalcula las canciones según la `query` que la generó (top_week,
+         *     top_month o new) y reemplaza el contenido en la misma playlist.
+         */
+        post: operations["refresh_system_playlist_playlists_system__playlist_id__refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/playlists/public": {
         parameters: {
             query?: never;
@@ -533,6 +556,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/playlists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List My Playlists
+         * @description Playlists del usuario actual (para el menú "agregar a playlist").
+         */
+        get: operations["list_my_playlists_me_playlists_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/favorites": {
         parameters: {
             query?: never;
@@ -562,7 +605,7 @@ export interface paths {
         };
         /**
          * Favorite Ids
-         * @description IDs favoritos (para pintar corazones en listas grandes sin traer todo).
+         * @description IDs de canciones favoritas (para pintar corazones sin traer todo).
          */
         get: operations["favorite_ids_me_favorites_ids_get"];
         put?: never;
@@ -586,6 +629,151 @@ export interface paths {
         post?: never;
         /** Remove Favorite */
         delete: operations["remove_favorite_me_favorites__song_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/favorites/playlists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Favorite Playlists
+         * @description Playlists favoritas del usuario (de usuario y del sistema), más recientes primero.
+         */
+        get: operations["list_favorite_playlists_me_favorites_playlists_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/favorites/playlists/ids": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Favorite Playlist Ids
+         * @description IDs de playlists favoritas (para pintar corazones sin traer todo).
+         */
+        get: operations["favorite_playlist_ids_me_favorites_playlists_ids_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/favorites/playlists/{playlist_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Add Favorite Playlist
+         * @description Like a una playlist (de usuario o del sistema).
+         *
+         *     Acción de usuario normal: NO muta el contenido de la playlist (las
+         *     `system` solo las muta un admin), solo la marca como favorita.
+         */
+        put: operations["add_favorite_playlist_me_favorites_playlists__playlist_id__put"];
+        post?: never;
+        /** Remove Favorite Playlist */
+        delete: operations["remove_favorite_playlist_me_favorites_playlists__playlist_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/favorites/albums": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Favorite Albums
+         * @description Álbumes favoritos del usuario (más recientes primero).
+         */
+        get: operations["list_favorite_albums_me_favorites_albums_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/favorites/albums/ids": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Favorite Album Ids
+         * @description IDs de álbumes favoritos (para pintar corazones sin traer todo).
+         */
+        get: operations["favorite_album_ids_me_favorites_albums_ids_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/favorites/albums/{album_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Add Favorite Album */
+        put: operations["add_favorite_album_me_favorites_albums__album_id__put"];
+        post?: never;
+        /** Remove Favorite Album */
+        delete: operations["remove_favorite_album_me_favorites_albums__album_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/library/ids": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Library Ids
+         * @description Los 3 sets de likes del usuario en una sola llamada.
+         *
+         *     `{"song_ids": [...], "album_ids": [...], "playlist_ids": [...]}` — para
+         *     pintar corazones en la biblioteca sin traer las listas completas.
+         */
+        get: operations["library_ids_me_library_ids_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -776,6 +964,11 @@ export interface components {
         };
         /** Body_auth_cookie_login_auth_login_post */
         Body_auth_cookie_login_auth_login_post: {
+            /**
+             * Remember
+             * @default false
+             */
+            remember: boolean;
             /** Grant Type */
             grant_type?: string | null;
             /** Username */
@@ -972,6 +1165,7 @@ export interface components {
              * @default 0
              */
             song_count: number;
+            query?: components["schemas"]["PlaylistSystemQuery"] | null;
             /** Owner Email */
             owner_email?: string | null;
             /**
@@ -1015,6 +1209,7 @@ export interface components {
              * @default 0
              */
             song_count: number;
+            query?: components["schemas"]["PlaylistSystemQuery"] | null;
             /** Owner Email */
             owner_email?: string | null;
             /**
@@ -1136,6 +1331,8 @@ export interface components {
             lyrics?: string | null;
             /** Object Key */
             object_key: string;
+            /** Cover Key */
+            cover_key?: string | null;
             /** Duration Seconds */
             duration_seconds?: number | null;
             /** Collaborator Ids */
@@ -1403,29 +1600,11 @@ export interface operations {
         };
         responses: {
             /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description No Content */
             204: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorModel"];
-                };
             };
             /** @description Validation Error */
             422: {
@@ -1448,23 +1627,7 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description No Content */
             204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Missing token or inactive user. */
-            401: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2649,6 +2812,37 @@ export interface operations {
             };
         };
     };
+    refresh_system_playlist_playlists_system__playlist_id__refresh_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                playlist_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaylistDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_public_playlists_playlists_public_get: {
         parameters: {
             query?: {
@@ -2907,6 +3101,26 @@ export interface operations {
             };
         };
     };
+    list_my_playlists_me_playlists_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaylistRead"][];
+                };
+            };
+        };
+    };
     list_favorites_me_favorites_get: {
         parameters: {
             query?: {
@@ -3013,6 +3227,248 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_favorite_playlists_me_favorites_playlists_get: {
+        parameters: {
+            query?: {
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_PlaylistRead_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    favorite_playlist_ids_me_favorites_playlists_ids_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[];
+                };
+            };
+        };
+    };
+    add_favorite_playlist_me_favorites_playlists__playlist_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                playlist_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_favorite_playlist_me_favorites_playlists__playlist_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                playlist_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_favorite_albums_me_favorites_albums_get: {
+        parameters: {
+            query?: {
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_AlbumRead_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    favorite_album_ids_me_favorites_albums_ids_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[];
+                };
+            };
+        };
+    };
+    add_favorite_album_me_favorites_albums__album_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                album_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_favorite_album_me_favorites_albums__album_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                album_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    library_ids_me_library_ids_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string[];
+                    };
                 };
             };
         };
