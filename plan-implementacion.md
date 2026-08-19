@@ -494,6 +494,73 @@ self.addEventListener("fetch", (event) => {
 
 ---
 
-Con esto tienes la base completa: estructura de repo, elección de librerías justificadas, el equivalente exacto de Better Auth, cómo resolver el problema real de cookies entre dos dominios, la arquitectura en capas explicada (y su contraparte en Nest si la retomas), el flujo completo de subida con R2, testing con branching de Neon, y el plan de PWA mobile-first.
+## 14. Fase 5.5 — Correcciones del catálogo y la biblioteca (RESUELTA)
 
-¿Por dónde quieres que empecemos a construir? Puedo generar ya el `docker-compose`/estructura inicial del monorepo, el modelo de datos completo en SQLAlchemy, o el flujo de auth con `fastapi-users` funcionando end-to-end.
+> Requerimientos del usuario (19/08/2026) tras cerrar la Fase 5. Ledger de
+> tareas en `tasks.md` (52–61). **Estado: resuelto** — backend + frontend
+> verificados (95 tests API, 37 tests web, typecheck/lint/build OK).
+> Resoluciones clave por punto abajo; AGENTS.md sección 2 documenta el estado final.
+
+### 14.1 Canciones sin álbum (regla transversal)
+
+Muchas canciones del catálogo **no tienen álbum** (`album_id` NULL). Reglas:
+- Backend: `SongRead.album` debe ser `null` en ese caso (el eager-load corregido
+  de `Song.album` no debe romper ni intentar IO para FK NULL).
+- Frontend: ninguna card/lista puede asumir álbum presente — sin link a
+  `/album/[id]`, sin placeholder de cover inventado. Test de regresión existente:
+  `test_favorite_song_with_album_lists_album` (favoritos). Agregar cobertura para
+  el caso sin álbum si hace falta.
+
+### 14.2 PlaylistPicker — "Ya está en la playlist"
+
+Hoy el picker muestra el botón "agregar" como disponible aunque la canción ya
+esté en esa playlist. Requerido:
+- El picker debe mostrar **"Ya está en esta playlist"** (estado deshabilitado /
+  con check) para las playlists que ya contienen la canción.
+- El backend debe exponer la pertenencia canción↔playlist de forma liviana:
+  opción A: `song_ids` en la response de `GET /me/playlists`; opción B: endpoint
+  tipo `GET /me/playlists/containing?song_id=` o similar. Elegir la más simple
+  que no rompa el contrato existente (tipos generados).
+- Definir el comportamiento de `POST /playlists/{id}/songs` ante duplicado
+  (hoy renumeración; ¿409? ¿idempotente?) y reflejarlo en la UI (toast/error).
+
+> **Resolución**: opción A — `GET /me/playlists` devuelve `song_ids` por
+> playlist (`MyPlaylistRead`, exclusivo de ese endpoint; `PlaylistRead` intacto).
+> Duplicado: idempotente (200 no-op). El picker usa `song_ids` sin fetch extra.
+
+### 14.3 Tamaño de las playlists en el catálogo
+
+Las cards de playlists (y su imagen) en la sección del catálogo son **demasiado
+grandes**. Requerido: variante compacta (cover más chica, paddings/textos
+menores) sin romper el grid del resto de la app.
+
+### 14.4 Catálogo — canciones: 10 recientes + "Ver todas" con infinite scroll
+
+La sección de canciones del catálogo (`/catalog`) debe mostrar **solo las 10
+canciones agregadas más recientes** + botón **"Ver todas"** que lleva a una
+página dedicada con **todas** las canciones agregadas (favoritos):
+- Paginación de a **20** con **infinite scroll** (IntersectionObserver +
+  client component, `GET /me/favorites` con `offset`/`limit`).
+- La página dedicada debe tener su propio `loading.tsx` y manejar el estado
+  vacío.
+
+### 14.5 Rutas en inglés, fuera de `/dashboard`, y buscador roto
+
+- **Todas las rutas en inglés** y **no anidadas bajo `/dashboard`**: usar el
+  grupo `(protected)` con rutas top-level (como `/artist/[id]`, `/album/[id]`):
+  - `/dashboard/catalogo` → **`/catalog`**
+  - `/dashboard/canciones` → **`/songs`** (explora el catálogo)
+  - `/dashboard/configuracion` → **`/settings`**
+  - Revisar el resto (`/dashboard/search`, `/dashboard/playlists`,
+    `/dashboard/recently-played`, `/dashboard/favorites`) y moverlas a
+    top-level en inglés con redirects de las URLs viejas si aplica.
+  - Actualizar: `SidebarNav` + `bottom-nav` (hrefs), `proxy.ts` (matcheo de
+    rutas), `manifest.ts` (shortcuts), tests de nav, AGENTS.md (sección 2).
+- **El buscador de la página de canciones no funciona**: hay que separar bien
+  los dos conceptos — *canciones agregadas* (favoritos, biblioteca del usuario,
+  en `/catalog`) vs *explorar canciones* (`/songs`, catálogo completo vía
+  `GET /songs?q=`). El input de `/songs` debe buscar en el catálogo con la API
+  pública y no filtrar la biblioteca del usuario (ni quedarse en la primera
+  página).
+
+---

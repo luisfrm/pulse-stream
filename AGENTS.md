@@ -137,7 +137,12 @@ stateless: borrar la cookie ES cerrar sesión). CSRF del logout = solo molesto
 - **`PlaylistDetail`/`PlaylistRead` con `songs` exigen eager-load de
   `Song.album`** (`playlists/repository._with_songs`): `SongRead.album` se
   valida en la response y sin `selectinload(Song.album)` se rompe con
-  `MissingGreenlet` en async (bug real ya corregido).
+  `MissingGreenlet` en async (bug real ya corregido). OJO: la regla aplica a
+  **cualquier query que devuelva `Song`** — también `favorites/repository.
+  list_songs` (`GET /me/favorites`) que cargaba `Song.artist` pero no
+  `Song.album` (se rompía solo cuando la canción favorita tenía álbum; los
+  tests no lo cazaban porque creaban canciones sin álbum — ver el test de
+  regresión `test_favorite_song_with_album_lists_album`).
 - **No hay endpoint de descarga** (`Content-Disposition`) — decisión de
   producto: el web descarga con la Cache API (`lib/offline.ts`). No re-introducir
   `download_url`/`presign_get_download`.
@@ -161,37 +166,53 @@ crear entidades vía API, assert status + shape del JSON.
 - `(public)/` — home promocional, `/login`, `/register`. Sin sesión requerida;
   el home **redirige al dashboard si hay sesión**. Las páginas de detalle
   (artista/álbum/canción) NO viven acá: exigen sesión.
-- `(protected)/` — `/dashboard/*`, `/account`, y las páginas de catálogo
-  `/artist/[id]`, `/album/[id]`, `/song/[id]` (top-level, NO bajo `/dashboard`):
-  cualquier sesión. Layout con **sidebar** (escritorio) + drawer (móvil).
-  Nota: el `proxy.ts` matchea `/dashboard`, `/panel` y `/artist|/album|/song`;
-  `/account` lo protege únicamente el layout.
+- `(protected)/` — `/dashboard` (Inicio), `/account`, las páginas de catálogo
+  `/artist/[id]`, `/album/[id]`, `/song/[id]` y las rutas top-level en inglés
+  `/catalog`, `/catalog/songs`, `/songs`, `/search`, `/playlists[/[id]]`,
+  `/recently-played`, `/settings` (NO bajo `/dashboard`): cualquier sesión.
+  Layout con **sidebar** (escritorio) + drawer (móvil).
+  Nota: el `proxy.ts` matchea `/dashboard`, `/panel`, `/artist|/album|/song` y
+  las rutas top-level (`/catalog`, `/songs`, `/settings`, `/search`,
+  `/playlists`, `/recently-played`); `/account` lo protege únicamente el layout.
+  Las URLs viejas `/dashboard/{catalogo,canciones,configuracion,search,
+  playlists,recently-played,favorites}` quedaron como páginas `redirect()`.
 
-**Navegación (Fase 5):** el sidebar vive en `components/dashboard-shell.tsx`
+**Navegación (Fase 5.5):** el sidebar vive en `components/dashboard-shell.tsx`
 (una sola `SidebarNav` compartida entre drawer móvil y sidebar desktop; una
 top bar móvil `lg:hidden` con hamburguesa abre el drawer — el avatar de la
 bottom nav ya no lo hace). Grupos y orden: **Principal** = Mi catálogo
-(`/dashboard/catalogo`, PRIMERO) · Inicio · Buscar; **Biblioteca** = Canciones
-(`/dashboard/canciones` — explorar catálogo) · Playlists · Recientes;
-**Administración** = Configuración (`/dashboard/configuracion`, **todos** los
+(`/catalog`, PRIMERO) · Inicio · Buscar; **Biblioteca** = Canciones
+(`/songs` — explorar catálogo) · Playlists · Recientes;
+**Administración** = Configuración (`/settings`, **todos** los
 usuarios) · Panel admin (solo admin). El chip de usuario al pie del sidebar se
 eliminó (logout vive en Configuración). Bottom nav (`components/bottom-nav.tsx`):
 Catálogo · Buscar · Cuenta (`/account`, Link) · Panel (admin) · Crear+.
 
-- **Mi catálogo** (`/dashboard/catalogo`, `force-dynamic`): 3 secciones —
-  Canciones en lista (`SongItem` con like/descargar/"+", paginadas), Playlists
-  (propias + system likeadas + crear + "Ver todas"), Álbumes likeados
-  (`album-card.tsx`). Búsqueda con `q` (filtra dentro de la biblioteca).
-  `/dashboard/favorites` quedó como `redirect` → `/dashboard/catalogo`.
+- **Mi catálogo** (`/catalog`, `force-dynamic`): 3 secciones — Canciones en
+  lista (`SongItem` con like/descargar/"+", SOLO las 10 más recientes + "Ver
+  todas" → `/catalog/songs`), Playlists (propias + system likeadas + crear +
+  "Ver todas", cards **compactas**), Álbumes likeados (`album-card.tsx`).
+  Búsqueda con `q` (filtra dentro de la biblioteca).
+  `/dashboard/favorites` quedó como `redirect` → `/catalog`.
+- **Tus canciones** (`/catalog/songs`, `force-dynamic`): TODAS las canciones
+  agregadas (favoritos) con **infinite scroll** — `songs-list.tsx` (client)
+  usa IntersectionObserver sobre un sentinel y pagina `GET /me/favorites`
+  offset/limit de a 20; `loading.tsx` propio + estado vacío.
+- **Explorar canciones** (`/songs`): catálogo completo vía `GET /songs?q=`
+  (cache tags, `revalidate: 60`) con estado en URL (`SearchInput`). Separación
+  conceptual: `/catalog` = biblioteca del usuario; `/songs` = catálogo público.
 - **PlaylistPicker** (`components/playlist-picker.tsx`): el botón "+" de
   agregar a playlist — popover propio en desktop + `BottomSheet` en mobile,
-  lista playlists del usuario + "Nueva playlist" (crear+agregar). Se usa en
-  `SongActions` y en `SongCard` (props OPCIONALES `playlists`/`favoriteIds`/
-  `onMutated`; sin props no renderiza nada — el home público queda intacto).
+  lista playlists del usuario + "Nueva playlist" (crear+agregar). Las
+  playlists llegan con `song_ids` (`GET /me/playlists` → `MyPlaylistRead`):
+  las que ya contienen la canción se muestran **deshabilitadas con check +
+  "Ya está en esta playlist"** (sin fetch extra). Se usa en `SongActions` y en
+  `SongCard` (props OPCIONALES `playlists`/`favoriteIds`/`onMutated`; sin
+  props no renderiza nada — el home público queda intacto).
 - **Descargar = Cache API, sin endpoint**: el botón descarga reusa
   `OfflineButton` (prop `compact` para icono solo) → guarda el audio en la
   Cache API (`lib/offline.ts`, `OFFLINE_CACHE = pulse-offline-v1`). El peso y
-  el borrado de cache viven en `/dashboard/configuracion`
+  el borrado de cache viven en `/settings`
   (`clearOfflineCache()` + `getOfflineCacheSize()`; NO toca `pulse-shell-v1`
   del SW).
 - `(panel)/` — `/panel/*` (artists, songs, playlists) + detalles

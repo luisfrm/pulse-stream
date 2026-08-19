@@ -169,6 +169,15 @@ pnpm test        # tests de la API (requieren TEST_DATABASE_URL)
 - [x] **Configuración** (`/dashboard/configuracion`): Cuenta (`/account`) · Cache (peso con `storage.estimate` + eliminar, `clearOfflineCache()`) · Cerrar sesión
 - [x] Migración 0008 aplicada; **91/91 tests** de integración + 35 unitarios del web, typecheck, lint y build limpios. Navegación optimizada (Suspense + skeletons + lazy fullscreen + `React.cache`)
 
+### Fase 5.5 — Correcciones del catálogo y la biblioteca ✅
+
+- [x] **PlaylistPicker "Ya está en esta playlist"**: `GET /me/playlists` expone `song_ids` por playlist (`MyPlaylistRead`) y las playlists que ya contienen la canción se muestran deshabilitadas con check (sin fetch extra)
+- [x] **Cards de playlists compactas** en el catálogo (variante `compact` con cover chica)
+- [x] **Catálogo**: la sección de canciones muestra solo las **10 más recientes** + botón "Ver todas" → `/catalog/songs` con **infinite scroll** (20/página, IntersectionObserver)
+- [x] **Rutas en inglés top-level** fuera de `/dashboard`: `/catalog`, `/songs`, `/settings`, `/search`, `/playlists[/[id]]`, `/recently-played` (redirects de las URLs viejas; nav/proxy/manifest actualizados)
+- [x] **Buscador de `/songs` arreglado**: causa raíz era que los services mandaban `query` cuando la API espera `q` (afectaba también a `/search`); ahora explora el catálogo público con `GET /songs?q=`
+- [x] **95/95 tests** de integración + **37 unitarios** del web, typecheck, lint y build limpios
+
 ### Siguientes fases
 
 - [ ] Fase 6 — Deploy (Vercel + Railway/Fly/Render, dominio propio), CSRF, notificaciones push, perfiles públicos, letra sincronizada

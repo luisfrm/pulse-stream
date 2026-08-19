@@ -89,6 +89,103 @@
 |---|---|---|
 | 49 | **Verificación final Fase 5** | `uv run pytest` = **91 passed** · `pnpm gen:types` OK · web typecheck/lint/**35 tests**/build OK. **Pendiente**: recorrido manual + actualizar `README.md` + commitear + pushear |
 
+## ✅ Fase 5.5 — Correcciones del catálogo y la biblioteca (Resuelta)
+
+> Requerimientos del usuario (19/08/2026) en `plan-implementacion.md` §14.
+> Orden de ejecución: **backend** (pertenencia canción↔playlist + tests) →
+> `pnpm gen:types` → **frontend** (picker "Ya está", cards compactas, catálogo
+> 10+Ver todas+infinite scroll, rutas en inglés + buscador) → verificación.
+> **Nota de desvío**: §14.2 se resolvió con la **opción A** (`song_ids` por
+> playlist en `GET /me/playlists` → `MyPlaylistRead`), no con el endpoint
+> `containing?song_id=` que sugiere la tarea 52 — el frontend no hace fetch lazy
+> extra (los `song_ids` ya vienen en la lista). El duplicado sigue idempotente.
+
+| # | Tarea | Estado |
+|---|---|---|
+| 52 | **Backend: pertenencia canción↔playlist + duplicado idempotente** (§14.2) | Resuelto — opción A: `song_ids` por playlist en `GET /me/playlists` (`MyPlaylistRead`); duplicado idempotente + tests (`test_playlists_me.py`) |
+| 53 | **Backend: tests "canción sin álbum" + auditoría frontend** (§14.1) | Resuelto — canciones sin álbum OK (`album: null`); frontend ya guarda con `?.` |
+| 54 | **Regenerar tipos** (`pnpm gen:types`) | Resuelto — `MyPlaylistRead` + `song_ids` en `generated.ts` |
+| 55 | **Frontend: PlaylistPicker "Ya está en esta playlist"** (§14.2) | Resuelto — fila deshabilitada + check (2 tests vitest) |
+| 56 | **Frontend: PlaylistCard compacta en el catálogo** (§14.3) | Resuelto — prop `compact` (cover `h-14 w-14`) |
+| 57 | **Frontend: catálogo — 10 recientes + "Ver todas"** (§14.4) | Resuelto — `limit: 10` + botón → `/catalog/songs` |
+| 58 | **Frontend: página `/catalog/songs` con infinite scroll** (§14.4) | Resuelto — `songs-list.tsx` con IntersectionObserver, 20/página |
+| 59 | **Frontend: rutas en inglés top-level + redirects + nav** (§14.5) | Resuelto — `/catalog`, `/songs`, `/settings`, `/search`, `/playlists`, `/recently-played` top-level; redirects viejos; nav/proxy/manifest/AGENTS.md actualizados |
+| 60 | **Frontend: arreglar buscador de `/songs`** (§14.5) | Resuelto — causa raíz: services mandaban `query` pero la API espera `q` (afectaba `/songs` y `/search`) |
+| 61 | **Verificación final Fase 5.5 + docs** | Resuelto — **95 passed** backend · web typecheck/lint/37 tests/build OK · fix de aislamiento de tests (nombres únicos) |
+
+**Detalle por tarea (archivos · criterio de "hecho" · dependencias):**
+
+- **52** — `apps/api/app/features/playlists/{repository,service,router}.py` +
+  `apps/api/tests/test_playlists.py`. Endpoint **`GET /me/playlists/containing?song_id=`**
+  en `me_router` (respuesta `list[uuid.UUID]`; sin conflicto de ruta: no existe
+  `GET /me/playlists/{id}`). Repository: `playlist_ids_containing_song(song_id)`
+  (query a `PlaylistSong`). **Decisión duplicado: mantener `POST /playlists/{id}/songs`
+  idempotente** (200 no-op, comportamiento actual en `repository.add_song` + test
+  existente `test_add_and_remove_songs_with_order`); agregar test explícito: POST
+  repetido → 200, `song_count` sin cambio, sin filas duplicadas. Tests: contiene /
+  no contiene / `[]` sin playlists / 401 sin sesión. Hecho: `uv run pytest
+  apps/api/tests/test_playlists.py` verde.
+- **53** — `apps/api/tests/test_favorites_library.py` +
+  `apps/api/tests/test_playlists.py`. Test espejo de
+  `test_favorite_song_with_album_lists_album`: canción **sin** álbum favorita →
+  `GET /me/favorites` devuelve `album: null`; detalle de playlist con canciones sin
+  álbum → `songs[].album is null`. Auditoría frontend (sin cambios esperados:
+  `SongItem`, `SongCard`, `song/[id]/page.tsx` ya guardan con `song.album &&`,
+  panel usa `?.`): ninguna card/lista linkea a `/album/[id]` ni inventa placeholder
+  cuando `album` es null. Hecho: pytest verde + auditoría documentada.
+- **54** — `pnpm gen:types` (API corriendo) → `packages/api-types/src/generated.ts`
+  con el endpoint nuevo; `pnpm --filter @pulse-stream/web typecheck` OK.
+  **Depende de 52.**
+- **55** — `apps/web/components/playlist-picker.tsx` +
+  `apps/web/lib/services/playlists-service.ts` (método `getPlaylistIdsContaining`)
+  + `apps/web/components/playlist-picker.test.tsx`. Fetch **lazy al abrir** el
+  dropdown (`?song_id={song.id}`) → set de playlist_ids; filas contenidas →
+  deshabilitadas con check + "Ya está en esta playlist"; toast neutro si el POST
+  idempotente responde con la canción ya presente. Tests vitest: fila deshabilitada
+  cuando contiene / habilitada cuando no / fetch on open. **Depende de 54.**
+- **56** — `apps/web/components/playlist-card.tsx` (prop `compact?: boolean`: cover
+  chica — ej. `h-16 w-16` en vez de `aspect-square` —, paddings/textos menores) +
+  `apps/web/app/(protected)/dashboard/catalogo/page.tsx` (usar `compact` en la
+  sección Playlists). El grid del resto de la app queda igual. Hecho: typecheck +
+  vitest OK.
+- **57** — `apps/web/app/(protected)/dashboard/catalogo/page.tsx`. Sección Canciones
+  sin `q`: `limit: 10` (sin `Pagination`) + botón **"Ver todas"** →
+  `/catalog/songs`; con `q` se mantiene el filtro client-side (ventana 200) y se
+  oculta "Ver todas". Estado vacío existente se conserva.
+- **58** — Nuevos: `apps/web/app/(protected)/catalog/songs/page.tsx` (server:
+  sesión + `getUserLibrary` para acciones), `songs-list.tsx` ("use client":
+  IntersectionObserver en sentinel, `GET /me/favorites` offset/limit **20**, append
+  de páginas, spinner, estado vacío "Todavía no guardaste canciones…", `SongItem`
+  con like/playlist/descarga), `loading.tsx` (skeleton propio). **Depende de 57**
+  (ruta destino del "Ver todas").
+- **59** — Mover a top-level en `(protected)`: `dashboard/catalogo` → `/catalog`,
+  `dashboard/canciones` → `/songs`, `dashboard/configuracion` → `/settings`,
+  `dashboard/search` → `/search`, `dashboard/playlists` → `/playlists` (+ `[id]`),
+  `dashboard/recently-played` → `/recently-played`, `dashboard/favorites` →
+  redirect a `/catalog`. Redirects viejos con páginas `redirect()` (patrón
+  existente `dashboard/favorites/page.tsx`). Actualizar: `components/dashboard-shell.tsx`
+  (SidebarNav), `components/bottom-nav.tsx` (hrefs + `router.push`), `proxy.ts`
+  (matcher + guard: `/catalog`, `/songs`, `/settings`, `/search`, `/playlists`,
+  `/recently-played`), `app/manifest.ts` (shortcuts), `components/bottom-nav.test.tsx`,
+  links internos (`dashboard/page.tsx`, `account/account-form.tsx`,
+  `panel/playlists/playlists-manager.tsx`, `playlists/create-playlist-form.tsx`,
+  `playlists/[id]/playlist-actions.tsx`, `playlists/[id]/page.tsx` → `/songs`,
+  `catalogo/page.tsx` → `/playlists`) y **AGENTS.md sección 2**. Hecho: typecheck +
+  lint + vitest + recorrido manual de redirects. **Depende de 57 y 58** (mueve las
+  páginas que crearon/editaron).
+- **60** — `apps/web/app/(protected)/songs/page.tsx` (post-move). Separar
+  conceptos: `/catalog` = canciones **agregadas** (favoritos) vs `/songs` =
+  **explorar** catálogo (`GET /songs?q=`). Verificar por qué el input no funciona
+  (flujo `SearchInput` → `?q=` → refetch; reset de offset; que NO filtre la
+  biblioteca del usuario ni se quede en la primera página). Hecho: escribir en el
+  input → resultados del catálogo público; verificación manual + test vitest si
+  aplica. **Depende de 59.**
+- **61** — `uv run pytest` (suite completa, incl. tests nuevos) · `pnpm gen:types` ·
+  web typecheck/lint/test/build · recorrido manual (picker "Ya está", catálogo
+  10+Ver todas+infinite scroll, rutas nuevas + redirects, buscador `/songs`, cards
+  compactas, canciones sin álbum). Actualizar `tasks.md` (52-60 → Resuelto) y
+  `README.md` si corresponde. **Depende de 52-60.**
+
 ## ⏳ Roadmap propuesto para una app de música (próximas pasadas)
 
 | Feature | Por qué | Estado |
@@ -96,7 +193,7 @@
 | Letra sincronizada con timestamps (LRC) | El fullscreen ya tiene la vista de letra; falta el sync por línea | Idea |
 | Cola de reproducción visible (up-next) + shuffle/repeat | El player ya tiene cola interna; falta UI de "próximas" y modos | Idea |
 | Perfiles públicos de usuario (`/user/[id]`) con playlists y favoritos | Hoy solo existe el feed de playlists con autor | Idea |
-| Búsqueda global con ⌘K | La búsqueda está en `/dashboard/search`; falta el atajo global | Idea |
+| Búsqueda global con ⌘K | La búsqueda está en `/search`; falta el atajo global | Idea |
 | CRUD de usuarios en el panel (listar, asignar roles por UI) | Backend listo (`/admin/users`, `PATCH role`); falta pantalla | Pendiente |
 | Editar playlist en la UI (nombre/descripción/visibilidad/cover) | Backend listo (`PATCH /playlists/{id}`); falta formulario | Resuelto (Fase 5 — `playlist-edit-form.tsx`) |
 | Botón maestro "reproducir playlist completa" | El `SongItem` ya acepta cola; falta el botón en el header de playlist | Resuelto (Fase 5 — `playlist-play-button.tsx`) |
