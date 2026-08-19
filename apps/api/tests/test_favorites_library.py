@@ -205,6 +205,25 @@ async def test_library_ids_mixed(client, session):
     assert resp.json()["song_ids"] == []
 
 
+async def test_favorite_song_with_album_lists_album(client, session):
+    """Regresión: GET /me/favorites con canción que tiene álbum exige eager-load de Song.album."""
+    await register_and_login(client, admin=True, session=session)
+    artist = await _create_artist(client, f"Artista {uuid.uuid4().hex[:6]}")
+    album = await _create_album(client, artist, "Disco")
+    song = await _create_song(
+        client, "Tema", artist, f"songs/fa-{uuid.uuid4().hex[:6]}.mp3", album
+    )
+
+    await register_and_login(client)  # usuario normal
+    await client.put(f"/me/favorites/{song['id']}")
+
+    resp = await client.get("/me/favorites", params={"limit": 10})
+    assert resp.status_code == 200
+    item = resp.json()["items"][0]
+    assert item["id"] == song["id"]
+    assert item["album"]["id"] == album["id"]
+
+
 async def test_library_ids_require_auth(client):
     resp = await client.get("/me/library/ids")
     assert resp.status_code == 401

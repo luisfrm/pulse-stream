@@ -24,7 +24,7 @@ async def _create_song(client, title: str, artist: dict, key: str) -> dict:
 
 async def _seed_songs(client, session) -> list[dict]:
     await register_and_login(client, admin=True, session=session)
-    artist = await _create_artist(client, "Soda Stereo")
+    artist = await _create_artist(client, f"Test Band {uuid.uuid4().hex[:6]}")
     songs = []
     for i, title in enumerate(["De Música Ligera", "Nada Personal", "Persiana Americana"]):
         songs.append(await _create_song(client, title, artist, f"songs/soda{i}.mp3"))

@@ -45,13 +45,13 @@ async def test_create_and_list_playlists(client, session):
 
 async def test_add_and_remove_songs_with_order(client, session):
     await register_and_login(client, admin=True, session=session)
-    artist = await _create_artist(client, "Cerati")
+    artist = await _create_artist(client, f"Cerati {uuid.uuid4().hex[:6]}")
     s1 = await _create_song(client, "Crimen", artist, "songs/c1.mp3")
     s2 = await _create_song(client, "Adiós", artist, "songs/c2.mp3")
 
     # usuario normal crea la playlist
     await register_and_login(client)
-    pl = await _create_playlist(client, "Favoritas de Cerati")
+    pl = await _create_playlist(client, f"Favoritas de {artist['name']}")
 
     # agregar canciones en orden
     resp = await client.post(f"/playlists/{pl['id']}/songs", json={"song_id": s1["id"]})

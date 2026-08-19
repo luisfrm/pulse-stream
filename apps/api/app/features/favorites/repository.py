@@ -35,7 +35,7 @@ class FavoriteRepository:
         result = await self._session.execute(
             select(Song)
             .join(UserFavorite, UserFavorite.song_id == Song.id)
-            .options(selectinload(Song.artist))
+            .options(selectinload(Song.artist), selectinload(Song.album))
             .where(UserFavorite.user_id == user_id)
             .order_by(UserFavorite.created_at.desc())
             .offset(offset)
