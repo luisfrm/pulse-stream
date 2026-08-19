@@ -40,6 +40,55 @@
 |---|---|---|
 | 32 | **Optimización de navegación (page transitions)** | Layouts de áreas protegidas **no-async** con `<Suspense fallback={<FullScreenLoader/>}>` (full-screen solo en la entrada al área, no en cada navegación); nav público con `PillSkeleton`; `getSession` con `React.cache()` (dedupe de `GET /users/me` por request, `sessionService.getSession` queda como wrapper); primitiva `Skeleton` (`components/ui/skeleton.tsx`) + composiciones (`components/loading-skeletons.tsx`); `loading.tsx` por ruta; dashboard con Suspense por sección (streaming) y `search` con Suspense solo en resultados; `Promise.all` para sesión + datos; `PlayerFullscreen` lazy (`next/dynamic`, `ssr: false`); `error.tsx` branded por área; `.animate-pulse` en `prefers-reduced-motion` y `Button` con `Loader2` + `aria-busy`. Verificado: typecheck, lint, 22 tests y build OK |
 
+## ✅ Resueltas (Fase 4.5 — fixes e integraciones puntuales)
+
+| # | Tarea | Resolución |
+|---|---|---|
+| 50 | **Subir .aac falla con `audio/vnd.dlna.adts`** | Los navegadores/OS reportan los `.aac` como ADTS/DLNA. Se agregó `audio/vnd.dlna.adts` a `ALLOWED_CONTENT_TYPES` + `AUDIO_EXTENSIONS` (→ `.aac`) en `uploads/service.py`, test `test_presign_aac_dlna` y `accept` del FileInput del panel |
+| 51 | **Vercel Analytics** | `@vercel/analytics` instalado y `<Analytics/>` montado en el root layout (`app/layout.tsx`) |
+
+> Nota: el commit `b0b1262` (R2 presigned uploads) incluyó además el fix AAC y el analytics.
+
+## ✅ Resueltas (Fase 5 — Mi catálogo, biblioteca y settings)
+
+> Contrato de IA cumplido: "Mi catálogo" → `/dashboard/catalogo` · "Canciones" →
+> `/dashboard/canciones` · `/dashboard/favorites` → redirect · Settings →
+> `/dashboard/configuracion` (todos) · Bottom nav (Catálogo + Cuenta→`/account` +
+> top bar móvil con hamburguesa) · Backend: favoritos de álbumes/playlists +
+> `GET /me/library/ids` · **Descarga = `OfflineButton` (Cache API), NO endpoint
+> nuevo** (se revirtió el `download_url`/`presign_get_download`/`_download_filename`
+> que un agente había agregado por error).
+
+| # | Tarea | Resolución |
+|---|---|---|
+| 33 | **Favoritos de álbumes y playlists + library ids** (backend) | Migración `0008` (tablas `user_favorite_albums`/`user_favorite_playlists` + columna `playlists.query`). Endpoints `GET/PUT/DELETE /me/favorites/albums[/{id}]`, `/playlists[/{id}]` (+ `/ids`) y `GET /me/library/ids` (los 3 sets). Conftest importa los modelos nuevos. **91 tests verdes** |
+| 34 | **Algoritmo de playlists** (backend) | `_snapshot_song_ids` centralizado (top_week = últimos 7 días, top_month = mes calendario, new = created_at desc; unicidad por group by). `query` persistida por playlist system + `POST /playlists/system/{id}/refresh` (regenera sin duplicar; guard de query inválida → 400) + test de `top_month` |
+| 35 | **Regenerar tipos** | `pnpm gen:types` → `generated.ts` con `/me/library/ids`, favoritos albums/playlists y `GET /me/playlists` (`PlaylistRead.query` + enum `PlaylistSystemQuery`). Typecheck web OK |
+| 36 | **Servicios de biblioteca** (frontend A) | `favorites-service.ts`: `getFavoriteAlbums/Playlists`, `add/remove`, `getLibraryIds()` (1 sola llamada para los 3 sets). `library.ts`: `UserLibrary` gana `albumIds`/`playlistIds`. Se eliminó `getFavoriteIds` (dead code) |
+| 37 | **PlaylistPicker (dropdown "+")** (frontend A) | Popover propio en desktop + BottomSheet en mobile (mismo contenido), lista con `song_count`, "Nueva playlist" (crear+agregar), loading/error/toast. z-index subido a `z-50` (no lo tapa la player bar). 3 tests vitest |
+| 38 | **SongItem: descargar + like + "+"** (frontend A) | `song-actions.tsx` usa `PlaylistPicker` + `OfflineButton compact` (icono, Cache API). `favorite-button.tsx` extraído (toggle optimista con rollback) |
+| 39 | **SongCard: botón "+"** (frontend A) | Props opcionales `playlists`/`favoriteIds`/`onMutated`; corner con corazón+"+" solo con sesión (sin props = idéntico, home público intacto). 2 tests vitest |
+| 40 | **Página `/dashboard/catalogo`** (frontend A) | 3 secciones: Canciones (lista con `SongItem` paginada), Playlists (propias + system likeadas + "Nueva playlist" + "Ver todas"), Álbumes (likeados, `album-card.tsx` nuevo). `force-dynamic` + `Promise.all` + `updateTag`; búsqueda con `q` (ventana 200) |
+| 41 | **Página `/dashboard/canciones`** (frontend A) | Explorar canciones: grid de `SongCard` con acciones + SearchInput + paginación, catálogo cacheado por tags (`revalidate: 60`) |
+| 42 | **Redirect favorites** (frontend A) | `/dashboard/favorites` → `redirect("/dashboard/catalogo")` (content live en catalogo) |
+| 43 | **Playlist detail UI** (frontend A) | Hero con cover + backdrop gradiente, play-all (cola = canciones), like de system, editar/borrar por ownership real (`owner_email`), badges de visibilidad. `playlist-play-button.tsx`/`playlist-like-button.tsx`/`playlist-edit-form.tsx` |
+| 44 | **Sidebar: grupos, orden y chip** (frontend B) | "Mi catálogo" primero (Principal) · Biblioteca (Canciones/Playlists/Recientes) · Administración (Configuración para todos + Panel admin) · chip de usuario eliminado (logout → Configuración) · top bar móvil con hamburguesa que abre el drawer. `pb-24` conserva aire para la player bar |
+| 45 | **Bottom nav** (frontend B) | Catálogo → `/dashboard/catalogo`; Cuenta → Link a `/account` (se fue `onOpenMenu`). 4 tests de hrefs |
+| 46 | **Página `/dashboard/configuracion`** (frontend B) | Lista de opciones: Cuenta (→`/account`), Cache (peso con `storage.estimate` + `getOfflineCacheSize` + eliminar) y Cerrar sesión (`LogoutButton`) |
+| 47 | **Cache: clearOfflineCache + tests** (frontend B) | `lib/offline.ts`: `clearOfflineCache()` (solo `pulse-offline-v1`, no toca `pulse-shell-v1`) + `getOfflineCacheSize()`. 4 tests nuevos |
+| 48 | **Tests frontend Fase 5** (A + B) | **35 tests / 6 files** verdes (playlist-picker, song-card, bottom-nav, offline, cover-uploader, format) + typecheck + lint + build OK |
+
+**Fixes del reviewer (coordinación post-implementación):**
+- `song_count` en `GET /me/favorites/albums` (LEFT JOIN agrupado en `favorites/repository.py::list_albums`, GROUP BY `albums.id, created_at`) + assert en el test → detectó y arregló un `GroupingError` de Postgres.
+- `Song.album` sin eager-load en `playlists/repository.py::_with_songs` → `MissingGreenlet` en cualquier playlist con canciones de álbum (validación de `SongRead.album`). Agregado `selectinload(Song.album)`.
+- Dropdown del picker `z-30` → `z-50` (lo tapaba la player bar `z-40`).
+- Guard 400 si `playlists.query` tiene valor inválido (antes 500).
+- Shortcut del PWA manifest `Tus favoritos` → `Mi catálogo`.
+
+| # | Tarea | Estado |
+|---|---|---|
+| 49 | **Verificación final Fase 5** | `uv run pytest` = **91 passed** · `pnpm gen:types` OK · web typecheck/lint/**35 tests**/build OK. **Pendiente**: recorrido manual + actualizar `README.md` + commitear + pushear |
+
 ## ⏳ Roadmap propuesto para una app de música (próximas pasadas)
 
 | Feature | Por qué | Estado |
@@ -49,8 +98,8 @@
 | Perfiles públicos de usuario (`/user/[id]`) con playlists y favoritos | Hoy solo existe el feed de playlists con autor | Idea |
 | Búsqueda global con ⌘K | La búsqueda está en `/dashboard/search`; falta el atajo global | Idea |
 | CRUD de usuarios en el panel (listar, asignar roles por UI) | Backend listo (`/admin/users`, `PATCH role`); falta pantalla | Pendiente |
-| Editar playlist en la UI (nombre/descripción/visibilidad/cover) | Backend listo (`PATCH /playlists/{id}`); falta formulario | Pendiente |
-| Botón maestro "reproducir playlist completa" | El `SongItem` ya acepta cola; falta el botón en el header de playlist | Pendiente |
+| Editar playlist en la UI (nombre/descripción/visibilidad/cover) | Backend listo (`PATCH /playlists/{id}`); falta formulario | Resuelto (Fase 5 — `playlist-edit-form.tsx`) |
+| Botón maestro "reproducir playlist completa" | El `SongItem` ya acepta cola; falta el botón en el header de playlist | Resuelto (Fase 5 — `playlist-play-button.tsx`) |
 | Búsqueda en `GET /songs` también por artista (JOIN) | Hoy busca solo por título | Pendiente |
 | Editar álbum (cover, título, canciones) desde su página | El panel crea y borra álbumes; falta el form de edición | Pendiente |
 | Página pública de usuario (`/user/[id]`) con sus plays/favoritos | Los contadores ya existen (`total_plays`, `user_play_count`) | Idea |
@@ -59,7 +108,7 @@
 | Compartir canciones/playlists (links/embeds) | Social; requiere URLs públicas de playlist | Idea |
 | Valoraciones de playlists (seguir/favoritear) | Tabla nueva + contador | Idea |
 | CSRF (double-submit cookie) antes de producción | Bloqueador de seguridad pendiente (`core/security.py`) | Pendiente |
-| Limpieza del storage offline (gestor de descargas) | Hoy se guarda/borra por canción; falta un listado central | Idea |
+| Limpieza del storage offline (gestor de descargas) | Hoy se guarda/borra por canción; falta un listado central | Resuelto (Fase 5 — Configuración: peso + eliminar cache) |
 
 ## ⏳ Pendientes / ideas para próximas pasadas (histórico)
 

@@ -117,12 +117,37 @@ stateless: borrar la cookie ES cerrar sesión). CSRF del logout = solo molesto
   (`uploads.service.ALLOWED_COVER_TYPES` + `COVER_EXTENSIONS` para el
   `object_key`).
 
+**Datos de Fase 5 (biblioteca / favoritos / snapshots):**
+- Favoritos = **3 tablas** (`user_favorites` canciones, `user_favorite_albums`,
+  `user_favorite_playlists`), PK compuesta user+item, `created_at` (el orden de
+  listado es por fecha de like, no por título). `GET /me/library/ids` devuelve
+  los 3 sets (`{song_ids, album_ids, playlist_ids}`) en UNA llamada para pintar
+  corazones sin traer listas.
+- Endpoints: `GET/PUT/DELETE /me/favorites/{albums,playlists}[/{id}]` (+
+  `/ids`). El like a una playlist **system no la muta**: la tabla es solo el
+  marcador del usuario (el contenido solo lo cambia un admin).
+- `playlists.query` (VARCHAR, Fase 5): la query de snapshot que generó una
+  playlist `system` (`top_week`/`top_month`/`new`). `create_system_playlist`
+  guarda la query y `POST /playlists/system/{id}/refresh` la regenera **sin
+  duplicar** (`replace_songs`: delete + insert con posiciones 0..n-1). Si la
+  query es NULL (playlist creada antes de la 0008) o inválida → 400
+  `PlaylistNotRefreshableError`. Algoritmo en `service._snapshot_song_ids`:
+  top_week = últimos 7 días, top_month = mes calendario, new = `created_at`
+  desc; unicidad de song_ids garantizada por el group by.
+- **`PlaylistDetail`/`PlaylistRead` con `songs` exigen eager-load de
+  `Song.album`** (`playlists/repository._with_songs`): `SongRead.album` se
+  valida en la response y sin `selectinload(Song.album)` se rompe con
+  `MissingGreenlet` en async (bug real ya corregido).
+- **No hay endpoint de descarga** (`Content-Disposition`) — decisión de
+  producto: el web descarga con la Cache API (`lib/offline.ts`). No re-introducir
+  `download_url`/`presign_get_download`.
+
 **Migraciones Alembic:** se escriben **a mano** (no autogen), estilo
-`0007_albums_collaborators.py` (la más reciente): `revision: str = "0007"`,
-`down_revision` encadenado (0001…0007). Nueva tabla → también hay que importar
-el modelo en `apps/api/tests/conftest.py` (los tests registran
-`Base.metadata` manualmente) y el `session` scope es único (config en
-`pyproject.toml`: `asyncio_default_*_loop_scope = "session"`).
+`0008_library_favorites_playlist_query.py` (la más reciente): `revision:
+str = "0008"`, `down_revision` encadenado (0001…0008). Nueva tabla → también
+hay que importar el modelo en `apps/api/tests/conftest.py` (los tests
+registran `Base.metadata` manualmente) y el `session` scope es único (config
+en `pyproject.toml`: `asyncio_default_*_loop_scope = "session"`).
 
 **Tests:** helpers en `apps/api/tests/helpers.py` — `register_and_login(client,
 admin=...)` (admin se promueve por DB), `PASSWORD` constante. Patrón típico:
@@ -141,6 +166,34 @@ crear entidades vía API, assert status + shape del JSON.
   cualquier sesión. Layout con **sidebar** (escritorio) + drawer (móvil).
   Nota: el `proxy.ts` matchea `/dashboard`, `/panel` y `/artist|/album|/song`;
   `/account` lo protege únicamente el layout.
+
+**Navegación (Fase 5):** el sidebar vive en `components/dashboard-shell.tsx`
+(una sola `SidebarNav` compartida entre drawer móvil y sidebar desktop; una
+top bar móvil `lg:hidden` con hamburguesa abre el drawer — el avatar de la
+bottom nav ya no lo hace). Grupos y orden: **Principal** = Mi catálogo
+(`/dashboard/catalogo`, PRIMERO) · Inicio · Buscar; **Biblioteca** = Canciones
+(`/dashboard/canciones` — explorar catálogo) · Playlists · Recientes;
+**Administración** = Configuración (`/dashboard/configuracion`, **todos** los
+usuarios) · Panel admin (solo admin). El chip de usuario al pie del sidebar se
+eliminó (logout vive en Configuración). Bottom nav (`components/bottom-nav.tsx`):
+Catálogo · Buscar · Cuenta (`/account`, Link) · Panel (admin) · Crear+.
+
+- **Mi catálogo** (`/dashboard/catalogo`, `force-dynamic`): 3 secciones —
+  Canciones en lista (`SongItem` con like/descargar/"+", paginadas), Playlists
+  (propias + system likeadas + crear + "Ver todas"), Álbumes likeados
+  (`album-card.tsx`). Búsqueda con `q` (filtra dentro de la biblioteca).
+  `/dashboard/favorites` quedó como `redirect` → `/dashboard/catalogo`.
+- **PlaylistPicker** (`components/playlist-picker.tsx`): el botón "+" de
+  agregar a playlist — popover propio en desktop + `BottomSheet` en mobile,
+  lista playlists del usuario + "Nueva playlist" (crear+agregar). Se usa en
+  `SongActions` y en `SongCard` (props OPCIONALES `playlists`/`favoriteIds`/
+  `onMutated`; sin props no renderiza nada — el home público queda intacto).
+- **Descargar = Cache API, sin endpoint**: el botón descarga reusa
+  `OfflineButton` (prop `compact` para icono solo) → guarda el audio en la
+  Cache API (`lib/offline.ts`, `OFFLINE_CACHE = pulse-offline-v1`). El peso y
+  el borrado de cache viven en `/dashboard/configuracion`
+  (`clearOfflineCache()` + `getOfflineCacheSize()`; NO toca `pulse-shell-v1`
+  del SW).
 - `(panel)/` — `/panel/*` (artists, songs, playlists) + detalles
   `/panel/artists/[id]`, `/panel/albums/[id]`, `/panel/songs/[id]`: solo
   `role=admin`. Sin sesión → `/login`; sin rol → `/`. **El panel NO linkea al
@@ -176,7 +229,7 @@ componente hijo — el full-screen solo aparece en la entrada al área
   sección es un componente async propio en `dashboard/page.tsx`) y `search`
   envuelve solo los resultados (el input queda fuera para no perder foco).
 - **Paralelismo**: las páginas resuelven sesión + datos con `Promise.all`
-  (dashboard, favorites, artist/album/playlist detail, home público, panel).
+  (dashboard, catalogo, artist/album/playlist detail, home público, panel).
 - **`PlayerFullscreen` lazy** (`next/dynamic`, `ssr: false` en
   `components/player/player-bar.tsx`): el fullscreen (con OfflineButton + letra)
   no viaja en el chunk del root layout ni se descarga en páginas que nunca lo

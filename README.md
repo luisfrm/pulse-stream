@@ -156,9 +156,22 @@ pnpm test        # tests de la API (requieren TEST_DATABASE_URL)
 - [x] **Colaboradores**: `song_collaborators` (N:M), `SongRead.collaborators`, filtro `collaborator_id`, sección "Colaboraciones" en el artista; forms de canción (crear/editar) con álbum + colaboradores
 - [x] Migraciones 0006/0007 aplicadas; **78/78 tests** de integración + 19 unitarios del web, typecheck y lint limpios
 
+### Fase 5 — Mi catálogo, biblioteca y settings ✅
+
+- [x] **Favoritos de álbumes y playlists**: tablas `user_favorite_albums`/`user_favorite_playlists` (PK compuesta, CASCADE) + `GET/PUT/DELETE /me/favorites/{albums,playlists}[/{id}]` y `GET /me/library/ids` (los 3 sets de likes en una llamada). Migración 0008
+- [x] **Algoritmo de playlists del sistema**: `playlists.query` guarda la query del snapshot (`top_week`/`top_month`/`new`), `_snapshot_song_ids` centralizado y `POST /playlists/system/{id}/refresh` regenera sin duplicar
+- [x] **Mi catálogo** (`/dashboard/catalogo`): canciones en lista (like/descargar/"+" a playlist), playlists propias + system likeadas + creación, álbumes likeados. `/dashboard/favorites` redirige acá
+- [x] **PlaylistPicker** (`components/playlist-picker.tsx`): botón "+" en `SongItem` y en todas las `SongCard` (dropdown desktop + bottom sheet mobile, crear + agregar)
+- [x] **Descarga = Cache API** (`OfflineButton compact`): guarda el audio en `pulse-offline-v1` para escuchar sin stream (sin endpoint nuevo en el backend)
+- [x] **Explorar canciones** (`/dashboard/canciones`): grid con acciones + búsqueda + paginación (catálogo cacheado por tags)
+- [x] **Playlist detail mejorado**: hero con cover + backdrop, play-all, like de playlists del sistema, editar/borrar por ownership real
+- [x] **Sidebar reestructurado**: Mi catálogo primero · Biblioteca · Configuración (todos los usuarios) · chip de usuario eliminado (logout en Configuración) · top bar móvil con hamburguesa
+- [x] **Configuración** (`/dashboard/configuracion`): Cuenta (`/account`) · Cache (peso con `storage.estimate` + eliminar, `clearOfflineCache()`) · Cerrar sesión
+- [x] Migración 0008 aplicada; **91/91 tests** de integración + 35 unitarios del web, typecheck, lint y build limpios. Navegación optimizada (Suspense + skeletons + lazy fullscreen + `React.cache`)
+
 ### Siguientes fases
 
-- [ ] Fase 5 — Deploy (Vercel + Railway/Fly/Render, dominio propio), CSRF, notificaciones push, perfiles públicos, letra sincronizada
+- [ ] Fase 6 — Deploy (Vercel + Railway/Fly/Render, dominio propio), CSRF, notificaciones push, perfiles públicos, letra sincronizada
 - [ ] Roadmap ampliado de features en [`tasks.md`](./tasks.md)
 
 ## Notas de seguridad pendientes antes de producción
