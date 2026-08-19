@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Analytics } from "@vercel/analytics/next";
 
 import { PwaRegister } from "@/components/pwa-register";
 import { PlayerBar } from "@/components/player/player-bar";
@@ -30,6 +31,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <PlayerBar />
         </PlayerProvider>
         <Toaster />
+        <Analytics />
       </body>
     </html>
   );

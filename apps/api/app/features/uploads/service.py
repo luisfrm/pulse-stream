@@ -14,7 +14,14 @@ from app.core.config import settings
 from app.features.uploads.schemas import PresignRequest, PresignResponse
 from app.shared.exceptions import InvalidUploadError, R2NotConfiguredError
 
-ALLOWED_CONTENT_TYPES = {"audio/mpeg", "audio/mp3", "audio/aac", "audio/x-hx-aac-adts"}
+ALLOWED_CONTENT_TYPES = {
+    "audio/mpeg",
+    "audio/mp3",
+    "audio/aac",
+    "audio/x-hx-aac-adts",
+    # Los navegadores/OS reportan .aac como ADTS (DLNA) — variante del mismo codec.
+    "audio/vnd.dlna.adts",
+}
 ALLOWED_COVER_TYPES = {"image/jpeg", "image/jpg", "image/webp"}
 # Extensión del object_key según el content type del audio.
 AUDIO_EXTENSIONS = {
@@ -22,6 +29,7 @@ AUDIO_EXTENSIONS = {
     "audio/mp3": ".mp3",
     "audio/aac": ".aac",
     "audio/x-hx-aac-adts": ".aac",
+    "audio/vnd.dlna.adts": ".aac",
 }
 # Extensión del object_key según el content type del cover.
 COVER_EXTENSIONS = {"image/jpeg": ".jpg", "image/jpg": ".jpg", "image/webp": ".webp"}

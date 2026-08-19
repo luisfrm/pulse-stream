@@ -304,7 +304,7 @@ export function NewSongForm({
           <FileInput
           label="Archivo de audio (.mp3, .aac)"
           icon={<Music2 size={16} />}
-          accept="audio/mpeg,.mp3,audio/aac,.aac"
+          accept="audio/mpeg,.mp3,audio/aac,audio/vnd.dlna.adts,.aac"
           value={file}
           onChange={setFile}
           hint="Formatos MP3 o AAC · máximo 50 MB"
