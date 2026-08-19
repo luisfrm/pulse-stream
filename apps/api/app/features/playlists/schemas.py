@@ -74,3 +74,14 @@ class PlaylistDetail(PlaylistRead):
     """Playlist con sus canciones (estilo Spotify: lista ordenada)."""
 
     songs: list[SongRead] = Field(default_factory=list)
+
+
+class MyPlaylistRead(PlaylistRead):
+    """Playlist del usuario para el PlaylistPicker (GET /me/playlists).
+
+    Expone `song_ids` —ordenados por posición— para que el frontend muestre
+    "Ya está en esta playlist" sin traer las canciones completas. Schema
+    exclusivo de /me/playlists: NO reemplaza a `PlaylistRead`.
+    """
+
+    song_ids: list[uuid.UUID] = Field(default_factory=list)

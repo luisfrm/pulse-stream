@@ -16,8 +16,13 @@ export const artistsService = {
     params?: GetArtistsParams,
     options?: ApiFetchOptions,
   ): Promise<Page<Artist>> {
+    const { query, ...rest } = params ?? {};
     return await api<Page<Artist>>("/artists", {
-      query: params,
+      query: {
+        ...rest,
+        // La API espera `q` para la búsqueda por nombre.
+        ...(query ? { q: query } : {}),
+      },
       ...options,
     });
   },

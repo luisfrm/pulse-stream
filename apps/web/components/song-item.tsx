@@ -4,7 +4,7 @@ import Link from "next/link";
 
 import { PlayButton } from "@/components/player/play-button";
 import { Badge } from "@/components/ui";
-import type { Playlist, Song } from "@/lib/services/types";
+import type { MyPlaylist, Song } from "@/lib/services/types";
 import { formatGenre } from "@/lib/utils/format";
 import { SongActions } from "./song-actions";
 
@@ -13,7 +13,7 @@ interface SongItemProps {
   queue?: Song[];
   /** Si se pasan, muestra acciones de usuario (favorito + playlist). */
   favoriteIds?: Set<string>;
-  playlists?: Playlist[];
+  playlists?: MyPlaylist[];
   onMutated?: () => Promise<void>;
 }
 

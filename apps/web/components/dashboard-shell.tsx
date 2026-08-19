@@ -38,14 +38,14 @@ interface NavItem {
 function useNavItems(isAdmin: boolean): NavItem[] {
   return [
     // "Mi catálogo" primero: la biblioteca del usuario es el destino principal.
-    { href: "/dashboard/catalogo", label: "Mi catálogo", icon: LibraryBig },
+    { href: "/catalog", label: "Mi catálogo", icon: LibraryBig },
     { href: "/dashboard", label: "Inicio", icon: Home, exact: true },
-    { href: "/dashboard/search", label: "Buscar", icon: Search },
-    { href: "/dashboard/canciones", label: "Canciones", icon: Music2, group: "Biblioteca" },
-    { href: "/dashboard/playlists", label: "Playlists", icon: ListMusic, group: "Biblioteca" },
-    { href: "/dashboard/recently-played", label: "Recientes", icon: Clock, group: "Biblioteca" },
+    { href: "/search", label: "Buscar", icon: Search },
+    { href: "/songs", label: "Canciones", icon: Music2, group: "Biblioteca" },
+    { href: "/playlists", label: "Playlists", icon: ListMusic, group: "Biblioteca" },
+    { href: "/recently-played", label: "Recientes", icon: Clock, group: "Biblioteca" },
     // Configuración es para TODOS los usuarios; el panel sigue siendo admin-only.
-    { href: "/dashboard/configuracion", label: "Configuración", icon: Settings, group: "Administración" },
+    { href: "/settings", label: "Configuración", icon: Settings, group: "Administración" },
     ...(isAdmin
       ? [{ href: "/panel", label: "Panel admin", icon: Shield, group: "Administración" }]
       : []),

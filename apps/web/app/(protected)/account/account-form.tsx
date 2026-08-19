@@ -169,7 +169,7 @@ export function AccountForm({ user }: { user: User }) {
         <p className="mt-3 text-xs text-text-subdued">
           Cada play suma +1. Tu historial detallado está en{" "}
           <a
-            href="/dashboard/recently-played"
+            href="/recently-played"
             className="text-brand-400 hover:underline"
           >
             Escuchadas recientemente

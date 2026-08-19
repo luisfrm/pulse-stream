@@ -74,7 +74,7 @@ async function RecentSection() {
         <h2 className="font-display text-xl font-bold">Seguí escuchando</h2>
         {total > SECTION_LIMIT && (
           <a
-            href="/dashboard/recently-played"
+            href="/recently-played"
             className="text-sm font-medium text-text-subdued transition-colors hover:text-brand-400"
           >
             Ver todo
@@ -104,7 +104,7 @@ async function NewSongsSection() {
       <div className="mb-4 flex items-end justify-between gap-4">
         <h2 className="font-display text-xl font-bold">Recién agregadas</h2>
         <a
-          href="/dashboard/search"
+          href="/search"
           className="text-sm font-medium text-text-subdued transition-colors hover:text-brand-400"
         >
           Explorar
@@ -209,7 +209,7 @@ async function CommunityPlaylistsSection() {
           <PlaylistCard
             key={playlist.id}
             playlist={playlist}
-            href={`/dashboard/playlists/${playlist.id}`}
+            href={`/playlists/${playlist.id}`}
           />
         ))}
       </div>

@@ -51,8 +51,8 @@ export function BottomNav({ user, isAdmin }: BottomNavProps) {
 
   const items: NavItem[] = [
     { href: "/dashboard", label: "Inicio", icon: Home, exact: true },
-    { href: "/dashboard/search", label: "Buscar", icon: Search },
-    { href: "/dashboard/catalogo", label: "Catálogo", brand: true },
+    { href: "/search", label: "Buscar", icon: Search },
+    { href: "/catalog", label: "Catálogo", brand: true },
   ];
 
   function isActive(item: NavItem): boolean {
@@ -74,7 +74,7 @@ export function BottomNav({ user, isAdmin }: BottomNavProps) {
     try {
       const pl = await playlistsService.create({ name: name.trim() });
       close();
-      router.push(`/dashboard/playlists/${pl.id}`);
+      router.push(`/playlists/${pl.id}`);
       router.refresh();
     } catch (err) {
       setError(friendlyError(err));

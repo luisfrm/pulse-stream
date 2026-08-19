@@ -40,17 +40,17 @@ export default function manifest(): MetadataRoute.Manifest {
       {
         name: "Buscar canciones",
         short_name: "Buscar",
-        url: "/dashboard/search",
+        url: "/search",
       },
       {
         name: "Mi catálogo",
         short_name: "Catálogo",
-        url: "/dashboard/catalogo",
+        url: "/catalog",
       },
       {
         name: "Playlists",
         short_name: "Playlists",
-        url: "/dashboard/playlists",
+        url: "/playlists",
       },
     ],
   };

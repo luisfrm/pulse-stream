@@ -124,7 +124,7 @@ export function PlaylistsManager({
           {created && (
             <p className="rounded-xl bg-brand-400/10 px-4 py-3 text-sm text-brand-200">
               Playlist generada ✓ —{" "}
-              <Link href={`/dashboard/playlists/${created}`} className="underline">
+              <Link href={`/playlists/${created}`} className="underline">
                 verla
               </Link>
             </p>
@@ -157,7 +157,7 @@ export function PlaylistsManager({
                 className="flex items-center gap-3 rounded-2xl border border-bg-highlight bg-bg-elevated p-3"
               >
                 <Link
-                  href={`/dashboard/playlists/${pl.id}`}
+                  href={`/playlists/${pl.id}`}
                   className="flex min-w-0 flex-1 items-center gap-3"
                 >
                   <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-bg-highlight bg-bg-highlight/40">

@@ -2,7 +2,7 @@ import { MediaCardSkeleton } from "@/components/loading-skeletons";
 import { Skeleton } from "@/components/ui";
 
 /** Skeleton de Canciones: header + buscador + grid (espejo de la página). */
-export default function CancionesLoading() {
+export default function SongsLoading() {
   return (
     <div className="flex flex-col gap-8">
       <header>

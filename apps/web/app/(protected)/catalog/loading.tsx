@@ -2,7 +2,7 @@ import { MediaCardSkeleton, SongItemSkeleton } from "@/components/loading-skelet
 import { Skeleton } from "@/components/ui";
 
 /** Skeleton de Mi catálogo: header + buscador + las 3 secciones reales. */
-export default function CatalogoLoading() {
+export default function CatalogLoading() {
   return (
     <div className="flex flex-col gap-10">
       <header>
@@ -13,7 +13,7 @@ export default function CatalogoLoading() {
       {/* Buscador */}
       <Skeleton className="h-12 w-full max-w-md" />
 
-      {/* Canciones (lista) */}
+      {/* Canciones (lista, 10 recientes) */}
       <section>
         <div className="mb-4 flex items-end justify-between gap-4">
           <Skeleton className="h-7 w-40" />
@@ -26,15 +26,24 @@ export default function CatalogoLoading() {
         </div>
       </section>
 
-      {/* Playlists (grid) */}
+      {/* Playlists (grid compacto) */}
       <section>
         <div className="mb-4 flex items-end justify-between gap-4">
           <Skeleton className="h-7 w-40" />
           <Skeleton className="h-4 w-20" />
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 3 }).map((_, i) => (
-            <MediaCardSkeleton key={i} />
+            <div
+              key={i}
+              className="flex h-full items-center gap-3 rounded-2xl border border-bg-highlight bg-bg-elevated p-2.5"
+            >
+              <Skeleton className="h-14 w-14 shrink-0" />
+              <div className="min-w-0 flex-1 space-y-2">
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-3 w-1/2" />
+              </div>
+            </div>
           ))}
         </div>
       </section>

@@ -25,7 +25,7 @@ export function PlaylistActions({ playlistId, onMutated }: PlaylistActionsProps)
     try {
       await playlistsService.delete(playlistId);
       await onMutated();
-      router.push("/dashboard/playlists");
+      router.push("/playlists");
       router.refresh();
     } catch (err) {
       setError(friendlyError(err));

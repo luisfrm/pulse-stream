@@ -46,11 +46,14 @@ export const songsService = {
     params?: GetSongsParams,
     options?: ApiFetchOptions,
   ): Promise<Page<Song>> {
-    const { artistId, collaboratorId, ...rest } = params ?? {};
+    const { artistId, collaboratorId, query, ...rest } = params ?? {};
     return await api<Page<Song>>("/songs", {
       query: {
         ...rest,
-        // La API espera snake_case (artist_id / collaborator_id)
+        // La API espera `q` para la búsqueda por título (y snake_case para
+        // los ids): sin este mapeo el backend ignora el filtro y devuelve
+        // todo el catálogo (bug del buscador de /songs y /search).
+        ...(query ? { q: query } : {}),
         ...(artistId ? { artist_id: artistId } : {}),
         ...(collaboratorId ? { collaborator_id: collaboratorId } : {}),
       },

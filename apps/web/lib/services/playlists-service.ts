@@ -1,5 +1,5 @@
 import { api, type ApiFetchOptions } from "@/lib/api/client";
-import type { Page, Playlist, PlaylistDetail } from "./types";
+import type { MyPlaylist, Page, Playlist, PlaylistDetail } from "./types";
 
 export interface CreatePlaylistPayload {
   name: string;
@@ -21,8 +21,13 @@ export interface CreateSystemPlaylistPayload {
 }
 
 export const playlistsService = {
-  async getMyPlaylists(options?: ApiFetchOptions): Promise<Playlist[]> {
-    return await api<Playlist[]>("/playlists", options);
+  /**
+   * Playlists del usuario (GET /me/playlists). Cada item trae `song_ids`
+   * (ordenados por posición) para que el PlaylistPicker muestre "Ya está en
+   * esta playlist" sin fetches extra.
+   */
+  async getMyPlaylists(options?: ApiFetchOptions): Promise<MyPlaylist[]> {
+    return await api<MyPlaylist[]>("/playlists", options);
   },
 
   /** Genera una playlist del sistema (snapshot de una query) — admin only. */

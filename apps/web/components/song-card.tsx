@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Pause, Play } from "lucide-react";
 
-import type { Playlist, Song } from "@/lib/services/types";
+import type { MyPlaylist, Song } from "@/lib/services/types";
 import { cn } from "@/components/ui";
 import { usePlayer } from "./player/player-provider";
 import { FavoriteButton } from "./favorite-button";
@@ -16,7 +16,7 @@ interface SongCardProps {
   /** Badge superior (ej. "3×" = plays del usuario en recientes). */
   badge?: string;
   /** Con sesión: playlists del usuario → corner con "+" (PlaylistPicker). */
-  playlists?: Playlist[];
+  playlists?: MyPlaylist[];
   /** Con sesión: IDs favoritos → corner con corazón. */
   favoriteIds?: Set<string>;
   onMutated?: () => Promise<void>;

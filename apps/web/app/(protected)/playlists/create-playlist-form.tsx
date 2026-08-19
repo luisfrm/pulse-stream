@@ -32,7 +32,7 @@ export function CreatePlaylistForm({ onCreated }: CreatePlaylistFormProps) {
         description: description.trim() || undefined,
       });
       await onCreated();
-      router.push(`/dashboard/playlists/${pl.id}`);
+      router.push(`/playlists/${pl.id}`);
       router.refresh();
     } catch (err) {
       setError(friendlyError(err));

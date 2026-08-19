@@ -3,12 +3,12 @@
 import { FavoriteButton } from "@/components/favorite-button";
 import { OfflineButton } from "@/components/offline-button";
 import { PlaylistPicker } from "@/components/playlist-picker";
-import type { Playlist, Song } from "@/lib/services/types";
+import type { MyPlaylist, Song } from "@/lib/services/types";
 
 interface SongActionsProps {
   song: Song;
   initialFavorited: boolean;
-  playlists?: Playlist[];
+  playlists?: MyPlaylist[];
   onMutated?: () => Promise<void>;
 }
 

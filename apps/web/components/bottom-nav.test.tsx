@@ -28,11 +28,11 @@ const user = {
 } as User;
 
 describe("BottomNav", () => {
-  it("navega a /dashboard/catalogo desde el item Catálogo", () => {
+  it("navega a /catalog desde el item Catálogo", () => {
     render(<BottomNav user={user} isAdmin={false} />);
     expect(screen.getByRole("link", { name: /catálogo/i })).toHaveAttribute(
       "href",
-      "/dashboard/catalogo"
+      "/catalog"
     );
   });
 
@@ -52,7 +52,7 @@ describe("BottomNav", () => {
     );
     expect(screen.getByRole("link", { name: /buscar/i })).toHaveAttribute(
       "href",
-      "/dashboard/search"
+      "/search"
     );
     expect(screen.getByRole("button", { name: /crear/i })).toBeInTheDocument();
   });

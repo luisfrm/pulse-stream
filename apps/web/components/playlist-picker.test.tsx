@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { playlistsService } from "@/lib/services/playlists-service";
-import type { Playlist, Song } from "@/lib/services/types";
+import type { MyPlaylist, Playlist, Song } from "@/lib/services/types";
 
 import { PlaylistPicker } from "./playlist-picker";
 
@@ -105,5 +105,61 @@ describe("PlaylistPicker", () => {
       });
     });
     expect(playlistsService.addSong).toHaveBeenCalledWith("p3", "s1");
+  });
+
+  it("deshabilita la fila cuando la canción ya está en la playlist", () => {
+    const withSong = [
+      {
+        id: "p1",
+        name: "Favoritas",
+        song_count: 3,
+        kind: "user",
+        is_public: false,
+        created_at: "2026-01-01T00:00:00Z",
+        song_ids: ["s1", "s9"],
+      },
+      {
+        id: "p2",
+        name: "Gimnasio",
+        song_count: 12,
+        kind: "user",
+        is_public: false,
+        created_at: "2026-01-01T00:00:00Z",
+        song_ids: [],
+      },
+    ] as MyPlaylist[];
+
+    render(<PlaylistPicker song={song} playlists={withSong} />);
+    fireEvent.click(screen.getByRole("button", { name: "Agregar a playlist" }));
+
+    // Contenida → deshabilitada con la etiqueta + check.
+    const contained = screen.getByRole("button", { name: /favoritas/i });
+    expect(contained).toBeDisabled();
+    expect(screen.getByText("Ya está en esta playlist")).toBeInTheDocument();
+
+    // No contenida → habilitada y con el contador normal.
+    const available = screen.getByRole("button", { name: /gimnasio/i });
+    expect(available).toBeEnabled();
+    expect(screen.getByText("12 canciones")).toBeInTheDocument();
+  });
+
+  it("no agrega la canción a una playlist que ya la contiene", async () => {
+    const withSong = [
+      {
+        id: "p1",
+        name: "Favoritas",
+        song_count: 3,
+        kind: "user",
+        is_public: false,
+        created_at: "2026-01-01T00:00:00Z",
+        song_ids: ["s1"],
+      },
+    ] as MyPlaylist[];
+
+    render(<PlaylistPicker song={song} playlists={withSong} />);
+    fireEvent.click(screen.getByRole("button", { name: "Agregar a playlist" }));
+    fireEvent.click(screen.getByRole("button", { name: /favoritas/i }));
+
+    expect(playlistsService.addSong).not.toHaveBeenCalled();
   });
 });

@@ -1,19 +1,20 @@
 "use client";
 
 import * as React from "react";
-import { ListPlus, Loader2, Plus } from "lucide-react";
+import { Check, ListPlus, Loader2, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { BottomSheet, Button, Input, Textarea, cn } from "@/components/ui";
 import { useIsMobile } from "@/lib/hooks/use-is-mobile";
 import { playlistsService } from "@/lib/services/playlists-service";
-import type { Playlist, Song } from "@/lib/services/types";
+import type { MyPlaylist, Song } from "@/lib/services/types";
 import { friendlyError } from "@/lib/utils/error";
 
 interface PlaylistPickerProps {
   song: Song;
-  playlists: Playlist[];
+  /** Playlists del usuario (GET /me/playlists) con `song_ids` por posición. */
+  playlists: MyPlaylist[];
   onMutated?: () => Promise<void>;
   /** Clases extra para el botón disparador (icon-button del contexto). */
   triggerClassName?: string;
@@ -163,27 +164,42 @@ export function PlaylistPicker({
             </p>
           ) : (
             <ul className="flex max-h-64 flex-col gap-1 overflow-y-auto">
-              {playlists.map((pl) => (
-                <li key={pl.id}>
-                  <button
-                    type="button"
-                    onClick={() => handleAddToPlaylist(pl.id, pl.name)}
-                    disabled={pendingId === pl.id}
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors hover:bg-bg-highlight focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-400 disabled:opacity-60"
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate font-medium">{pl.name}</span>
-                      <span className="block text-xs text-text-subdued">
-                        {pl.song_count}{" "}
-                        {pl.song_count === 1 ? "canción" : "canciones"}
+              {playlists.map((pl) => {
+                // `song_ids` llega en el objeto playlist (GET /me/playlists):
+                // sin fetch extra por playlist.
+                const containsSong = pl.song_ids?.includes(song.id) ?? false;
+                return (
+                  <li key={pl.id}>
+                    <button
+                      type="button"
+                      onClick={() => handleAddToPlaylist(pl.id, pl.name)}
+                      disabled={pendingId === pl.id || containsSong}
+                      aria-disabled={containsSong || undefined}
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors hover:bg-bg-highlight focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-400 disabled:opacity-60 disabled:hover:bg-transparent"
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-medium">{pl.name}</span>
+                        <span className="block text-xs text-text-subdued">
+                          {containsSong
+                            ? "Ya está en esta playlist"
+                            : `${pl.song_count} ${
+                                pl.song_count === 1 ? "canción" : "canciones"
+                              }`}
+                        </span>
                       </span>
-                    </span>
-                    {pendingId === pl.id && (
-                      <Loader2 size={14} className="animate-spin" aria-hidden />
-                    )}
-                  </button>
-                </li>
-              ))}
+                      {containsSong ? (
+                        <Check
+                          size={14}
+                          className="shrink-0 text-brand-400"
+                          aria-hidden
+                        />
+                      ) : pendingId === pl.id ? (
+                        <Loader2 size={14} className="animate-spin" aria-hidden />
+                      ) : null}
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           )}
 

@@ -69,6 +69,15 @@ class Playlist(Base):
         return [item.song for item in self.items]
 
     @property
+    def song_ids(self) -> list[uuid.UUID]:
+        """IDs de las canciones en orden de posición (para el PlaylistPicker).
+
+        Se deriva de `items`, que ya viene ordenado por `PlaylistSong.position`
+        y eager-loadado — solo hace falta el FK, sin tocar la relación `song`.
+        """
+        return [item.song_id for item in self.items]
+
+    @property
     def song_count(self) -> int:
         return len(self.items)
 

@@ -10,13 +10,19 @@ export function proxy(request: NextRequest) {
   const hasSession = request.cookies.has("session");
 
   // Protege el panel, el área de usuario y las páginas de catálogo
-  // (artista/álbum/canción viven en el grupo protegido): sin cookie -> login.
+  // (artista/álbum/canción + rutas top-level en inglés viven en el grupo
+  // protegido): sin cookie -> login.
   if (
     (pathname.startsWith("/dashboard") ||
       pathname.startsWith("/panel") ||
       pathname.startsWith("/artist") ||
       pathname.startsWith("/album") ||
-      pathname.startsWith("/song")) &&
+      pathname.startsWith("/song") ||
+      pathname.startsWith("/catalog") ||
+      pathname.startsWith("/settings") ||
+      pathname.startsWith("/search") ||
+      pathname.startsWith("/playlists") ||
+      pathname.startsWith("/recently-played")) &&
     !hasSession
   ) {
     const url = new URL("/login", request.url);
@@ -39,6 +45,12 @@ export const config = {
     "/artist/:path*",
     "/album/:path*",
     "/song/:path*",
+    "/catalog/:path*",
+    "/songs/:path*",
+    "/settings/:path*",
+    "/search/:path*",
+    "/playlists/:path*",
+    "/recently-played/:path*",
     "/login",
     "/register",
   ],

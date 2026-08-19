@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Query, status
 from app.features.auth.manager import current_user, require_admin
 from app.features.playlists.models import Playlist
 from app.features.playlists.schemas import (
+    MyPlaylistRead,
     PlaylistAddSong,
     PlaylistCreate,
     PlaylistDetail,
@@ -133,10 +134,14 @@ async def remove_song_from_playlist(
 me_router = APIRouter(prefix="/me", tags=["playlists"])
 
 
-@me_router.get("/playlists", response_model=list[PlaylistRead])
+@me_router.get("/playlists", response_model=list[MyPlaylistRead])
 async def list_my_playlists(
     service: PlaylistService = Depends(get_playlist_service),
     user: User = Depends(current_user),
 ) -> list[Playlist]:
-    """Playlists del usuario actual (para el menú "agregar a playlist")."""
+    """Playlists del usuario actual (para el menú "agregar a playlist").
+
+    Incluye `song_ids` por playlist (orden por posición) para que el picker
+    muestre "Ya está en esta playlist" sin traer las canciones completas.
+    """
     return await service.list_for_user(user)

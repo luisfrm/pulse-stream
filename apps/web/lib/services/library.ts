@@ -1,13 +1,14 @@
 import { favoritesService } from "./favorites-service";
 import { playlistsService } from "./playlists-service";
 import { getSession } from "./session-service";
-import type { Playlist } from "./types";
+import type { MyPlaylist } from "./types";
 
 export interface UserLibrary {
   favoriteIds: Set<string>;
   albumIds: Set<string>;
   playlistIds: Set<string>;
-  playlists: Playlist[];
+  /** Playlists del usuario con `song_ids` (para el PlaylistPicker). */
+  playlists: MyPlaylist[];
 }
 
 /**
