@@ -5,15 +5,17 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Clock,
-  Heart,
   Home,
+  LibraryBig,
   ListMusic,
+  Menu,
+  Music2,
   Search,
+  Settings,
   Shield,
   X,
 } from "lucide-react";
 
-import LogoutButton from "@/components/logout-button";
 import { cn } from "@/components/ui";
 import type { User } from "@/lib/services/types";
 import { BottomNav } from "./bottom-nav";
@@ -35,11 +37,15 @@ interface NavItem {
 
 function useNavItems(isAdmin: boolean): NavItem[] {
   return [
+    // "Mi catálogo" primero: la biblioteca del usuario es el destino principal.
+    { href: "/dashboard/catalogo", label: "Mi catálogo", icon: LibraryBig },
     { href: "/dashboard", label: "Inicio", icon: Home, exact: true },
     { href: "/dashboard/search", label: "Buscar", icon: Search },
-    { href: "/dashboard/favorites", label: "Canciones", icon: Heart, group: "Tu biblioteca" },
-    { href: "/dashboard/playlists", label: "Playlists", icon: ListMusic, group: "Tu biblioteca" },
-    { href: "/dashboard/recently-played", label: "Recientes", icon: Clock, group: "Tu biblioteca" },
+    { href: "/dashboard/canciones", label: "Canciones", icon: Music2, group: "Biblioteca" },
+    { href: "/dashboard/playlists", label: "Playlists", icon: ListMusic, group: "Biblioteca" },
+    { href: "/dashboard/recently-played", label: "Recientes", icon: Clock, group: "Biblioteca" },
+    // Configuración es para TODOS los usuarios; el panel sigue siendo admin-only.
+    { href: "/dashboard/configuracion", label: "Configuración", icon: Settings, group: "Administración" },
     ...(isAdmin
       ? [{ href: "/panel", label: "Panel admin", icon: Shield, group: "Administración" }]
       : []),
@@ -47,11 +53,9 @@ function useNavItems(isAdmin: boolean): NavItem[] {
 }
 
 function SidebarNav({
-  user,
   isAdmin,
   onNavigate,
 }: {
-  user: User;
   isAdmin: boolean;
   onNavigate?: () => void;
 }) {
@@ -101,33 +105,6 @@ function SidebarNav({
           </ul>
         </div>
       ))}
-
-      <div className="mt-auto">
-        <div className="flex items-center gap-3 rounded-xl border border-bg-highlight bg-bg-elevated/60 px-3 py-2.5">
-          <Link
-            href="/account"
-            className="flex min-w-0 flex-1 items-center gap-3 rounded-lg transition-colors hover:opacity-80"
-          >
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-gradient font-display text-sm font-extrabold text-bg-base">
-              {user.cover_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={user.cover_url} alt="" className="h-full w-full object-cover" />
-              ) : (
-                user.email.charAt(0).toUpperCase()
-              )}
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium">
-                {user.username ?? user.email}
-              </p>
-              <p className="truncate text-xs text-text-subdued">
-                {isAdmin ? "Administrador" : "Oyente"}
-              </p>
-            </div>
-          </Link>
-          <LogoutButton variant="icon" />
-        </div>
-      </div>
     </nav>
   );
 }
@@ -167,7 +144,6 @@ export function DashboardShell({ user, isAdmin, children }: DashboardShellProps)
               </button>
             </div>
             <SidebarNav
-              user={user}
               isAdmin={isAdmin}
               onNavigate={() => setDrawerOpen(false)}
             />
@@ -175,9 +151,10 @@ export function DashboardShell({ user, isAdmin, children }: DashboardShellProps)
         </div>
       )}
 
-      {/* Sidebar desktop. `lg:pb-28` deja aire bajo el chip del usuario: la
-          barra del reproductor (fixed bottom, z-40) lo taparía sin esto. */}
-      <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-bg-highlight bg-bg-base/60 px-4 pb-28 pt-5 backdrop-blur lg:flex">
+      {/* Sidebar desktop. `lg:pb-24` deja aire bajo el último item: la barra del
+          reproductor (fixed bottom, z-40) lo taparía sin esto. El chip de
+          usuario ya no vive acá (logout pasó a Configuración). */}
+      <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-bg-highlight bg-bg-base/60 px-4 pb-24 pt-5 backdrop-blur lg:flex">
         <Link
           href="/dashboard"
           className="mb-6 flex items-center gap-2 px-3 font-display text-lg font-bold text-text-primary"
@@ -185,11 +162,28 @@ export function DashboardShell({ user, isAdmin, children }: DashboardShellProps)
           <BrandLogo size={32} />
           Pulse Stream
         </Link>
-        <SidebarNav user={user} isAdmin={isAdmin} />
+        <SidebarNav isAdmin={isAdmin} />
       </aside>
 
-      {/* Barra superior móvil: ya no existe — en mobile el estándar es la
-          bottom nav (BottomNav). La cuenta se abre desde el avatar de ahí. */}
+      {/* Barra superior móvil: la hamburguesa abre el drawer (la cuenta vive en
+          la bottom nav y en Configuración). */}
+      <header className="sticky top-0 z-40 flex items-center justify-between gap-3 border-b border-bg-highlight bg-bg-base/95 px-4 py-3 backdrop-blur-md lg:hidden">
+        <Link
+          href="/dashboard"
+          className="flex items-center gap-2 font-display text-lg font-bold text-text-primary"
+        >
+          <BrandLogo size={28} />
+          Pulse Stream
+        </Link>
+        <button
+          type="button"
+          onClick={() => setDrawerOpen(true)}
+          aria-label="Abrir menú"
+          className="rounded-pill p-2 text-text-subdued transition-colors hover:bg-bg-highlight hover:text-text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-400"
+        >
+          <Menu size={22} />
+        </button>
+      </header>
 
       {/* Contenido */}
       <main className="min-w-0 flex-1 px-4 pb-44 pt-5 lg:px-8 lg:pb-32 lg:pt-8">
@@ -197,7 +191,7 @@ export function DashboardShell({ user, isAdmin, children }: DashboardShellProps)
       </main>
 
       {/* Navegación inferior (móvil) */}
-      <BottomNav user={user} isAdmin={isAdmin} onOpenMenu={() => setDrawerOpen(true)} />
+      <BottomNav user={user} isAdmin={isAdmin} />
     </div>
   );
 }

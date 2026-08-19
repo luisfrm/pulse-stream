@@ -14,26 +14,24 @@ import { friendlyError } from "@/lib/utils/error";
 interface BottomNavProps {
   user: User;
   isAdmin: boolean;
-  /** Abre el drawer móvil (cuenta, logout, rutas de biblioteca). */
-  onOpenMenu: () => void;
 }
 
 interface NavItem {
   href: string;
   label: string;
   icon?: React.ComponentType<{ size?: number; className?: string }>;
-  /** La Librería usa el logo de Pulse Stream en vez de un icono. */
+  /** El Catálogo usa el logo de Pulse Stream en vez de un icono. */
   brand?: boolean;
   exact?: boolean;
 }
 
 /**
  * Barra de navegación inferior (móvil) — el estándar en pantallas chicas:
- * Inicio / Buscar / Librería / Crear (+) / Panel (admin) + avatar para la cuenta.
+ * Inicio / Buscar / Catálogo / Crear (+) / Panel (admin) + Cuenta (→ /account).
  * El botón "+" abre un popup justo encima de la barra (con overlay) para crear
  * playlists y un acceso a Blend (próximamente, disabled).
  */
-export function BottomNav({ user, isAdmin, onOpenMenu }: BottomNavProps) {
+export function BottomNav({ user, isAdmin }: BottomNavProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [createOpen, setCreateOpen] = React.useState(false);
@@ -54,7 +52,7 @@ export function BottomNav({ user, isAdmin, onOpenMenu }: BottomNavProps) {
   const items: NavItem[] = [
     { href: "/dashboard", label: "Inicio", icon: Home, exact: true },
     { href: "/dashboard/search", label: "Buscar", icon: Search },
-    { href: "/dashboard/favorites", label: "Librería", brand: true },
+    { href: "/dashboard/catalogo", label: "Catálogo", brand: true },
   ];
 
   function isActive(item: NavItem): boolean {
@@ -203,12 +201,17 @@ export function BottomNav({ user, isAdmin, onOpenMenu }: BottomNavProps) {
             </Link>
           )}
 
-          {/* Avatar: abre el drawer (cuenta / logout) */}
-          <button
-            type="button"
-            onClick={onOpenMenu}
-            aria-label="Abrir menú de cuenta"
-            className="flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+          {/* Cuenta: navega a /account (el drawer ahora lo abre la hamburguesa
+              de la top bar del shell) */}
+          <Link
+            href="/account"
+            aria-label="Mi cuenta"
+            className={cn(
+              "flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400",
+              pathname.startsWith("/account")
+                ? "text-brand-400"
+                : "text-text-subdued hover:text-text-primary"
+            )}
           >
             <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-brand-gradient text-sm font-extrabold text-bg-base">
               {user.cover_url ? (
@@ -218,8 +221,8 @@ export function BottomNav({ user, isAdmin, onOpenMenu }: BottomNavProps) {
                 (user.username ?? user.email).charAt(0).toUpperCase()
               )}
             </span>
-            <span className="truncate text-[10px] text-text-subdued">Cuenta</span>
-          </button>
+            <span className="truncate text-[10px]">Cuenta</span>
+          </Link>
 
           {/* Crear: + ↔ X con bg blanco */}
           <button
