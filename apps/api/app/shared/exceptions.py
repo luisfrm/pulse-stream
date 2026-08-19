@@ -81,3 +81,10 @@ class PlaylistNotFoundError(NotFoundError):
 class PlaylistForbiddenError(AppError):
     status_code = 403
     detail = "No tenés acceso a esta playlist"
+
+
+class PlaylistNotRefreshableError(AppError):
+    status_code = 400
+
+    def __init__(self, playlist_id: uuid.UUID, reason: str) -> None:
+        super().__init__(f"Playlist {playlist_id} no se puede regenerar: {reason}")

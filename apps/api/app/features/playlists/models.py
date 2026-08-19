@@ -9,6 +9,7 @@ from app.core.config import settings
 from app.db.base import Base
 
 if TYPE_CHECKING:
+    from app.features.favorites.models import UserFavoritePlaylist
     from app.features.songs.models import Song
     from app.features.users.models import User
 
@@ -19,6 +20,8 @@ class Playlist(Base):
     - `owner_id` -> users (cascade delete: si el usuario se borra, se van sus playlists)
     - `items` -> PlaylistSong (tabla asociativa con posición para el orden)
     - `is_public`: false = solo el dueño la ve (y la modifica)
+    - `query`: solo en las `system` — la query de snapshot (top_week/top_month/new)
+      que la generó, para poder regenerarla con POST /playlists/system/{id}/refresh.
     """
 
     __tablename__ = "playlists"
@@ -29,6 +32,9 @@ class Playlist(Base):
     kind: Mapped[str] = mapped_column(
         String(20), nullable=False, default="user", server_default=text("'user'")
     )
+    # query de snapshot (solo system): "top_week" | "top_month" | "new".
+    # VARCHAR plano — los valores se validan solo en Pydantic (PlaylistSystemQuery).
+    query: Mapped[str | None] = mapped_column(String(20))
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
     cover_key: Mapped[str | None] = mapped_column(String(1024))
@@ -53,6 +59,9 @@ class Playlist(Base):
         back_populates="playlist",
         cascade="all, delete-orphan",
         order_by="PlaylistSong.position",
+    )
+    favorited_by: Mapped[list["UserFavoritePlaylist"]] = relationship(
+        back_populates="playlist", cascade="all, delete-orphan"
     )
 
     @property

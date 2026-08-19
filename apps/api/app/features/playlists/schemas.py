@@ -62,6 +62,9 @@ class PlaylistRead(BaseModel):
     cover_key: str | None = None
     cover_url: str | None = None
     song_count: int = 0
+    # Query de snapshot (solo system): "top_week" | "top_month" | "new".
+    # NULL en playlists de usuario o system creadas antes de la migración 0008.
+    query: PlaylistSystemQuery | None = None
     # Autor (email del dueño) — se lee desde `Playlist.owner_email`.
     owner_email: str | None = None
     created_at: datetime

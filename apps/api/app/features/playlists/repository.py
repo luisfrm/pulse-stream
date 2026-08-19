@@ -1,7 +1,7 @@
 import uuid
 
 from fastapi import Depends
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -17,13 +17,17 @@ class PlaylistRepository:
         self._session = session
 
     def _with_songs(self, query):
-        # owner + items -> PlaylistSong -> Song -> Artist (para el detalle/listado)
+        # owner + items -> PlaylistSong -> Song -> Artist + Album (el detalle
+        # valida SongRead.album; sin eager-load da MissingGreenlet en async).
         # owner se carga SIEMPRE: `owner_email` se lee como propiedad del modelo.
         return query.options(
             selectinload(Playlist.owner),
             selectinload(Playlist.items)
             .selectinload(PlaylistSong.song)
             .selectinload(Song.artist),
+            selectinload(Playlist.items)
+            .selectinload(PlaylistSong.song)
+            .selectinload(Song.album),
         )
 
     async def list_by_owner(self, owner_id: uuid.UUID) -> list[Playlist]:
@@ -67,13 +71,22 @@ class PlaylistRepository:
         return result.scalar_one_or_none()
 
     async def create(
-        self, owner_id: uuid.UUID, name: str, description: str | None, is_public: bool
+        self,
+        owner_id: uuid.UUID,
+        name: str,
+        description: str | None,
+        is_public: bool,
+        *,
+        kind: str = "user",
+        query: str | None = None,
     ) -> Playlist:
         playlist = Playlist(
             owner_id=owner_id,
             name=name,
             description=description,
             is_public=is_public,
+            kind=kind,
+            query=query,
         )
         self._session.add(playlist)
         await self._session.flush()
@@ -132,6 +145,27 @@ class PlaylistRepository:
             i.position = index
         await self._session.flush()
         return True
+
+    async def replace_songs(
+        self, playlist: Playlist, song_ids: list[uuid.UUID]
+    ) -> None:
+        """Reemplaza TODO el contenido de la playlist (refresh de snapshot).
+
+        Borra los items actuales e inserta el nuevo ranking con posiciones
+        0..n-1. Un solo flush: el refresh de una playlist system es atómico.
+        """
+        await self._session.execute(
+            delete(PlaylistSong).where(PlaylistSong.playlist_id == playlist.id)
+        )
+        for position, song_id in enumerate(song_ids):
+            self._session.add(
+                PlaylistSong(
+                    playlist_id=playlist.id,
+                    song_id=song_id,
+                    position=position,
+                )
+            )
+        await self._session.flush()
 
 
 async def get_playlist_repository(

@@ -29,6 +29,22 @@ async def create_system_playlist(
     return await service.create_system_playlist(admin, payload)
 
 
+@router.post(
+    "/system/{playlist_id}/refresh", response_model=PlaylistDetail
+)
+async def refresh_system_playlist(
+    playlist_id: uuid.UUID,
+    service: PlaylistService = Depends(get_playlist_service),
+    admin: User = Depends(require_admin),
+) -> Playlist:
+    """Regenera el snapshot de una playlist del sistema — admin only.
+
+    Recalcula las canciones según la `query` que la generó (top_week,
+    top_month o new) y reemplaza el contenido en la misma playlist.
+    """
+    return await service.refresh_system_playlist(admin, playlist_id)
+
+
 @router.get("/public", response_model=Page[PlaylistRead])
 async def list_public_playlists(
     offset: int = Query(0, ge=0),
@@ -109,3 +125,18 @@ async def remove_song_from_playlist(
     user: User = Depends(current_user),
 ) -> Playlist:
     return await service.remove_song(playlist_id, user, song_id)
+
+
+# Router bajo /me: alias canónico de "mis playlists" para el "+" de agregar a
+# playlist desde cualquier card y para la biblioteca (mismo namespace que
+# /me/favorites y /me/listens).
+me_router = APIRouter(prefix="/me", tags=["playlists"])
+
+
+@me_router.get("/playlists", response_model=list[PlaylistRead])
+async def list_my_playlists(
+    service: PlaylistService = Depends(get_playlist_service),
+    user: User = Depends(current_user),
+) -> list[Playlist]:
+    """Playlists del usuario actual (para el menú "agregar a playlist")."""
+    return await service.list_for_user(user)

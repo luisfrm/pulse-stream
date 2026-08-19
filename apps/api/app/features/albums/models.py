@@ -10,6 +10,7 @@ from app.db.base import Base
 
 if TYPE_CHECKING:
     from app.features.artists.models import Artist
+    from app.features.favorites.models import UserFavoriteAlbum
     from app.features.songs.models import Song
 
 
@@ -40,6 +41,9 @@ class Album(Base):
 
     artist: Mapped["Artist"] = relationship(back_populates="albums")
     songs: Mapped[list["Song"]] = relationship(back_populates="album")
+    favorited_by: Mapped[list["UserFavoriteAlbum"]] = relationship(
+        back_populates="album", cascade="all, delete-orphan"
+    )
 
     @property
     def cover_url(self) -> str | None:

@@ -13,6 +13,14 @@ from dotenv import load_dotenv
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+# Entorno de tests SIEMPRE local, sin importar el .env de desarrollo:
+# - ENV=prod -> cookie de sesión con Secure -> httpx (http://test) no la reenvía.
+# - COOKIE_DOMAIN=luisrivas.site -> la cookie no matchea el host "test".
+# Las env vars seteadas acá tienen prioridad sobre el .env (pydantic-settings:
+# env vars > dotenv) y `load_dotenv()` no pisa lo ya definido (override=False).
+os.environ.setdefault("ENV", "local")
+os.environ["COOKIE_DOMAIN"] = ""
+
 # Los tests leen el .env de la app (TEST_DATABASE_URL vive ahí).
 load_dotenv()
 

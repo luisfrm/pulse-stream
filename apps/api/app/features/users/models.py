@@ -10,7 +10,8 @@ from app.core.config import settings
 from app.db.base import Base
 
 if TYPE_CHECKING:
-    from app.features.favorites.models import UserFavorite
+    from app.features.albums.models import Album
+    from app.features.favorites.models import UserFavorite, UserFavoriteAlbum, UserFavoritePlaylist
     from app.features.listens.models import Listen
     from app.features.playlists.models import Playlist
 
@@ -54,6 +55,12 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
         back_populates="owner", cascade="all, delete-orphan"
     )
     favorites: Mapped[list["UserFavorite"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    favorite_playlists: Mapped[list["UserFavoritePlaylist"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    favorite_albums: Mapped[list["UserFavoriteAlbum"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
     listens: Mapped[list["Listen"]] = relationship(

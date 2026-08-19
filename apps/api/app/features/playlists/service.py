@@ -9,15 +9,20 @@ from app.features.playlists.repository import PlaylistRepository, get_playlist_r
 from app.features.playlists.schemas import (
     PlaylistCreate,
     PlaylistSystemCreate,
+    PlaylistSystemQuery,
     PlaylistUpdate,
 )
 from app.features.songs.repository import SongRepository, get_song_repository
 from app.features.users.models import User
 from app.shared.exceptions import (
     PlaylistForbiddenError,
+    PlaylistNotRefreshableError,
     PlaylistNotFoundError,
     SongNotFoundError,
 )
+
+# Tamaño de los snapshots de playlists del sistema (top_week/top_month/new).
+_SYSTEM_SNAPSHOT_LIMIT = 30
 
 
 class PlaylistService:
@@ -77,32 +82,80 @@ class PlaylistService:
         """Genera una playlist del sistema como snapshot de una query.
 
         - top_week: más reproducidas en los últimos 7 días.
-        - top_month: más reproducidas en el mes calendario actual.
-        - new: canciones recién agregadas.
-        """
-        if payload.query.value == "top_week":
-            since = datetime.now(timezone.utc) - timedelta(days=7)
-            ranking = await self._listens.top_song_ids(since=since, limit=30)
-            song_ids = [song_id for song_id, _ in ranking]
-        elif payload.query.value == "top_month":
-            now = datetime.now(timezone.utc)
-            since = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-            ranking = await self._listens.top_song_ids(since=since, limit=30)
-            song_ids = [song_id for song_id, _ in ranking]
-        else:  # "new"
-            latest = await self._songs.list(offset=0, limit=30)
-            song_ids = [song.id for song in latest]
+        - top_month: más reproducidas en el mes calendario actual (UTC).
+        - new: canciones recién agregadas (created_at desc).
 
+        La playlist guarda su `query` para poder REGENERARSE después con
+        `refresh_system_playlist` (POST /playlists/system/{id}/refresh).
+        """
+        song_ids = await self._snapshot_song_ids(payload.query)
         playlist = await self._repository.create(
             owner_id=admin.id,
             name=payload.name,
             description=payload.description,
             is_public=True,
+            kind="system",
+            query=payload.query.value,
         )
-        playlist.kind = "system"
-        for song_id in song_ids:
-            await self._repository.add_song(playlist, song_id)
+        await self._repository.replace_songs(playlist, song_ids)
         return await self._repository.get(playlist.id)  # type: ignore[return-value]
+
+    async def refresh_system_playlist(
+        self, admin: User, playlist_id: uuid.UUID
+    ) -> Playlist:
+        """Regenera el snapshot de una playlist del sistema (admin only).
+
+        Recalcula las canciones según la `query` que la generó y reemplaza el
+        contenido (misma playlist, mismo id — no se duplica).
+        """
+        playlist = await self._get_mutable(playlist_id, admin)
+        if playlist.kind != "system":
+            raise PlaylistNotRefreshableError(
+                playlist_id, "solo las playlists del sistema se regeneran"
+            )
+        if playlist.query is None:
+            raise PlaylistNotRefreshableError(
+                playlist_id,
+                "esta playlist no tiene query de snapshot asociada "
+                "(fue creada antes de la migración 0008); recreala para poder refrescarla",
+            )
+        query_value = playlist.query
+        try:
+            query = PlaylistSystemQuery(query_value)
+        except ValueError:
+            raise PlaylistNotRefreshableError(
+                playlist_id,
+                f"query de snapshot inválida ({query_value!r})",
+            ) from None
+        song_ids = await self._snapshot_song_ids(query)
+        await self._repository.replace_songs(playlist, song_ids)
+        return await self._repository.get(playlist.id)  # type: ignore[return-value]
+
+    async def _snapshot_song_ids(
+        self, query: PlaylistSystemQuery
+    ) -> list[uuid.UUID]:
+        """IDs de canciones del snapshot, en orden de ranking.
+
+        `top_song_ids` ya viene ordenado por count desc (y por song_id como
+        tie-breaker determinista); `new` usa el orden de creación desc.
+        """
+        if query is PlaylistSystemQuery.TOP_WEEK:
+            since = datetime.now(timezone.utc) - timedelta(days=7)
+            ranking = await self._listens.top_song_ids(
+                since=since, limit=_SYSTEM_SNAPSHOT_LIMIT
+            )
+            return [song_id for song_id, _ in ranking]
+        if query is PlaylistSystemQuery.TOP_MONTH:
+            now = datetime.now(timezone.utc)
+            since = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            ranking = await self._listens.top_song_ids(
+                since=since, limit=_SYSTEM_SNAPSHOT_LIMIT
+            )
+            return [song_id for song_id, _ in ranking]
+        # "new": canciones recién agregadas (SongRepository.list ordena por
+        # created_at desc).
+        latest = await self._songs.list(offset=0, limit=_SYSTEM_SNAPSHOT_LIMIT)
+        return [song.id for song in latest]
 
     async def update_playlist(
         self, playlist_id: uuid.UUID, user: User, payload: PlaylistUpdate
