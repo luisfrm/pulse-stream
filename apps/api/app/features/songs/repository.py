@@ -125,6 +125,11 @@ class SongRepository:
         for artist_id in artist_ids:
             self._session.add(SongCollaborator(song_id=song.id, artist_id=artist_id))
 
+    async def rollback(self) -> None:
+        """Rollback explícito de la sesión compartida (usado por ZipImportService
+        cuando un archivo individual falla con error de DB)."""
+        await self._session.rollback()
+
 
 async def get_song_repository(
     session: AsyncSession = Depends(get_session),

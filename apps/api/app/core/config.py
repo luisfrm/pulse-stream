@@ -94,6 +94,8 @@ class Settings(BaseSettings):
     r2_public_base_url: str = ""
     # Tamaño máximo de archivo de audio aceptado en /uploads/presign (50 MB)
     r2_max_upload_bytes: int = 50 * 1024 * 1024
+    # Tope total para un ZIP importado en /albums/{id}/import-zip (512 MB)
+    r2_max_zip_import_bytes: int = 512 * 1024 * 1024
 
     @property
     def r2_endpoint(self) -> str:

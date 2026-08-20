@@ -1,13 +1,16 @@
 import uuid
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, File, Query, Request, UploadFile, status
 from pydantic import ConfigDict, Field
 
+from app.core.security import limiter
 from app.features.albums.models import Album
 from app.features.albums.schemas import AlbumCreate, AlbumRead, AlbumUpdate
 from app.features.albums.service import AlbumService
 from app.features.auth.manager import require_admin
 from app.features.songs.schemas import SongRead
+from app.features.uploads.schemas import ZipImportResult
+from app.features.uploads.service import ZipImportService, get_zip_import_service
 from app.shared.pagination import Page, paginate
 
 router = APIRouter(prefix="/albums", tags=["albums"])
@@ -72,3 +75,23 @@ async def delete_album(
     _: Album = Depends(require_admin),
 ) -> None:
     await service.delete_album(album_id)
+
+
+@router.post("/{album_id}/import-zip", response_model=ZipImportResult)
+@limiter.limit("5/minute")
+async def import_album_zip(
+    request: Request,
+    album_id: uuid.UUID,
+    file: UploadFile = File(...),
+    service: ZipImportService = Depends(get_zip_import_service),
+    _: Album = Depends(require_admin),
+) -> ZipImportResult:
+    """Importa un álbum completo desde un ZIP (admin only).
+
+    Cada archivo .mp3/.aac del ZIP se sube a R2 y se crea como canción del
+    álbum (mismo artista y cover del álbum). El título y la duración se leen
+    de los tags ID3 (fallback: nombre del archivo). Los archivos que no
+    cumplen los requisitos se reportan en la respuesta, sin abortar el resto.
+    """
+    data = await file.read()
+    return await service.import_album_zip(album_id, data, file.filename or "album.zip")

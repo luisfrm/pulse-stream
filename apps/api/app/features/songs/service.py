@@ -133,3 +133,16 @@ class SongService:
     async def delete_song(self, song_id: uuid.UUID) -> None:
         song = await self.get_song(song_id)
         await self._songs.delete(song)
+
+
+def get_song_service(
+    song_repository: SongRepository = Depends(get_song_repository),
+    artist_repository: ArtistRepository = Depends(get_artist_repository),
+    album_repository: AlbumRepository = Depends(get_album_repository),
+) -> SongService:
+    """Factory explícita para inyectar SongService en otros servicios."""
+    return SongService(
+        song_repository=song_repository,
+        artist_repository=artist_repository,
+        album_repository=album_repository,
+    )
