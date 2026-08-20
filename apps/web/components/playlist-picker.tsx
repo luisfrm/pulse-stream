@@ -73,16 +73,25 @@ export function PlaylistPicker({
     resetCreate();
   }
 
-  async function handleAddToPlaylist(playlistId: string, playlistName: string) {
+  async function handleTogglePlaylist(pl: MyPlaylist) {
     if (pendingId) return;
-    setPendingId(playlistId);
+    const containsSong = pl.song_ids?.includes(song.id) ?? false;
+    setPendingId(pl.id);
     setError(null);
     try {
-      await playlistsService.addSong(playlistId, song.id);
-      close();
-      await onMutated?.();
-      router.refresh();
-      toast.success(`Agregada a «${playlistName}»`);
+      if (containsSong) {
+        await playlistsService.removeSong(pl.id, song.id);
+        close();
+        await onMutated?.();
+        router.refresh();
+        toast.success(`Quitada de «${pl.name}»`);
+      } else {
+        await playlistsService.addSong(pl.id, song.id);
+        close();
+        await onMutated?.();
+        router.refresh();
+        toast.success(`Agregada a «${pl.name}»`);
+      }
     } catch (err) {
       setError(friendlyError(err));
     } finally {
@@ -166,15 +175,16 @@ export function PlaylistPicker({
             <ul className="flex max-h-64 flex-col gap-1 overflow-y-auto">
               {playlists.map((pl) => {
                 // `song_ids` llega en el objeto playlist (GET /me/playlists):
-                // sin fetch extra por playlist.
+                // sin fetch extra por playlist. Click = toggle: si ya la
+                // contiene la quita; si no, la agrega.
                 const containsSong = pl.song_ids?.includes(song.id) ?? false;
                 return (
                   <li key={pl.id}>
                     <button
                       type="button"
-                      onClick={() => handleAddToPlaylist(pl.id, pl.name)}
-                      disabled={pendingId === pl.id || containsSong}
-                      aria-disabled={containsSong || undefined}
+                      onClick={() => handleTogglePlaylist(pl)}
+                      disabled={pendingId === pl.id}
+                      aria-pressed={containsSong || undefined}
                       className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors hover:bg-bg-highlight focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-400 disabled:opacity-60 disabled:hover:bg-transparent"
                     >
                       <span className="min-w-0 flex-1">
@@ -188,14 +198,20 @@ export function PlaylistPicker({
                         </span>
                       </span>
                       {containsSong ? (
-                        <Check
-                          size={14}
-                          className="shrink-0 text-brand-400"
+                        <span
+                          className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-400 text-bg-base"
                           aria-hidden
-                        />
+                        >
+                          <Check size={12} strokeWidth={3} />
+                        </span>
                       ) : pendingId === pl.id ? (
                         <Loader2 size={14} className="animate-spin" aria-hidden />
-                      ) : null}
+                      ) : (
+                        <span
+                          className="h-5 w-5 shrink-0 rounded-full border border-bg-highlight"
+                          aria-hidden
+                        />
+                      )}
                     </button>
                   </li>
                 );

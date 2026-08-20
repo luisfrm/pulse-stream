@@ -14,6 +14,7 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/lib/services/playlists-service", () => ({
   playlistsService: {
     addSong: vi.fn(),
+    removeSong: vi.fn(),
     create: vi.fn(),
   },
 }));
@@ -107,7 +108,7 @@ describe("PlaylistPicker", () => {
     expect(playlistsService.addSong).toHaveBeenCalledWith("p3", "s1");
   });
 
-  it("deshabilita la fila cuando la canción ya está en la playlist", () => {
+  it("muestra check verde en la playlist que ya contiene la canción (toggle)", () => {
     const withSong = [
       {
         id: "p1",
@@ -132,9 +133,9 @@ describe("PlaylistPicker", () => {
     render(<PlaylistPicker song={song} playlists={withSong} />);
     fireEvent.click(screen.getByRole("button", { name: "Agregar a playlist" }));
 
-    // Contenida → deshabilitada con la etiqueta + check.
+    // Contenida → sigue clickeable (toggle) con la etiqueta de ya contenida.
     const contained = screen.getByRole("button", { name: /favoritas/i });
-    expect(contained).toBeDisabled();
+    expect(contained).toBeEnabled();
     expect(screen.getByText("Ya está en esta playlist")).toBeInTheDocument();
 
     // No contenida → habilitada y con el contador normal.
@@ -143,7 +144,7 @@ describe("PlaylistPicker", () => {
     expect(screen.getByText("12 canciones")).toBeInTheDocument();
   });
 
-  it("no agrega la canción a una playlist que ya la contiene", async () => {
+  it("quita la canción de la playlist que ya la contiene (toggle)", async () => {
     const withSong = [
       {
         id: "p1",
@@ -160,6 +161,9 @@ describe("PlaylistPicker", () => {
     fireEvent.click(screen.getByRole("button", { name: "Agregar a playlist" }));
     fireEvent.click(screen.getByRole("button", { name: /favoritas/i }));
 
+    await waitFor(() => {
+      expect(playlistsService.removeSong).toHaveBeenCalledWith("p1", "s1");
+    });
     expect(playlistsService.addSong).not.toHaveBeenCalled();
   });
 });

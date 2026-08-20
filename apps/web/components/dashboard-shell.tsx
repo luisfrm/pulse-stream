@@ -37,10 +37,10 @@ interface NavItem {
 
 function useNavItems(isAdmin: boolean): NavItem[] {
   return [
-    // "Mi catálogo" primero: la biblioteca del usuario es el destino principal.
-    { href: "/catalog", label: "Mi catálogo", icon: LibraryBig },
     { href: "/dashboard", label: "Inicio", icon: Home, exact: true },
     { href: "/search", label: "Buscar", icon: Search },
+    // "Mi catálogo" abre la sección Biblioteca, antes de Canciones.
+    { href: "/catalog", label: "Mi catálogo", icon: LibraryBig, group: "Biblioteca" },
     { href: "/songs", label: "Canciones", icon: Music2, group: "Biblioteca" },
     { href: "/playlists", label: "Playlists", icon: ListMusic, group: "Biblioteca" },
     { href: "/recently-played", label: "Recientes", icon: Clock, group: "Biblioteca" },
