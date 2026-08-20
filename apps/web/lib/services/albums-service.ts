@@ -1,5 +1,5 @@
 import { api, type ApiFetchOptions } from "@/lib/api/client";
-import type { Album, AlbumDetail, Page } from "./types";
+import type { Album, AlbumDetail, Page, ZipImportResult } from "./types";
 
 export interface GetAlbumsParams {
   query?: string;
@@ -56,5 +56,18 @@ export const albumsService = {
 
   async delete(id: string): Promise<void> {
     await api(`/albums/${id}`, { method: "DELETE" });
+  },
+
+  /** Importa un álbum completo desde un ZIP (admin): cada .mp3/.aac del ZIP
+   *  se sube a R2 y se crea como canción del álbum (mismo cover). */
+  async importZip(albumId: string, file: File): Promise<ZipImportResult> {
+    const form = new FormData();
+    form.append("file", file);
+    return await api<ZipImportResult>(`/albums/${albumId}/import-zip`, {
+      method: "POST",
+      body: form,
+      // Un ZIP grande puede tardar varios minutos en subir y procesarse.
+      timeout: 300_000,
+    });
   },
 };

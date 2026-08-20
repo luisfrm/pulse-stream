@@ -3,13 +3,13 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
+import { Archive, Plus } from "lucide-react";
 
 import { AudioPreviewPlayer } from "@/components/audio-preview-player";
 import { CoverUploader } from "@/components/cover-uploader";
 import { Button, Modal, Input } from "@/components/ui";
 import { albumsService } from "@/lib/services/albums-service";
-import type { AlbumDetail } from "@/lib/services/types";
+import type { AlbumDetail, ZipImportResult } from "@/lib/services/types";
 import { friendlyError } from "@/lib/utils/error";
 
 interface AlbumManagerProps {
@@ -25,9 +25,36 @@ export function AlbumManager({ album, onMutated }: AlbumManagerProps) {
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [deleting, setDeleting] = React.useState(false);
+  const [importing, setImporting] = React.useState(false);
+  const [importResult, setImportResult] = React.useState<ZipImportResult | null>(
+    null
+  );
+  const zipInputRef = React.useRef<HTMLInputElement>(null);
 
   const songs = album.songs ?? [];
   const totalPlays = songs.reduce((sum, s) => sum + (s.play_count ?? 0), 0);
+
+  async function handleImportZip(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".zip")) {
+      setError("Elegí un archivo .zip.");
+      return;
+    }
+    setImporting(true);
+    setError(null);
+    try {
+      const result = await albumsService.importZip(album.id, file);
+      setImportResult(result);
+      await onMutated();
+      router.refresh();
+    } catch (err) {
+      setError(friendlyError(err));
+    } finally {
+      setImporting(false);
+    }
+  }
 
   async function saveAlbum(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -146,9 +173,28 @@ export function AlbumManager({ album, onMutated }: AlbumManagerProps) {
             >
               <Plus size={16} aria-hidden /> Subir canción a este álbum
             </Link>
+            <Button
+              type="button"
+              variant="outline"
+              loading={importing}
+              onClick={() => zipInputRef.current?.click()}
+              className="w-full"
+            >
+              <Archive size={16} aria-hidden />
+              {importing ? "Importando…" : "Importar ZIP"}
+            </Button>
+            <input
+              ref={zipInputRef}
+              type="file"
+              accept=".zip,application/zip"
+              aria-label="Seleccionar archivo ZIP"
+              className="hidden"
+              onChange={handleImportZip}
+            />
             <p className="text-xs text-text-subdued">
-              El álbum pertenece a {album.artist.name}: las canciones que subas
-              con esta opción quedarán asignadas automáticamente.
+              Un ZIP con los .mp3 o .aac del álbum: cada canción se crea con el
+              artista y el cover de este álbum (título y duración desde los tags
+              ID3). Archivos que no cumplan se listan al finalizar.
             </p>
           </div>
         </div>
@@ -206,6 +252,75 @@ export function AlbumManager({ album, onMutated }: AlbumManagerProps) {
           </ul>
         )}
       </section>
+
+      {/* Resultado de la importación ZIP */}
+      <Modal
+        open={importResult !== null}
+        onClose={() => setImportResult(null)}
+        title="Importación desde ZIP"
+        description={
+          importResult
+            ? `${importResult.imported?.length ?? 0} ${
+                (importResult.imported?.length ?? 0) === 1 ? "canción" : "canciones"
+              } importadas · ${importResult.skipped?.length ?? 0} saltadas · ${
+                importResult.failed?.length ?? 0
+              } fallidas`
+            : undefined
+        }
+      >
+        {(importResult?.skipped?.length ?? 0) > 0 ||
+        (importResult?.failed?.length ?? 0) > 0 ? (
+          <div className="space-y-4">
+            {(importResult?.failed?.length ?? 0) > 0 && (
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-brand-200">
+                  Fallidas
+                </p>
+                <ul className="space-y-2">
+                  {importResult?.failed?.map((issue, index) => (
+                    <li
+                      key={`failed-${issue.name}-${index}`}
+                      className="flex items-start justify-between gap-3 rounded-xl border border-bg-highlight bg-bg-elevated px-3.5 py-2.5 text-sm"
+                    >
+                      <span className="min-w-0 truncate font-medium">{issue.name}</span>
+                      <span className="shrink-0 text-xs text-text-subdued">
+                        {issue.reason}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {(importResult?.skipped?.length ?? 0) > 0 && (
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-text-subdued">
+                  Saltadas
+                </p>
+                <ul className="space-y-2">
+                  {importResult?.skipped?.map((issue, index) => (
+                    <li
+                      key={`skipped-${issue.name}-${index}`}
+                      className="flex items-start justify-between gap-3 rounded-xl border border-bg-highlight bg-bg-elevated px-3.5 py-2.5 text-sm"
+                    >
+                      <span className="min-w-0 truncate font-medium">{issue.name}</span>
+                      <span className="shrink-0 text-xs text-text-subdued">
+                        {issue.reason}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        ) : (
+          <p className="text-sm text-text-subdued">
+            Todas las canciones del ZIP se importaron correctamente.
+          </p>
+        )}
+        <div className="flex justify-end gap-3">
+          <Button onClick={() => setImportResult(null)}>Listo</Button>
+        </div>
+      </Modal>
 
       {/* Confirmación de borrado */}
       <Modal
