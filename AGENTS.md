@@ -180,9 +180,9 @@ crear entidades vía API, assert status + shape del JSON.
 **Navegación (Fase 5.5):** el sidebar vive en `components/dashboard-shell.tsx`
 (una sola `SidebarNav` compartida entre drawer móvil y sidebar desktop; una
 top bar móvil `lg:hidden` con hamburguesa abre el drawer — el avatar de la
-bottom nav ya no lo hace). Grupos y orden: **Principal** = Mi catálogo
-(`/catalog`, PRIMERO) · Inicio · Buscar; **Biblioteca** = Canciones
-(`/songs` — explorar catálogo) · Playlists · Recientes;
+bottom nav ya no lo hace). Grupos y orden: **Principal** = Inicio · Buscar;
+**Biblioteca** = Mi catálogo (`/catalog`) · Canciones (`/songs` — explorar
+catálogo) · Playlists · Recientes;
 **Administración** = Configuración (`/settings`, **todos** los
 usuarios) · Panel admin (solo admin). El chip de usuario al pie del sidebar se
 eliminó (logout vive en Configuración). Bottom nav (`components/bottom-nav.tsx`):
@@ -205,8 +205,9 @@ Catálogo · Buscar · Cuenta (`/account`, Link) · Panel (admin) · Crear+.
   agregar a playlist — popover propio en desktop + `BottomSheet` en mobile,
   lista playlists del usuario + "Nueva playlist" (crear+agregar). Las
   playlists llegan con `song_ids` (`GET /me/playlists` → `MyPlaylistRead`):
-  las que ya contienen la canción se muestran **deshabilitadas con check +
-  "Ya está en esta playlist"** (sin fetch extra). Se usa en `SongActions` y en
+  cada fila es un **toggle**: si la canción ya está se muestra con **check
+  verde redondeado + "Ya está en esta playlist"** y el click la **quita** de la
+  playlist (sin fetch extra); si no está, la agrega. Se usa en `SongActions` y en
   `SongCard` (props OPCIONALES `playlists`/`favoriteIds`/`onMutated`; sin
   props no renderiza nada — el home público queda intacto).
 - **Descargar = Cache API, sin endpoint**: el botón descarga reusa
