@@ -205,9 +205,13 @@ Catálogo · Buscar · Cuenta (`/account`, Link) · Panel (admin) · Crear+.
   agregar a playlist — popover propio en desktop + `BottomSheet` en mobile,
   lista playlists del usuario + "Nueva playlist" (crear+agregar). Las
   playlists llegan con `song_ids` (`GET /me/playlists` → `MyPlaylistRead`):
-  cada fila es un **toggle**: si la canción ya está se muestra con **check
-  verde redondeado + "Ya está en esta playlist"** y el click la **quita** de la
-  playlist (sin fetch extra); si no está, la agrega. Se usa en `SongActions` y en
+  **el servicio del web DEBE pegar a `/me/playlists`, NO a `/playlists`** (ese
+  devuelve `PlaylistRead` sin `song_ids`; bug real ya corregido en
+  `playlists-service.getMyPlaylists` — sin `song_ids` el toggle se rompe en
+  silencio y siempre agrega). Cada fila es un **toggle**: si la canción ya está
+  se muestra con **check verde redondeado + "Ya está en esta playlist"** y el
+  click la **quita** de la playlist (sin fetch extra); si no está, la agrega.
+  Se usa en `SongActions` y en
   `SongCard` (props OPCIONALES `playlists`/`favoriteIds`/`onMutated`; sin
   props no renderiza nada — el home público queda intacto).
 - **Descargar = Cache API, sin endpoint**: el botón descarga reusa
