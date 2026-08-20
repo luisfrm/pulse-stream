@@ -297,6 +297,31 @@ export interface paths {
         patch: operations["update_album_albums__album_id__patch"];
         trace?: never;
     };
+    "/albums/{album_id}/import-zip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Album Zip
+         * @description Importa un álbum completo desde un ZIP (admin only).
+         *
+         *     Cada archivo .mp3/.aac del ZIP se sube a R2 y se crea como canción del
+         *     álbum (mismo artista y cover del álbum). El título y la duración se leen
+         *     de los tags ID3 (fallback: nombre del archivo). Los archivos que no
+         *     cumplen los requisitos se reportan en la respuesta, sin abortar el resto.
+         */
+        post: operations["import_album_zip_albums__album_id__import_zip_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/songs": {
         parameters: {
             query?: never;
@@ -994,6 +1019,11 @@ export interface components {
              */
             client_secret?: string | null;
         };
+        /** Body_import_album_zip_albums__album_id__import_zip_post */
+        Body_import_album_zip_albums__album_id__import_zip_post: {
+            /** File */
+            file: string;
+        };
         /** Body_reset_forgot_password_auth_forgot_password_post */
         Body_reset_forgot_password_auth_forgot_password_post: {
             /**
@@ -1624,6 +1654,28 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /**
+         * ZipImportIssue
+         * @description Un archivo del ZIP que no se importó (saltado o fallido), con el motivo.
+         */
+        ZipImportIssue: {
+            /** Name */
+            name: string;
+            /** Reason */
+            reason: string;
+        };
+        /**
+         * ZipImportResult
+         * @description Resultado del import por ZIP de un álbum completo.
+         */
+        ZipImportResult: {
+            /** Imported */
+            imported?: components["schemas"]["SongRead"][];
+            /** Skipped */
+            skipped?: components["schemas"]["ZipImportIssue"][];
+            /** Failed */
+            failed?: components["schemas"]["ZipImportIssue"][];
         };
     };
     responses: never;
@@ -2527,6 +2579,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AlbumDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_album_zip_albums__album_id__import_zip_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                album_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_import_album_zip_albums__album_id__import_zip_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ZipImportResult"];
                 };
             };
             /** @description Validation Error */
