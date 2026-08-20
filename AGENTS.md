@@ -116,6 +116,17 @@ stateless: borrar la cookie ES cerrar sesión). CSRF del logout = solo molesto
 - Covers (canciones/artistas/álbumes/perfil) aceptan **JPG y WebP ≤ 512 KB**
   (`uploads.service.ALLOWED_COVER_TYPES` + `COVER_EXTENSIONS` para el
   `object_key`).
+- **Import por ZIP de álbumes** (`POST /albums/{id}/import-zip`, admin):
+  excepción deliberada a "el audio nunca pasa por FastAPI" — el ZIP viaja por
+  la API (carga masiva), pero cada audio se guarda en R2 con PUT server-side
+  (`R2Storage.put_object`, mismas credenciales que firman). `ZipImportService`
+  (uploads feature, orquesta repos de songs+albums) valida .mp3/.aac (≤ 50 MB,
+  no vacíos), lee **título + duración de los tags ID3 con `mutagen`** (fallback:
+  filename), saltea duplicados por título (case-insensitive) y no-audio, y crea
+  cada canción con `artist_id`/`album_id`/`cover_key` del álbum. Respuesta
+  `ZipImportResult` (`imported` songs, `skipped`/`failed` issues) — un archivo
+  que falla no aborta el resto. Botón "Importar ZIP" en el `AlbumManager` del
+  panel.
 
 **Datos de Fase 5 (biblioteca / favoritos / snapshots):**
 - Favoritos = **3 tablas** (`user_favorites` canciones, `user_favorite_albums`,
