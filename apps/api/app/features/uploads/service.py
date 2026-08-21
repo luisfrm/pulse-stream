@@ -67,27 +67,23 @@ PRESIGN_EXPIRES_SECONDS = 600  # 5-10 min: ventana para subir el archivo
 IMPORT_EXTENSIONS = {".mp3": "audio/mpeg", ".aac": "audio/aac"}
 
 
-def _probe_audio(data: bytes) -> tuple[str | None, int | None, bool]:
-    """Lee título (ID3 TIT2) y duración de un MP3/AAC con mutagen.
+def _probe_audio(data: bytes) -> tuple[int | None, bool]:
+    """Lee la duración de un MP3/AAC con mutagen.
 
-    Devuelve `(title, duration, recognized)`. Si `recognized` es False, mutagen
+    Devuelve `(duration, recognized)`. Si `recognized` es False, mutagen
     no pudo parsear el archivo y se recomienda rechazarlo (evita subir un
     archivo renombrado que no sea audio válido).
+
+    El título NO se lee de los tags ID3: siempre sale del nombre del
+    archivo (decisión de producto — el admin nombra los archivos como
+    quiere que se llame la canción).
     """
     try:
         audio = mutagen.File(fileobj=io.BytesIO(data))
     except Exception:
-        return None, None, False
+        return None, False
     if audio is None:
-        return None, None, False
-
-    title: str | None = None
-    try:
-        tag = audio.tags.get("TIT2") if audio.tags else None
-        if tag is not None and tag.text:
-            title = str(tag.text[0]).strip() or None
-    except Exception:
-        title = None
+        return None, False
 
     duration: int | None = None
     try:
@@ -95,7 +91,7 @@ def _probe_audio(data: bytes) -> tuple[str | None, int | None, bool]:
             duration = max(1, int(round(audio.info.length)))
     except Exception:
         duration = None
-    return title, duration, True
+    return duration, True
 
 
 class R2Storage:
@@ -290,14 +286,15 @@ class ZipImportService:
                 )
                 continue
 
-            title, duration, recognized = _probe_audio(file_data)
+            duration, recognized = _probe_audio(file_data)
             if not recognized:
                 failed.append(
                     ZipImportIssue(name=name, reason="El archivo no es un audio válido.")
                 )
                 continue
-            if not title:
-                title = os.path.splitext(name)[0].strip() or name
+            # El título siempre sale del filename (sin extensión); los tags
+            # ID3 se ignoran a propósito.
+            title = os.path.splitext(name)[0].strip() or name
             if title.casefold() in existing_titles:
                 skipped.append(
                     ZipImportIssue(
