@@ -192,9 +192,10 @@ export function AlbumManager({ album, onMutated }: AlbumManagerProps) {
               onChange={handleImportZip}
             />
             <p className="text-xs text-text-subdued">
-              Un ZIP con los .mp3 o .aac del álbum: cada canción se crea con el
-              artista y el cover de este álbum (título y duración desde los tags
-              ID3). Archivos que no cumplan se listan al finalizar.
+              Un ZIP con los .mp3 o .aac del álbum: cada canción se crea con
+              el artista y el cover de este álbum; el título sale del nombre
+              del archivo (los tags ID3 se ignoran). Archivos que no cumplan
+              se listan al finalizar.
             </p>
           </div>
         </div>
