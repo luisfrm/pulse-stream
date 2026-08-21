@@ -65,15 +65,17 @@ def _mp3_bytes(title: str) -> bytes:
 
 
 def _mp3_no_id3_bytes() -> bytes:
-    """MP3 sin tags ID3: el service debe usar el nombre de archivo como título."""
+    """MP3 sin tags ID3: mutagen lo parsea pero no trae metadatos útiles."""
     frame = b"\xff\xfb\x90\x00" + b"\x00" * 413
     return frame * 2
 
 
-def _zip_bytes(entries: dict[str, bytes]) -> bytes:
+def _zip_bytes(entries: dict[str, bytes] | list[tuple[str, bytes]]) -> bytes:
+    """Acepta dict o lista de pares (la lista permite nombres repetidos)."""
+    items = entries.items() if isinstance(entries, dict) else entries
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w") as zf:
-        for name, data in entries.items():
+        for name, data in items:
             zf.writestr(name, data)
     return buf.getvalue()
 
@@ -141,13 +143,15 @@ async def test_import_zip_creates_songs_with_album_data(import_client, session):
     artist, album = await _create_album(client)
 
     zip_data = _zip_bytes(
-        {
-            "01 - Titulo Uno.mp3": _mp3_bytes("Título Uno"),
-            "02 - Titulo Dos.mp3": _mp3_bytes("Título Dos"),
-            "Portada.jpg": b"not an image",
-            "03 - Duplicado.mp3": _mp3_bytes("Título Uno"),
-            "folder/04 - Cuatro.mp3": _mp3_bytes("Cuatro"),
-        }
+        [
+            # Los tags ID3 se ignoran: el título SIEMPRE sale del filename.
+            ("01 - Titulo Uno.mp3", _mp3_bytes("Tag Distinto Uno")),
+            ("02 - Titulo Dos.mp3", _mp3_bytes("Tag Distinto Dos")),
+            ("Portada.jpg", b"not an image"),
+            ("Duplicado.mp3", _mp3_bytes("Dup A")),
+            ("Duplicado.mp3", _mp3_bytes("Dup B")),
+            ("folder/04 - Cuatro.mp3", _mp3_no_id3_bytes()),
+        ]
     )
 
     resp = await client.post(
@@ -158,9 +162,10 @@ async def test_import_zip_creates_songs_with_album_data(import_client, session):
     data = resp.json()
 
     assert [s["title"] for s in data["imported"]] == [
-        "Título Uno",
-        "Título Dos",
-        "Cuatro",
+        "01 - Titulo Uno",
+        "02 - Titulo Dos",
+        "Duplicado",
+        "04 - Cuatro",
     ]
     for song in data["imported"]:
         assert song["album"]["id"] == album["id"]
@@ -171,10 +176,11 @@ async def test_import_zip_creates_songs_with_album_data(import_client, session):
 
     skipped = {item["name"]: item["reason"] for item in data["skipped"]}
     assert "Portada.jpg" in skipped
-    assert "03 - Duplicado.mp3" in skipped
+    assert "Duplicado.mp3" in skipped
+    assert "ya existe" in skipped["Duplicado.mp3"].lower()
     assert data["failed"] == []
 
-    assert len(storage.objects) == 3
+    assert len(storage.objects) == 4
     assert all(ct == "audio/mpeg" for _, _, ct in storage.objects)
 
 
@@ -247,7 +253,8 @@ async def test_import_zip_rejects_unparseable_audio(import_client, session):
     assert storage.objects == []
 
 
-async def test_import_zip_fallback_title_when_no_id3(import_client, session):
+async def test_import_zip_title_from_filename_ignores_id3(import_client, session):
+    """El título SIEMPRE sale del filename: el tag TIT2 se ignora."""
     client, storage = import_client
     await register_and_login(client, admin=True, session=session)
     _, album = await _create_album(client)
@@ -257,15 +264,20 @@ async def test_import_zip_fallback_title_when_no_id3(import_client, session):
         files={
             "file": (
                 "album.zip",
-                _zip_bytes({"Sin Tag.mp3": _mp3_no_id3_bytes()}),
+                _zip_bytes(
+                    {
+                        "Malo soy.mp3": _mp3_bytes("Tag que debe ser ignorado"),
+                        "Sin Tag.mp3": _mp3_no_id3_bytes(),
+                    }
+                ),
                 "application/zip",
             )
         },
     )
     assert resp.status_code == 200, resp.text
     data = resp.json()
-    assert [s["title"] for s in data["imported"]] == ["Sin Tag"]
-    assert len(storage.objects) == 1
+    assert [s["title"] for s in data["imported"]] == ["Malo soy", "Sin Tag"]
+    assert len(storage.objects) == 2
 
 
 async def test_import_zip_accepts_aac_extension(import_client, session):
@@ -285,7 +297,7 @@ async def test_import_zip_accepts_aac_extension(import_client, session):
     )
     assert resp.status_code == 200, resp.text
     data = resp.json()
-    assert data["imported"][0]["title"] == "Tema AAC"
+    assert data["imported"][0]["title"] == "track"
     assert len(storage.objects) == 1
     assert storage.objects[0][2] == "audio/aac"
 
@@ -330,7 +342,7 @@ async def test_import_zip_duplicate_preexisting(import_client, session):
         files={
             "file": (
                 "album.zip",
-                _zip_bytes({"01 - Titulo Uno.mp3": _mp3_bytes("Título Uno")}),
+                _zip_bytes({"Título Uno.mp3": _mp3_bytes("Otro Tag")}),
                 "application/zip",
             )
         },
@@ -381,7 +393,7 @@ async def test_import_zip_continues_after_storage_failure(import_client, session
         )
         assert resp.status_code == 200, resp.text
         data = resp.json()
-        assert [s["title"] for s in data["imported"]] == ["A", "C"]
+        assert [s["title"] for s in data["imported"]] == ["a", "c"]
         assert len(data["failed"]) == 1
         assert len(storage.objects) == 2
     finally:
