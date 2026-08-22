@@ -8,6 +8,8 @@ export interface GetSongsParams {
   artistId?: string;
   /** Canciones donde el artista es colaborador (no principal). */
   collaboratorId?: string;
+  albumId?: string;
+  playlistId?: string;
 }
 
 export interface GetPopularParams {
@@ -46,7 +48,7 @@ export const songsService = {
     params?: GetSongsParams,
     options?: ApiFetchOptions,
   ): Promise<Page<Song>> {
-    const { artistId, collaboratorId, query, ...rest } = params ?? {};
+    const { artistId, collaboratorId, albumId, playlistId, query, ...rest } = params ?? {};
     return await api<Page<Song>>("/songs", {
       query: {
         ...rest,
@@ -56,6 +58,8 @@ export const songsService = {
         ...(query ? { q: query } : {}),
         ...(artistId ? { artist_id: artistId } : {}),
         ...(collaboratorId ? { collaborator_id: collaboratorId } : {}),
+        ...(albumId ? { album_id: albumId } : {}),
+        ...(playlistId ? { playlist_id: playlistId } : {}),
       },
       ...options,
     });

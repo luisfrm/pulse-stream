@@ -4,12 +4,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Sparkles } from "lucide-react";
 
-import { SongItem } from "@/components/song-item";
 import { BackLink } from "@/components/back-link";
 import { Badge, Button } from "@/components/ui";
 import { getUserLibrary } from "@/lib/services/library";
 import { playlistsService } from "@/lib/services/playlists-service";
 import { getSession } from "@/lib/services/session-service";
+import { songsService } from "@/lib/services/songs-service";
 import { CACHE_TAGS } from "@/lib/services/tags";
 import { authorHandle } from "@/lib/utils/format";
 
@@ -17,12 +17,15 @@ import { PlaylistActions } from "./playlist-actions";
 import { PlaylistEditForm } from "./playlist-edit-form";
 import { PlaylistLikeButton } from "./playlist-like-button";
 import { PlaylistPlayButton } from "./playlist-play-button";
+import { PlaylistSongs } from "./playlist-songs";
 
 export const dynamic = "force-dynamic";
 
 interface PlaylistDetailPageProps {
   params: Promise<{ id: string }>;
 }
+
+const SONGS_PAGE_LIMIT = 20;
 
 export async function generateMetadata({
   params,
@@ -39,12 +42,20 @@ export async function generateMetadata({
 export default async function PlaylistDetailPage({ params }: PlaylistDetailPageProps) {
   const { id } = await params;
 
-  // Playlist, biblioteca del usuario y sesión en paralelo (getSession está
-  // deduplicada con React.cache: no genera un segundo /users/me).
-  const [playlist, library, user] = await Promise.all([
+  // Metadata de la playlist, biblioteca del usuario, sesión y primera página
+  // de canciones — todo en paralelo. La metadata sale de /playlists/{id};
+  // las canciones paginadas salen de /songs?playlist_id para no traerlas
+  // todas en un solo fetch.
+  const [playlist, library, user, initialSongs] = await Promise.all([
     playlistsService.getPlaylistById(id).catch(() => null),
     getUserLibrary(),
     getSession(),
+    songsService
+      .getSongs(
+        { playlistId: id, offset: 0, limit: SONGS_PAGE_LIMIT },
+        { next: { revalidate: 60, tags: [CACHE_TAGS.songs] } },
+      )
+      .catch(() => ({ items: [], total: 0, offset: 0, limit: SONGS_PAGE_LIMIT })),
   ]);
   if (!playlist) notFound();
 
@@ -56,14 +67,12 @@ export default async function PlaylistDetailPage({ params }: PlaylistDetailPageP
   };
 
   const isUserPlaylist = playlist.kind === "user";
-  // Editar/borrar solo si es propia: una playlist pública de otro usuario
-  // también tiene kind="user" pero no es mutable desde acá.
   const isOwner =
     isUserPlaylist &&
     user !== null &&
     playlist.owner_email === user.email;
   const isLiked = library?.playlistIds.has(playlist.id) ?? false;
-  const songs = playlist.songs ?? [];
+  const songCount = initialSongs.total;
 
   return (
     <div className="mx-auto w-full max-w-5xl">
@@ -111,21 +120,21 @@ export default async function PlaylistDetailPage({ params }: PlaylistDetailPageP
               )}
             </div>
 
-            <h1 className="mt-2 font-display text-3xl font-extrabold tracking-tight sm:text-4xl">
+            <h1 className="mt-2 font-display text-3xl font-extrabold sm:text-4xl">
               {playlist.name}
             </h1>
             {playlist.description && (
               <p className="mt-2 text-sm text-text-subdued">{playlist.description}</p>
             )}
             <p className="mt-2 text-xs text-text-subdued">
-              {playlist.song_count} {playlist.song_count === 1 ? "canción" : "canciones"}
+              {songCount} {songCount === 1 ? "canción" : "canciones"}
               {isUserPlaylist && playlist.owner_email
                 ? ` · ${authorHandle(playlist.owner_email)}`
                 : ""}
             </p>
 
             <div className="mt-5 flex flex-wrap items-center gap-2.5">
-              <PlaylistPlayButton songs={songs} />
+              <PlaylistPlayButton songs={initialSongs.items} />
               {playlist.kind === "system" && (
                 <PlaylistLikeButton
                   playlistId={playlist.id}
@@ -145,7 +154,7 @@ export default async function PlaylistDetailPage({ params }: PlaylistDetailPageP
       </div>
 
       {/* Canciones */}
-      {songs.length === 0 ? (
+      {songCount === 0 ? (
         <div className="mt-10 flex flex-col items-start gap-4">
           <p className="text-text-subdued">
             Esta playlist todavía no tiene canciones.
@@ -155,18 +164,12 @@ export default async function PlaylistDetailPage({ params }: PlaylistDetailPageP
           </Button>
         </div>
       ) : (
-        <ul className="mt-8 space-y-2.5">
-          {songs.map((song) => (
-            <SongItem
-              key={song.id}
-              song={song}
-              queue={songs}
-              favoriteIds={library?.favoriteIds}
-              playlists={library?.playlists}
-              onMutated={refreshPlaylist}
-            />
-          ))}
-        </ul>
+        <PlaylistSongs
+          playlistId={id}
+          initialPage={initialSongs}
+          library={library}
+          onMutated={refreshPlaylist}
+        />
       )}
     </div>
   );

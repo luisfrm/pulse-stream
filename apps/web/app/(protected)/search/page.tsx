@@ -4,13 +4,13 @@ import Link from "next/link";
 
 import { BackLink } from "@/components/back-link";
 import { MediaCardSkeleton, SongItemSkeleton } from "@/components/loading-skeletons";
-import { Pagination } from "@/components/pagination";
 import { SearchInput } from "@/components/search-input";
-import { SongCard } from "@/components/song-card";
 import { Skeleton } from "@/components/ui";
 import { artistsService } from "@/lib/services/artists-service";
 import { songsService } from "@/lib/services/songs-service";
 import { CACHE_TAGS } from "@/lib/services/tags";
+
+import { SearchSongsResults } from "./search-songs-results";
 
 export const metadata: Metadata = { title: "Buscar" };
 export const dynamic = "force-dynamic";
@@ -20,11 +20,10 @@ const PAGE_LIMIT = 24;
 export default async function SearchPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; offset?: string }>;
+  searchParams: Promise<{ q?: string }>;
 }) {
   const params = await searchParams;
   const query = params.q?.trim() ?? "";
-  const offset = Math.max(0, Number(params.offset) || 0);
 
   return (
     <div className="flex flex-col gap-8">
@@ -45,7 +44,7 @@ export default async function SearchPage({
 
       {query ? (
         <Suspense fallback={<SearchResultsSkeleton />}>
-          <SearchResults query={query} offset={offset} />
+          <SearchResults query={query} />
         </Suspense>
       ) : (
         <p className="rounded-2xl border border-bg-highlight bg-bg-elevated/50 px-5 py-10 text-center text-sm text-text-subdued">
@@ -79,21 +78,17 @@ function SearchResultsSkeleton() {
   );
 }
 
-async function SearchResults({ query, offset }: { query: string; offset: number }) {
-  const page = Math.floor(offset / PAGE_LIMIT) + 1;
-
+async function SearchResults({ query }: { query: string }) {
   const [{ items: songs, total }, { items: artists }] = await Promise.all([
     songsService.getSongs(
-      { query: query || undefined, offset, limit: PAGE_LIMIT },
-      { next: { revalidate: 60, tags: [CACHE_TAGS.songs] } }
+      { query: query || undefined, offset: 0, limit: PAGE_LIMIT },
+      { next: { revalidate: 60, tags: [CACHE_TAGS.songs] } },
     ),
     artistsService.getArtists(
       { query: query || undefined, limit: 6 },
-      { next: { revalidate: 60, tags: [CACHE_TAGS.artists] } }
+      { next: { revalidate: 60, tags: [CACHE_TAGS.artists] } },
     ),
   ]);
-
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_LIMIT));
 
   return (
     <>
@@ -101,20 +96,10 @@ async function SearchResults({ query, offset }: { query: string; offset: number 
         <h2 className="mb-4 font-display text-xl font-bold">
           Canciones para “{query}”
         </h2>
-        {songs.length === 0 ? (
-          <p className="rounded-2xl border border-bg-highlight bg-bg-elevated/50 px-5 py-8 text-center text-sm text-text-subdued">
-            Sin resultados para tu búsqueda.
-          </p>
-        ) : (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
-            {songs.map((song) => (
-              <SongCard key={song.id} song={song} queue={songs} />
-            ))}
-          </div>
-        )}
-        <div className="mt-6">
-          <Pagination page={page} totalPages={totalPages} limit={PAGE_LIMIT} />
-        </div>
+        <SearchSongsResults
+          initialPage={{ items: songs, total, offset: 0, limit: PAGE_LIMIT }}
+          query={query}
+        />
       </section>
 
       {artists.length > 0 && (

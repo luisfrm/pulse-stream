@@ -3,10 +3,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { BackLink } from "@/components/back-link";
-import { SongItem } from "@/components/song-item";
 import { albumsService } from "@/lib/services/albums-service";
 import { getUserLibrary } from "@/lib/services/library";
+import { songsService } from "@/lib/services/songs-service";
 import { CACHE_TAGS } from "@/lib/services/tags";
+
+import { AlbumSongs } from "./album-songs";
 
 interface AlbumPageProps {
   params: Promise<{ id: string }>;
@@ -28,23 +30,34 @@ export async function generateMetadata({
 
 export const dynamic = "force-dynamic";
 
+const PAGE_LIMIT = 20;
+
 export default async function AlbumPage({ params }: AlbumPageProps) {
   const { id } = await params;
 
-  // Álbum y biblioteca del usuario en paralelo (la biblioteca no depende del
-  // álbum; el session del layout ya está deduplicado con React.cache).
-  const [album, library] = await Promise.all([
+  // Metadata del álbum + canciones paginadas + biblioteca del usuario.
+  // Antes la canción se leía de `album.songs` (sin límite): si el álbum
+  // tenía 100+ tracks los pintaba todos en el primer load.
+  const [album, initialSongs, library] = await Promise.all([
     albumsService
       .getAlbumById(id, {
         next: { revalidate: 60, tags: [CACHE_TAGS.albums] },
       })
       .catch(() => null),
+    songsService
+      .getSongs(
+        { albumId: id, offset: 0, limit: PAGE_LIMIT },
+        // Las canciones del álbum se cachean junto al catálogo público: misma
+        // key que `/songs` (catalog:songs).
+        { next: { revalidate: 60, tags: [CACHE_TAGS.songs] } },
+      )
+      .catch(() => ({ items: [], total: 0, offset: 0, limit: PAGE_LIMIT })),
     getUserLibrary(),
   ]);
 
   if (!album) notFound();
 
-  const songs = album.songs ?? [];
+  const songCount = initialSongs.total;
 
   return (
     <div className="flex flex-col gap-8">
@@ -83,29 +96,17 @@ export default async function AlbumPage({ params }: AlbumPageProps) {
               {album.artist.name}
             </Link>
             <p className="mt-1 text-sm text-text-subdued">
-              {songs.length} {songs.length === 1 ? "canción" : "canciones"}
+              {songCount} {songCount === 1 ? "canción" : "canciones"}
             </p>
           </div>
         </div>
       </section>
 
-      {songs.length === 0 ? (
-        <p className="text-text-subdued">
-          Este álbum todavía no tiene canciones.
-        </p>
-      ) : (
-        <ul className="space-y-2.5">
-          {songs.map((song) => (
-            <SongItem
-              key={song.id}
-              song={song}
-              queue={songs}
-              favoriteIds={library?.favoriteIds}
-              playlists={library?.playlists}
-            />
-          ))}
-        </ul>
-      )}
+      <AlbumSongs
+        albumId={id}
+        initialPage={initialSongs}
+        library={library}
+      />
     </div>
   );
 }
