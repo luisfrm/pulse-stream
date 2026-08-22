@@ -153,3 +153,87 @@ async def test_list_search_get_update_delete(client, session):
     assert resp.status_code == 204
     resp = await client.get(f"/songs/{song['id']}")
     assert resp.status_code == 404
+
+
+async def test_list_songs_filter_by_album_id(client, session):
+    await register_and_login(client, admin=True, session=session)
+    artist = await _create_artist(client, "Filter Album Artist")
+    album_a = (
+        await client.post(
+            "/albums",
+            json={"title": "Album A", "artist_id": artist["id"]},
+        )
+    ).json()
+    album_b = (
+        await client.post(
+            "/albums",
+            json={"title": "Album B", "artist_id": artist["id"]},
+        )
+    ).json()
+    await client.post(
+        "/songs",
+        json={"title": "A1", "artist_id": artist["id"], "album_id": album_a["id"], "object_key": "songs/a1.mp3"},
+    )
+    await client.post(
+        "/songs",
+        json={"title": "A2", "artist_id": artist["id"], "album_id": album_a["id"], "object_key": "songs/a2.mp3"},
+    )
+    await client.post(
+        "/songs",
+        json={"title": "B1", "artist_id": artist["id"], "album_id": album_b["id"], "object_key": "songs/b1.mp3"},
+    )
+
+    resp = await client.get("/songs", params={"album_id": album_a["id"]})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 2
+    assert {s["title"] for s in data["items"]} == {"A1", "A2"}
+    assert all(s["album"]["id"] == album_a["id"] for s in data["items"])
+
+
+async def test_list_songs_filter_by_playlist_id(client, session):
+    """Filtra por playlist en orden de posición (PlaylistSong.position)."""
+    await register_and_login(client, admin=True, session=session)
+    artist = await _create_artist(client, "Filter Playlist Artist")
+    playlist = (
+        await client.post(
+            "/playlists",
+            json={"name": "Mi playlist", "is_public": False},
+        )
+    ).json()
+
+    s1 = (
+        await client.post(
+            "/songs",
+            json={"title": "Primera", "artist_id": artist["id"], "object_key": "songs/p1.mp3"},
+        )
+    ).json()
+    s2 = (
+        await client.post(
+            "/songs",
+            json={"title": "Segunda", "artist_id": artist["id"], "object_key": "songs/p2.mp3"},
+        )
+    ).json()
+    s3 = (
+        await client.post(
+            "/songs",
+            json={"title": "Tercera", "artist_id": artist["id"], "object_key": "songs/p3.mp3"},
+        )
+    ).json()
+    # Cancion sin agregar a la playlist — no debe aparecer
+    await client.post(
+        "/songs",
+        json={"title": "Fuera", "artist_id": artist["id"], "object_key": "songs/p4.mp3"},
+    )
+
+    for song_id in (s1["id"], s2["id"], s3["id"]):
+        resp = await client.post(
+            f"/playlists/{playlist['id']}/songs", json={"song_id": song_id}
+        )
+        assert resp.status_code == 200
+
+    resp = await client.get("/songs", params={"playlist_id": playlist["id"]})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 3
+    assert [s["title"] for s in data["items"]] == ["Primera", "Segunda", "Tercera"]
