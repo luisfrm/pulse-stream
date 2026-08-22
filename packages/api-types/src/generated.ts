@@ -2638,6 +2638,10 @@ export interface operations {
                 artist_id?: string | null;
                 /** @description Filtrar por artista colaborador (no principal) */
                 collaborator_id?: string | null;
+                /** @description Filtrar por álbum (en orden de posición) */
+                album_id?: string | null;
+                /** @description Filtrar por playlist (en orden de posición) */
+                playlist_id?: string | null;
             };
             header?: never;
             path?: never;

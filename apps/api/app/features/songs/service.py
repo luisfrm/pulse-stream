@@ -34,6 +34,8 @@ class SongService:
         search: str | None = None,
         artist_id: uuid.UUID | None = None,
         collaborator_id: uuid.UUID | None = None,
+        album_id: uuid.UUID | None = None,
+        playlist_id: uuid.UUID | None = None,
     ) -> tuple[list[Song], int]:
         songs = await self._songs.list(
             offset=offset,
@@ -41,9 +43,15 @@ class SongService:
             search=search,
             artist_id=artist_id,
             collaborator_id=collaborator_id,
+            album_id=album_id,
+            playlist_id=playlist_id,
         )
         total = await self._songs.count(
-            search=search, artist_id=artist_id, collaborator_id=collaborator_id
+            search=search,
+            artist_id=artist_id,
+            collaborator_id=collaborator_id,
+            album_id=album_id,
+            playlist_id=playlist_id,
         )
         return songs, total
 

@@ -21,6 +21,12 @@ async def list_songs(
     collaborator_id: uuid.UUID | None = Query(
         None, description="Filtrar por artista colaborador (no principal)"
     ),
+    album_id: uuid.UUID | None = Query(
+        None, description="Filtrar por álbum (en orden de posición)"
+    ),
+    playlist_id: uuid.UUID | None = Query(
+        None, description="Filtrar por playlist (en orden de posición)"
+    ),
     service: SongService = Depends(),
 ) -> Page[SongRead]:
     songs, total = await service.list_songs(
@@ -29,6 +35,8 @@ async def list_songs(
         search=q,
         artist_id=artist_id,
         collaborator_id=collaborator_id,
+        album_id=album_id,
+        playlist_id=playlist_id,
     )
     return paginate(songs, total, offset, limit)
 

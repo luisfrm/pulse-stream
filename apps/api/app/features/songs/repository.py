@@ -7,6 +7,7 @@ from sqlalchemy.orm import selectinload
 
 from app.db.session import get_session
 from app.features.albums.models import Album
+from app.features.playlists.models import PlaylistSong
 from app.features.songs.models import Song, SongCollaborator
 
 
@@ -33,6 +34,8 @@ class SongRepository:
         search: str | None = None,
         artist_id: uuid.UUID | None = None,
         collaborator_id: uuid.UUID | None = None,
+        album_id: uuid.UUID | None = None,
+        playlist_id: uuid.UUID | None = None,
     ) -> list[Song]:
         query = select(Song).options(*_song_load_options())
         if search:
@@ -50,7 +53,17 @@ class SongRepository:
                     Song.artist_id != collaborator_id,
                 )
             )
-        query = query.order_by(Song.created_at.desc())
+        if album_id is not None:
+            query = query.where(Song.album_id == album_id)
+        if playlist_id is not None:
+            # Songs de la playlist en orden de posición (PlaylistSong.position).
+            query = query.join(
+                PlaylistSong,
+                PlaylistSong.song_id == Song.id,
+            ).where(PlaylistSong.playlist_id == playlist_id)
+            query = query.order_by(PlaylistSong.position.asc())
+        else:
+            query = query.order_by(Song.created_at.desc())
         result = await self._session.execute(query.offset(offset).limit(limit))
         return list(result.scalars().all())
 
@@ -59,6 +72,8 @@ class SongRepository:
         search: str | None = None,
         artist_id: uuid.UUID | None = None,
         collaborator_id: uuid.UUID | None = None,
+        album_id: uuid.UUID | None = None,
+        playlist_id: uuid.UUID | None = None,
     ) -> int:
         query = select(func.count()).select_from(Song)
         if search:
@@ -70,6 +85,13 @@ class SongRepository:
                 SongCollaborator.artist_id == collaborator_id,
                 Song.artist_id != collaborator_id,
             )
+        if album_id is not None:
+            query = query.where(Song.album_id == album_id)
+        if playlist_id is not None:
+            query = query.join(
+                PlaylistSong,
+                PlaylistSong.song_id == Song.id,
+            ).where(PlaylistSong.playlist_id == playlist_id)
         result = await self._session.execute(query)
         return result.scalar_one()
 
