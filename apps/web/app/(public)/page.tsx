@@ -79,13 +79,13 @@ export default async function HomePage() {
           </Link>
         </div>
 
-        <a
+        <Link
           href="#catalogo"
           className="mt-14 inline-flex flex-col items-center gap-1 text-xs text-text-subdued transition-colors hover:text-text-primary"
         >
           <ArrowDown size={16} />
           Escuchá sin cuenta
-        </a>
+        </Link>
       </section>
 
       {/* Regla gruesa entre el hero y el catálogo */}

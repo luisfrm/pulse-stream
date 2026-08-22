@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { SectionGridSkeleton } from "@/components/loading-skeletons";
 import { PlaylistCard } from "@/components/playlist-card";
@@ -73,12 +74,12 @@ async function RecentSection() {
       <div className="mb-4 flex items-end justify-between gap-4">
         <h2 className="font-display text-xl font-bold">Seguí escuchando</h2>
         {total > SECTION_LIMIT && (
-          <a
+          <Link
             href="/recently-played"
             className="text-sm font-medium text-text-subdued transition-colors hover:text-brand-400"
           >
             Ver todo
-          </a>
+          </Link>
         )}
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
@@ -103,12 +104,12 @@ async function NewSongsSection() {
     <section>
       <div className="mb-4 flex items-end justify-between gap-4">
         <h2 className="font-display text-xl font-bold">Recién agregadas</h2>
-        <a
+        <Link
           href="/search"
           className="text-sm font-medium text-text-subdued transition-colors hover:text-brand-400"
         >
           Explorar
-        </a>
+        </Link>
       </div>
       {newSongs.length === 0 ? (
         <p className="rounded-2xl border border-bg-highlight bg-bg-elevated/50 px-5 py-8 text-center text-sm text-text-subdued">

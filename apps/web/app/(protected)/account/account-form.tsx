@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
@@ -168,12 +169,12 @@ export function AccountForm({ user }: { user: User }) {
         </div>
         <p className="mt-3 text-xs text-text-subdued">
           Cada play suma +1. Tu historial detallado está en{" "}
-          <a
+          <Link
             href="/recently-played"
             className="text-brand-400 hover:underline"
           >
             Escuchadas recientemente
-          </a>
+          </Link>
           .
         </p>
       </section>
