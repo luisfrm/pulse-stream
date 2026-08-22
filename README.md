@@ -188,3 +188,7 @@ pnpm test        # tests de la API (requieren TEST_DATABASE_URL)
 - [ ] CSRF (double-submit cookie / `fastapi-csrf-protect`) en endpoints mutantes — obligatorio con `SameSite=None` (ver `core/security.py`)
 - [ ] `slowapi` con storage Redis si hay más de un worker
 - [ ] Revisar checklist completa del plan (sección 13)
+
+cloudflared tunnel run pulse-stream-api
+
+uv run uvicorn app.main:app --reload
