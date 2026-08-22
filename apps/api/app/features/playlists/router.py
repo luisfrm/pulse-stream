@@ -145,3 +145,22 @@ async def list_my_playlists(
     muestre "Ya está en esta playlist" sin traer las canciones completas.
     """
     return await service.list_for_user(user)
+
+
+@me_router.get("/playlists/page", response_model=Page[MyPlaylistRead])
+async def list_my_playlists_paginated(
+    offset: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    service: PlaylistService = Depends(get_playlist_service),
+    user: User = Depends(current_user),
+) -> Page[MyPlaylistRead]:
+    """Versión paginada para el listado /playlists de la app (Ver más).
+
+    `GET /me/playlists` (sin paginar) sigue trayendo TODAS las playlists del
+    usuario porque el PlaylistPicker las necesita enteras (suele ser < 50);
+    este endpoint solo lo usa el listado para acotar el primer render.
+    """
+    playlists, total = await service.list_for_user_paginated(
+        user, offset=offset, limit=limit
+    )
+    return paginate(playlists, total, offset, limit)

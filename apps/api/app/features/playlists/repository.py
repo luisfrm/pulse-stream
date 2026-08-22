@@ -30,13 +30,28 @@ class PlaylistRepository:
             .selectinload(Song.album),
         )
 
-    async def list_by_owner(self, owner_id: uuid.UUID) -> list[Playlist]:
+    async def list_by_owner(
+        self,
+        owner_id: uuid.UUID,
+        offset: int = 0,
+        limit: int = 50,
+    ) -> list[Playlist]:
         result = await self._session.execute(
             self._with_songs(select(Playlist))
             .where(Playlist.owner_id == owner_id)
             .order_by(Playlist.created_at.desc())
+            .offset(offset)
+            .limit(limit)
         )
         return list(result.scalars().all())
+
+    async def count_by_owner(self, owner_id: uuid.UUID) -> int:
+        result = await self._session.execute(
+            select(func.count()).select_from(Playlist).where(
+                Playlist.owner_id == owner_id
+            )
+        )
+        return result.scalar_one()
 
     async def list_public(self, offset: int = 0, limit: int = 50) -> list[Playlist]:
         result = await self._session.execute(

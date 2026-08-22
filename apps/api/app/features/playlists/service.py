@@ -49,6 +49,17 @@ class PlaylistService:
             return [p for p in all_public if p.owner_id == user.id]
         return await self._repository.list_by_owner(user.id)
 
+    async def list_for_user_paginated(
+        self, user: User, offset: int = 0, limit: int = 20
+    ) -> tuple[list[Playlist], int]:
+        """Versión paginada de `list_for_user` para el listado de playlists
+        en la app (no rompe la firma del picker que sigue trayendo todas)."""
+        playlists = await self._repository.list_by_owner(
+            user.id, offset=offset, limit=limit
+        )
+        total = await self._repository.count_by_owner(user.id)
+        return playlists, total
+
     async def list_public_community(
         self, offset: int = 0, limit: int = 50
     ) -> tuple[list[Playlist], int]:
