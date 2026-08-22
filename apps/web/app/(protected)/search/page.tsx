@@ -1,6 +1,8 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import Link from "next/link";
 
+import { BackLink } from "@/components/back-link";
 import { MediaCardSkeleton, SongItemSkeleton } from "@/components/loading-skeletons";
 import { Pagination } from "@/components/pagination";
 import { SearchInput } from "@/components/search-input";
@@ -26,6 +28,7 @@ export default async function SearchPage({
 
   return (
     <div className="flex flex-col gap-8">
+      <BackLink href="/dashboard" />
       <header>
         <h1 className="font-display text-3xl font-extrabold tracking-tight">Buscar</h1>
         <p className="mt-1.5 text-sm text-text-subdued">
@@ -120,7 +123,7 @@ async function SearchResults({ query, offset }: { query: string; offset: number 
           <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {artists.map((artist) => (
               <li key={artist.id}>
-                <a
+                <Link
                   href={`/artist/${artist.id}`}
                   className="card-lift flex items-center gap-3 rounded-2xl border border-bg-highlight bg-bg-elevated p-3"
                 >
@@ -141,7 +144,7 @@ async function SearchResults({ query, offset }: { query: string; offset: number 
                     <span className="block truncate font-medium">{artist.name}</span>
                     <span className="block text-xs text-text-subdued">Artista</span>
                   </span>
-                </a>
+                </Link>
               </li>
             ))}
           </ul>

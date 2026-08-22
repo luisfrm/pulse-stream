@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { BackLink } from "@/components/back-link";
 import { SongItem } from "@/components/song-item";
 import { albumsService } from "@/lib/services/albums-service";
 import { getUserLibrary } from "@/lib/services/library";
@@ -47,6 +48,9 @@ export default async function AlbumPage({ params }: AlbumPageProps) {
 
   return (
     <div className="flex flex-col gap-8">
+      <BackLink
+        href={album.artist ? `/artist/${album.artist.id}` : "/songs"}
+      />
       <section className="border-b border-bg-highlight bg-bg-elevated/60 px-6 py-10">
         <div className="mx-auto flex max-w-6xl flex-col items-start gap-5 sm:flex-row sm:items-end">
           <div className="h-40 w-40 shrink-0 overflow-hidden rounded-2xl border border-bg-highlight shadow-lg sm:h-52 sm:w-52">

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { BackLink } from "@/components/back-link";
 import { SongItem } from "@/components/song-item";
 import { Title } from "@/components/ui";
 import { albumsService } from "@/lib/services/albums-service";
@@ -69,6 +70,7 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
 
   return (
     <div className="flex flex-col gap-10">
+      <BackLink href="/songs" />
       <section className="bg-brand-gradient -mx-4 px-6 py-12 text-bg-base lg:-mx-8">
         <div className="mx-auto max-w-6xl">
           <p className="text-xs font-semibold uppercase tracking-widest opacity-80">

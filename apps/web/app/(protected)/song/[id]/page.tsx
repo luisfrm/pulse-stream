@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Headphones } from "lucide-react";
 
+import { BackLink } from "@/components/back-link";
 import { LyricsView } from "@/components/lyrics-view";
 import { PlayButton } from "@/components/player/play-button";
 import { Badge } from "@/components/ui";
@@ -44,6 +45,9 @@ export default async function SongPage({ params }: SongPageProps) {
 
   return (
     <div className="flex flex-col gap-8">
+      <BackLink
+        href={song.album ? `/album/${song.album.id}` : `/artist/${song.artist.id}`}
+      />
       <section className="border-b border-bg-highlight bg-bg-elevated/60 px-6 py-10">
         <div className="mx-auto flex max-w-3xl flex-col items-start gap-4">
           <PlayButton

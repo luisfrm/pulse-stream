@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { Sparkles } from "lucide-react";
 
 import { SongItem } from "@/components/song-item";
+import { BackLink } from "@/components/back-link";
 import { Badge, Button } from "@/components/ui";
 import { getUserLibrary } from "@/lib/services/library";
 import { playlistsService } from "@/lib/services/playlists-service";
@@ -66,6 +67,9 @@ export default async function PlaylistDetailPage({ params }: PlaylistDetailPageP
 
   return (
     <div className="mx-auto w-full max-w-5xl">
+      <div className="mb-4">
+        <BackLink href="/playlists" />
+      </div>
       {/* Hero: cover grande + backdrop gradiente (tokens del @theme). */}
       <div className="relative overflow-hidden rounded-3xl border border-bg-highlight">
         <div aria-hidden className="absolute inset-0 bg-brand-gradient opacity-25" />
