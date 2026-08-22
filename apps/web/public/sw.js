@@ -7,10 +7,32 @@
  * - Audio descargado (caché "pulse-offline-v1"): cache-first por URL exacta.
  *   El botón "Descargar" del reproductor guarda el fetch completo de la
  *   canción en esa caché; acá servimos el archivo sin red, sin importar el host.
+ *
+ * IMPORTANTE: los payloads RSC que Next.js pide para las navegaciones
+ * client-side (URLs con `?_rsc=` y/o header `RSC: 1`) NO se interceptan:
+ * pasarlos por stale-while-revalidate servía copias viejas de las páginas
+ * después de mutaciones (updateTag), anulando la revalidación. Van directo
+ * a la red. Las entradas `_rsc` ya cacheadas por versiones viejas del SW
+ * se purgan en `activate`.
  */
 const OFFLINE_CACHE = "pulse-offline-v1";
 const SHELL_CACHE = "pulse-shell-v1";
 const CORE_ASSETS = ["/", "/manifest.webmanifest"];
+
+function isRSCRequest(request) {
+  if (request.headers.get("RSC") || request.headers.get("rsc")) return true;
+  return /[?&]_rsc=/.test(request.url);
+}
+
+async function purgeStaleRSCEntries() {
+  const cache = await caches.open(SHELL_CACHE);
+  const keys = await cache.keys();
+  await Promise.all(
+    keys
+      .filter((req) => /[?&]_rsc=/.test(req.url) || (req.headers && req.headers.get && req.headers.get("RSC")))
+      .map((req) => cache.delete(req))
+  );
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -24,16 +46,18 @@ self.addEventListener("install", (event) => {
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches
-      .keys()
-      .then((keys) =>
-        Promise.all(
-          keys
-            .filter((key) => key !== SHELL_CACHE && key !== OFFLINE_CACHE)
-            .map((key) => caches.delete(key))
-        )
-      )
-      .then(() => self.clients.claim())
+    Promise.all([
+      caches
+        .keys()
+        .then((keys) =>
+          Promise.all(
+            keys
+              .filter((key) => key !== SHELL_CACHE && key !== OFFLINE_CACHE)
+              .map((key) => caches.delete(key))
+          )
+        ),
+      purgeStaleRSCEntries(),
+    ]).then(() => self.clients.claim())
   );
 });
 
@@ -50,6 +74,9 @@ self.addEventListener("fetch", (event) => {
 
   // Solo GET
   if (request.method !== "GET") return;
+
+  // Payloads RSC de Next -> red directa, sin cachear ni servir del SW.
+  if (isRSCRequest(request)) return;
 
   // Audio descargado offline -> cache-first por URL exacta
   if (isOfflineAsset(request)) {
