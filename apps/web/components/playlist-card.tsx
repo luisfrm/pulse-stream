@@ -13,6 +13,7 @@ interface PlaylistCardProps {
    * horizontal con texto reducido. El grid del resto de la app no cambia.
    */
   compact?: boolean;
+  priority?: boolean;
 }
 
 /** Tarjeta de playlist: cover, nombre, autor y cantidad de canciones. */
@@ -21,6 +22,7 @@ export function PlaylistCard({
   href,
   className,
   compact = false,
+  priority = false,
 }: PlaylistCardProps) {
   if (compact) {
     return (
@@ -37,7 +39,10 @@ export function PlaylistCard({
             <img
               src={playlist.cover_url}
               alt={`Cover de ${playlist.name}`}
-              loading="lazy"
+              loading={priority ? "eager" : "lazy"}
+              fetchPriority={priority ? "high" : "auto"}
+              decoding="async"
+              sizes="56px"
               className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
             />
           ) : (
@@ -72,7 +77,10 @@ export function PlaylistCard({
           <img
             src={playlist.cover_url}
             alt={`Cover de ${playlist.name}`}
-            loading="lazy"
+            loading={priority ? "eager" : "lazy"}
+            fetchPriority={priority ? "high" : "auto"}
+            decoding="async"
+            sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 20vw"
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
           />
         ) : (

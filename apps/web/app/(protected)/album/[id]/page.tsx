@@ -20,7 +20,7 @@ export async function generateMetadata({
   const { id } = await params;
   try {
     const album = await albumsService.getAlbumById(id, {
-      next: { revalidate: 60, tags: [CACHE_TAGS.albums] },
+      next: { revalidate: 300, tags: [CACHE_TAGS.albums] },
     });
     return { title: `${album.title} — ${album.artist.name}` };
   } catch {
@@ -41,7 +41,7 @@ export default async function AlbumPage({ params }: AlbumPageProps) {
   const [album, initialSongs, library] = await Promise.all([
     albumsService
       .getAlbumById(id, {
-        next: { revalidate: 60, tags: [CACHE_TAGS.albums] },
+        next: { revalidate: 300, tags: [CACHE_TAGS.albums] },
       })
       .catch(() => null),
     songsService
@@ -49,7 +49,7 @@ export default async function AlbumPage({ params }: AlbumPageProps) {
         { albumId: id, offset: 0, limit: PAGE_LIMIT },
         // Las canciones del álbum se cachean junto al catálogo público: misma
         // key que `/songs` (catalog:songs).
-        { next: { revalidate: 60, tags: [CACHE_TAGS.songs] } },
+        { next: { revalidate: 300, tags: [CACHE_TAGS.songs] } },
       )
       .catch(() => ({ items: [], total: 0, offset: 0, limit: PAGE_LIMIT })),
     getUserLibrary(),
@@ -72,6 +72,10 @@ export default async function AlbumPage({ params }: AlbumPageProps) {
               <img
                 src={album.cover_url}
                 alt={`Cover de ${album.title}`}
+                loading="eager"
+                fetchPriority="high"
+                decoding="async"
+                sizes="(max-width:640px) 160px, 208px"
                 className="h-full w-full object-cover"
               />
             ) : (

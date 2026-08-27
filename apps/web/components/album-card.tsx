@@ -6,10 +6,11 @@ import type { Album } from "@/lib/services/types";
 interface AlbumCardProps {
   album: Album;
   className?: string;
+  priority?: boolean;
 }
 
 /** Tarjeta de álbum: cover, título y artista (mismo patrón que PlaylistCard). */
-export function AlbumCard({ album, className }: AlbumCardProps) {
+export function AlbumCard({ album, className, priority = false }: AlbumCardProps) {
   return (
     <Link
       href={`/album/${album.id}`}
@@ -24,7 +25,10 @@ export function AlbumCard({ album, className }: AlbumCardProps) {
           <img
             src={album.cover_url}
             alt={`Cover de ${album.title}`}
-            loading="lazy"
+            loading={priority ? "eager" : "lazy"}
+            fetchPriority={priority ? "high" : "auto"}
+            decoding="async"
+            sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 20vw"
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
           />
         ) : (

@@ -255,7 +255,7 @@ function AlbumsSection({
         Álbumes
       </Title>
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
-        {items.map((album) => (
+        {items.map((album, idx) => (
           <Link
             key={album.id}
             href={`/album/${album.id}`}
@@ -267,7 +267,10 @@ function AlbumsSection({
                 <img
                   src={album.cover_url}
                   alt={`Cover de ${album.title}`}
-                  loading="lazy"
+                  loading={idx < 4 ? "eager" : "lazy"}
+                  fetchPriority={idx < 4 ? "high" : "auto"}
+                  decoding="async"
+                  sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 20vw"
                   className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
                 />
               ) : (

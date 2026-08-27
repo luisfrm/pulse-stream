@@ -64,7 +64,7 @@ export function SongsResults({
   return (
     <>
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
-        {songs.map((song) => (
+        {songs.map((song, idx) => (
           <SongCard
             key={song.id}
             song={song}
@@ -72,6 +72,7 @@ export function SongsResults({
             playlists={playlists}
             favoriteIds={favoriteIds}
             onMutated={onMutated}
+            priority={idx < 4}
           />
         ))}
       </ul>

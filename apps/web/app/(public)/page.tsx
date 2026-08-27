@@ -3,6 +3,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowDown, Play, Sparkles } from "lucide-react";
 
+import { cookies } from "next/headers";
+
 import { PlaylistCard } from "@/components/playlist-card";
 import { SongCard } from "@/components/song-card";
 import { artistsService } from "@/lib/services/artists-service";
@@ -18,33 +20,35 @@ export const dynamic = "force-dynamic";
 const SECTION_LIMIT = 10;
 
 export default async function HomePage() {
-  // Con sesión, el home es el dashboard: el catálogo público vive en el board.
-  // La sesión y el catálogo se resuelven en paralelo (el catálogo está cacheado
-  // por tags; si hay sesión el redirect corta igual).
-  const [user, catalog] = await Promise.all([
-    getSession(),
-    Promise.all([
-      songsService.getSongs(
+  // Catálogo público cacheado (revalidate:300) — nunca espera a la sesión.
+  // La sesión solo se chequea si hay cookie (evita 401 para anónimos que
+  // bloqueaba el LCP — catalog vs session hacían Promise.all al más lento).
+  const catalogPromise = Promise.all([
+    songsService.getSongs(
+      { limit: SECTION_LIMIT },
+      { next: { revalidate: 300, tags: [CACHE_TAGS.songs] } }
+    ),
+    artistsService.getArtists(
+      { limit: 6 },
+      { next: { revalidate: 300, tags: [CACHE_TAGS.artists] } }
+    ),
+    // Playlists públicas de la comunidad (visible sin sesión).
+    playlistsService
+      .getPublicPlaylists(
         { limit: SECTION_LIMIT },
-        { next: { revalidate: 60, tags: [CACHE_TAGS.songs] } }
-      ),
-      artistsService.getArtists(
-        { limit: 6 },
-        { next: { revalidate: 60, tags: [CACHE_TAGS.artists] } }
-      ),
-      // Playlists públicas de la comunidad (visible sin sesión).
-      playlistsService
-        .getPublicPlaylists(
-          { limit: SECTION_LIMIT },
-          { next: { revalidate: 60, tags: [CACHE_TAGS.playlists] } }
-        )
-        .then((page) => page.items)
-        .catch(() => []),
-    ]),
+        { next: { revalidate: 300, tags: [CACHE_TAGS.playlists] } }
+      )
+      .then((page) => page.items)
+      .catch(() => []),
   ]);
+
+  const cookieStore = await cookies();
+  const hasSessionCookie = cookieStore.has("session");
+  const user = hasSessionCookie ? await getSession() : null;
   if (user) redirect("/dashboard");
 
-  const [{ items: songs }, { items: artists }, publicPlaylists] = catalog;
+  const [{ items: songs }, { items: artists }, publicPlaylists] =
+    await catalogPromise;
 
   return (
     <main className="bg-blooms flex-1">
@@ -114,8 +118,8 @@ export default async function HomePage() {
               </Link>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
-              {songs.map((song) => (
-                <SongCard key={song.id} song={song} queue={songs} />
+              {songs.map((song, idx) => (
+                <SongCard key={song.id} song={song} queue={songs} priority={idx < 4} />
               ))}
             </div>
           </div>
@@ -127,7 +131,7 @@ export default async function HomePage() {
               Artistas del catálogo
             </h2>
             <div className="flex flex-wrap gap-3">
-              {artists.map((artist) => (
+              {artists.map((artist, idx) => (
                 <Link
                   key={artist.id}
                   href={`/artist/${artist.id}`}
@@ -138,7 +142,10 @@ export default async function HomePage() {
                     <img
                       src={artist.cover_url}
                       alt=""
-                      loading="lazy"
+                      loading={idx < 4 ? "eager" : "lazy"}
+                      fetchPriority={idx < 4 ? "high" : "auto"}
+                      decoding="async"
+                      sizes="40px"
                       className="h-10 w-10 rounded-full object-cover"
                     />
                   ) : (
@@ -164,11 +171,12 @@ export default async function HomePage() {
               </p>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
-              {publicPlaylists.map((playlist) => (
+              {publicPlaylists.map((playlist, idx) => (
                 <PlaylistCard
                   key={playlist.id}
                   playlist={playlist}
                   href="/register"
+                  priority={idx < 4}
                 />
               ))}
             </div>

@@ -20,6 +20,8 @@ interface SongCardProps {
   /** Con sesión: IDs favoritos → corner con corazón. */
   favoriteIds?: Set<string>;
   onMutated?: () => Promise<void>;
+  /** Prioriza la carga de la imagen (LCP): eager + high priority para las primeras cards del viewport. */
+  priority?: boolean;
 }
 
 /** Tarjeta de canción estilo Spotify: cover + play en hover + metadatos. */
@@ -31,6 +33,7 @@ export function SongCard({
   playlists,
   favoriteIds,
   onMutated,
+  priority = false,
 }: SongCardProps) {
   const { current, playing, play, toggle } = usePlayer();
   const isCurrent = current?.id === song.id;
@@ -59,7 +62,10 @@ export function SongCard({
           <img
             src={song.cover_url}
             alt={`Cover de ${song.title}`}
-            loading="lazy"
+            loading={priority ? "eager" : "lazy"}
+            fetchPriority={priority ? "high" : "auto"}
+            decoding="async"
+            sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 20vw"
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
           />
         ) : (

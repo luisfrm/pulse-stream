@@ -82,11 +82,11 @@ async function SearchResults({ query }: { query: string }) {
   const [{ items: songs, total }, { items: artists }] = await Promise.all([
     songsService.getSongs(
       { query: query || undefined, offset: 0, limit: PAGE_LIMIT },
-      { next: { revalidate: 60, tags: [CACHE_TAGS.songs] } },
+      { next: { revalidate: 300, tags: [CACHE_TAGS.songs] } },
     ),
     artistsService.getArtists(
       { query: query || undefined, limit: 6 },
-      { next: { revalidate: 60, tags: [CACHE_TAGS.artists] } },
+      { next: { revalidate: 300, tags: [CACHE_TAGS.artists] } },
     ),
   ]);
 
@@ -106,7 +106,7 @@ async function SearchResults({ query }: { query: string }) {
         <section>
           <h2 className="mb-4 font-display text-xl font-bold">Artistas</h2>
           <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {artists.map((artist) => (
+            {artists.map((artist, idx) => (
               <li key={artist.id}>
                 <Link
                   href={`/artist/${artist.id}`}
@@ -117,7 +117,10 @@ async function SearchResults({ query }: { query: string }) {
                     <img
                       src={artist.cover_url}
                       alt=""
-                      loading="lazy"
+                      loading={idx < 4 ? "eager" : "lazy"}
+                      fetchPriority={idx < 4 ? "high" : "auto"}
+                      decoding="async"
+                      sizes="48px"
                       className="h-12 w-12 rounded-full object-cover"
                     />
                   ) : (

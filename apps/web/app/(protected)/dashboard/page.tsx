@@ -83,8 +83,8 @@ async function RecentSection() {
         )}
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
-        {items.map((song) => (
-          <SongCard key={song.id} song={song} queue={items} />
+        {items.map((song, idx) => (
+          <SongCard key={song.id} song={song} queue={items} priority={idx < 4} />
         ))}
       </div>
     </section>
@@ -95,7 +95,7 @@ async function NewSongsSection() {
   const newSongs = await songsService
     .getSongs(
       { limit: SECTION_LIMIT },
-      { next: { revalidate: 60, tags: [CACHE_TAGS.songs] } }
+      { next: { revalidate: 300, tags: [CACHE_TAGS.songs] } }
     )
     .then((p) => p.items)
     .catch(() => []);
@@ -117,8 +117,8 @@ async function NewSongsSection() {
         </p>
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
-          {newSongs.map((song) => (
-            <SongCard key={song.id} song={song} queue={newSongs} />
+          {newSongs.map((song, idx) => (
+            <SongCard key={song.id} song={song} queue={newSongs} priority={idx < 4} />
           ))}
         </div>
       )}
@@ -147,8 +147,8 @@ async function PopularWeekSection() {
         </p>
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
-        {popularWeek.map((song) => (
-          <SongCard key={song.id} song={song} queue={popularWeek} />
+        {popularWeek.map((song, idx) => (
+          <SongCard key={song.id} song={song} queue={popularWeek} priority={idx < 4} />
         ))}
       </div>
     </section>
@@ -176,8 +176,8 @@ async function PopularMonthSection() {
         </p>
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
-        {popularMonth.map((song) => (
-          <SongCard key={song.id} song={song} queue={popularMonth} />
+        {popularMonth.map((song, idx) => (
+          <SongCard key={song.id} song={song} queue={popularMonth} priority={idx < 4} />
         ))}
       </div>
     </section>
@@ -188,7 +188,7 @@ async function CommunityPlaylistsSection() {
   const publicPlaylists = await playlistsService
     .getPublicPlaylists(
       { limit: SECTION_LIMIT },
-      { next: { revalidate: 60, tags: [CACHE_TAGS.playlists] } }
+      { next: { revalidate: 300, tags: [CACHE_TAGS.playlists] } }
     )
     .then((p) => p.items)
     .catch(() => []);
@@ -206,11 +206,12 @@ async function CommunityPlaylistsSection() {
         </p>
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
-        {publicPlaylists.map((playlist) => (
+        {publicPlaylists.map((playlist, idx) => (
           <PlaylistCard
             key={playlist.id}
             playlist={playlist}
             href={`/playlists/${playlist.id}`}
+            priority={idx < 4}
           />
         ))}
       </div>
