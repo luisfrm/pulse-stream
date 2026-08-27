@@ -15,7 +15,8 @@ interface SearchInputProps {
 
 /**
  * Búsqueda desacoplada: el estado vive en la URL (searchParams). Al escribir,
- * con debounce, se hace router.push a `?q=...` y el RSC re-ejecuta el fetch.
+ * con debounce, se hace router.replace a `?q=...` y el RSC re-ejecuta el fetch.
+ * replace + scroll:false evita ensuciar el historial y el salto al top.
  */
 export function SearchInput({
   initialValue,
@@ -40,7 +41,8 @@ export function SearchInput({
     // Al buscar volvemos al inicio de la lista (offset 0)
     params.delete("offset");
 
-    router.push(`?${params.toString()}`);
+    const qs = params.toString();
+    router.replace(qs ? `?${qs}` : "?", { scroll: false });
   }, [debouncedValue, paramName, router, searchParams]);
 
   return (
