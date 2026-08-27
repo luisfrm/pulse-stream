@@ -28,6 +28,7 @@ export const listensService = {
   ): Promise<Page<RecentlyPlayedSong>> {
     return await api<Page<RecentlyPlayedSong>>("/me/recently-played", {
       query: params,
+      cache: "no-store",
       ...options,
     });
   },

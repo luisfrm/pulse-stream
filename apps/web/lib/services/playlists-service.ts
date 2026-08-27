@@ -29,7 +29,10 @@ export const playlistsService = {
   async getMyPlaylists(options?: ApiFetchOptions): Promise<MyPlaylist[]> {
     // OJO: /me/playlists (MyPlaylistRead con song_ids), NO /playlists
     // (PlaylistRead sin song_ids) — el picker depende de song_ids.
-    return await api<MyPlaylist[]>("/me/playlists", options);
+    return await api<MyPlaylist[]>("/me/playlists", {
+      cache: "no-store",
+      ...options,
+    });
   },
 
   /** Genera una playlist del sistema (snapshot de una query) — admin only. */

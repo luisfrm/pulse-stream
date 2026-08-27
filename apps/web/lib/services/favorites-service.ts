@@ -21,6 +21,7 @@ export const favoritesService = {
   ): Promise<Page<Song>> {
     return await api<Page<Song>>("/me/favorites", {
       query: params,
+      cache: "no-store",
       ...options,
     });
   },
