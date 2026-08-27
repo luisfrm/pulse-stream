@@ -1,12 +1,14 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { updateTag } from "next/cache";
 import Link from "next/link";
 
 import { AlbumCard } from "@/components/album-card";
+import { MediaCardSkeleton, SongItemSkeleton } from "@/components/loading-skeletons";
 import { PlaylistCard } from "@/components/playlist-card";
 import { SearchInput } from "@/components/search-input";
 import { SongItem } from "@/components/song-item";
-import { Title } from "@/components/ui";
+import { Skeleton, Title } from "@/components/ui";
 import { favoritesService } from "@/lib/services/favorites-service";
 import { getUserLibrary } from "@/lib/services/library";
 import { CACHE_TAGS } from "@/lib/services/tags";
@@ -31,11 +33,79 @@ export default async function CatalogPage({
   const params = await searchParams;
   const query = params.q?.trim() ?? "";
 
+  return (
+    <div className="flex flex-col gap-10">
+      <header>
+        <Title as="h1" size="section">
+          Mi catálogo
+        </Title>
+        <p className="mt-2 text-sm text-text-subdued">
+          Tus canciones, playlists y álbumes guardados, en un solo lugar.
+        </p>
+      </header>
+
+      {/* Input fuera del Suspense: pinta inmediato y no pierde foco; solo el contenido suspende. */}
+      <SearchInput initialValue={query} placeholder="Buscar en tu catálogo…" />
+
+      <Suspense key={query} fallback={<CatalogContentSkeleton />}>
+        <CatalogContent query={query} />
+      </Suspense>
+    </div>
+  );
+}
+
+function CatalogContentSkeleton() {
+  return (
+    <>
+      <section>
+        <div className="mb-4 flex items-end justify-between gap-4">
+          <Skeleton className="h-7 w-40" />
+          <Skeleton className="h-4 w-16" />
+        </div>
+        <div className="space-y-2.5">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <SongItemSkeleton key={i} />
+          ))}
+        </div>
+      </section>
+      <section>
+        <div className="mb-4 flex items-end justify-between gap-4">
+          <Skeleton className="h-7 w-40" />
+          <Skeleton className="h-4 w-20" />
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div
+              key={i}
+              className="flex h-full items-center gap-3 rounded-2xl border border-bg-highlight bg-bg-elevated p-2.5"
+            >
+              <Skeleton className="h-14 w-14 shrink-0" />
+              <div className="min-w-0 flex-1 space-y-2">
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-3 w-1/2" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+      <section>
+        <Skeleton className="mb-4 h-7 w-40" />
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <MediaCardSkeleton key={i} />
+          ))}
+        </div>
+      </section>
+    </>
+  );
+}
+
+async function CatalogContent({ query }: { query: string }) {
   const songsFetch = query
     ? favoritesService.getFavorites({ limit: SEARCH_LIMIT })
     : favoritesService.getFavorites({ limit: RECENT_LIMIT });
 
-  // Sesión + los 3 sets de likes + las 3 listas, en paralelo.
+  // Biblioteca privada (no-store) — al estar dentro de Suspense no bloquea header/input.
   const [library, favSongs, favPlaylists, favAlbums] = await Promise.all([
     getUserLibrary(),
     songsFetch,
@@ -43,14 +113,12 @@ export default async function CatalogPage({
     favoritesService.getFavoriteAlbums({ limit: LIBRARY_LIMIT }),
   ]);
 
-  // Server Action: purga tags tras una mutación (patrón de la página favorites).
   const refreshLibrary = async () => {
     "use server";
     updateTag(CACHE_TAGS.favorites);
     updateTag(CACHE_TAGS.playlists);
   };
 
-  // Filtro DENTRO de la biblioteca (query param `q` en la URL).
   const q = query.toLowerCase();
   const matches = (value: string) => value.toLowerCase().includes(q);
 
@@ -59,7 +127,6 @@ export default async function CatalogPage({
     : favSongs.items;
   const songsTotal = q ? songs.length : favSongs.total;
 
-  // Playlists propias + del sistema likeadas (sin duplicar ids).
   const seen = new Set<string>();
   const allPlaylists = [
     ...(library?.playlists ?? []),
@@ -76,19 +143,7 @@ export default async function CatalogPage({
     : favAlbums.items;
 
   return (
-    <div className="flex flex-col gap-10">
-      <header>
-        <Title as="h1" size="section">
-          Mi catálogo
-        </Title>
-        <p className="mt-2 text-sm text-text-subdued">
-          Tus canciones, playlists y álbumes guardados, en un solo lugar.
-        </p>
-      </header>
-
-      {/* El input vive en la URL: al escribir se re-ejecuta el RSC con ?q=… */}
-      <SearchInput initialValue={query} placeholder="Buscar en tu catálogo…" />
-
+    <>
       {/* ── Canciones (lista, no cards) ─────────────────────────────── */}
       <section>
         <div className="mb-4 flex items-end justify-between gap-4">
@@ -173,12 +228,12 @@ export default async function CatalogPage({
           </p>
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
-            {albums.map((album) => (
-              <AlbumCard key={album.id} album={album} />
+            {albums.map((album, idx) => (
+              <AlbumCard key={album.id} album={album} priority={idx < 4} />
             ))}
           </div>
         )}
       </section>
-    </div>
+    </>
   );
 }

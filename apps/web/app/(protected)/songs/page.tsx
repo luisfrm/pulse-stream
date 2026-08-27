@@ -1,8 +1,8 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { updateTag } from "next/cache";
 
 import { SearchInput } from "@/components/search-input";
-import { Skeleton } from "@/components/ui";
 import { getUserLibrary } from "@/lib/services/library";
 import { songsService } from "@/lib/services/songs-service";
 import { CACHE_TAGS } from "@/lib/services/tags";
@@ -22,23 +22,6 @@ export default async function SongsPage({
   const params = await searchParams;
   const query = params.q?.trim() ?? "";
 
-  // Sesión + catálogo cacheado por tags, en paralelo. La primera página llega
-  // al cliente con Ver más: si hay 10k canciones, no las bajamos todas.
-  const [library, initialPage] = await Promise.all([
-    getUserLibrary(),
-    songsService.getSongs(
-      { query: query || undefined, offset: 0, limit: PAGE_LIMIT },
-      { next: { revalidate: 60, tags: [CACHE_TAGS.songs] } },
-    ),
-  ]);
-
-  // Server Action: purga tags tras una mutación (like/playlist/descarga).
-  const refreshLibrary = async () => {
-    "use server";
-    updateTag(CACHE_TAGS.favorites);
-    updateTag(CACHE_TAGS.playlists);
-  };
-
   return (
     <div className="flex flex-col gap-8">
       <header>
@@ -51,26 +34,53 @@ export default async function SongsPage({
         </p>
       </header>
 
+      {/* Input fuera del Suspense: no pierde foco al navegar y pinta inmediato (no bloqueado por library). */}
       <SearchInput
         initialValue={query}
         placeholder="Buscar canciones por título…"
       />
 
-      {initialPage.items.length === 0 ? (
-        <p className="rounded-2xl border border-bg-highlight bg-bg-elevated/50 px-5 py-10 text-center text-sm text-text-subdued">
-          {query
-            ? "Sin resultados para tu búsqueda."
-            : "Todavía no hay canciones publicadas. Volvé más tarde."}
-        </p>
-      ) : (
-        <SongsResults
-          initialPage={initialPage}
-          query={query}
-          playlists={library?.playlists}
-          favoriteIds={library?.favoriteIds}
-          onMutated={refreshLibrary}
-        />
-      )}
+      <Suspense fallback={<SongsResultsSkeleton />}>
+        <SongsContent query={query} />
+      </Suspense>
     </div>
+  );
+}
+
+async function SongsContent({ query }: { query: string }) {
+  // Catálogo cacheado (revalidate:300) + biblioteca privada (no-store) en paralelo;
+  // al estar dentro de Suspense, el header/input ya pintaron y solo el grid suspende.
+  const [library, initialPage] = await Promise.all([
+    getUserLibrary(),
+    songsService.getSongs(
+      { query: query || undefined, offset: 0, limit: PAGE_LIMIT },
+      { next: { revalidate: 300, tags: [CACHE_TAGS.songs] } },
+    ),
+  ]);
+
+  const refreshLibrary = async () => {
+    "use server";
+    updateTag(CACHE_TAGS.favorites);
+    updateTag(CACHE_TAGS.playlists);
+  };
+
+  if (initialPage.items.length === 0) {
+    return (
+      <p className="rounded-2xl border border-bg-highlight bg-bg-elevated/50 px-5 py-10 text-center text-sm text-text-subdued">
+        {query
+          ? "Sin resultados para tu búsqueda."
+          : "Todavía no hay canciones publicadas. Volvé más tarde."}
+      </p>
+    );
+  }
+
+  return (
+    <SongsResults
+      initialPage={initialPage}
+      query={query}
+      playlists={library?.playlists}
+      favoriteIds={library?.favoriteIds}
+      onMutated={refreshLibrary}
+    />
   );
 }
