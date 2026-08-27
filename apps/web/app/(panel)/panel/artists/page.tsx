@@ -31,7 +31,7 @@ export default async function ArtistsPage({
     getSession(),
     artistsService.getArtists(
       { query: query || undefined, offset, limit: PAGE_LIMIT },
-      { next: { revalidate: 60, tags: [CACHE_TAGS.artists] } },
+      { next: { revalidate: 300, tags: [CACHE_TAGS.artists] } },
     ),
   ]);
   const isAdmin = Boolean(

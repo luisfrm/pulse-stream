@@ -33,18 +33,18 @@ export default async function SongsPage({
     getSession(),
     songsService.getSongs(
       { query: query || undefined, offset, limit: PAGE_LIMIT },
-      { next: { revalidate: 60, tags: [CACHE_TAGS.songs] } },
+      { next: { revalidate: 300, tags: [CACHE_TAGS.songs] } },
     ),
     genresService.getGenres({
       next: { revalidate: 3600, tags: [CACHE_TAGS.genres] },
     }),
     albumsService.getAlbums(
       { limit: 100 },
-      { next: { revalidate: 60, tags: [CACHE_TAGS.albums] } }
+      { next: { revalidate: 300, tags: [CACHE_TAGS.albums] } }
     ),
     artistsService.getArtists(
       { limit: 100 },
-      { next: { revalidate: 60, tags: [CACHE_TAGS.artists] } }
+      { next: { revalidate: 300, tags: [CACHE_TAGS.artists] } }
     ),
   ]);
 

@@ -24,11 +24,11 @@ export default async function NewSongPage({
   // Lecturas en paralelo en el servidor: cero waterfalls
   const [artistsPage, albumsPage, genres] = await Promise.all([
     artistsService.getArtists(undefined, {
-      next: { revalidate: 60, tags: [CACHE_TAGS.artists] },
+      next: { revalidate: 300, tags: [CACHE_TAGS.artists] },
     }),
     albumsService.getAlbums(
       { limit: 100 },
-      { next: { revalidate: 60, tags: [CACHE_TAGS.albums] } }
+      { next: { revalidate: 300, tags: [CACHE_TAGS.albums] } }
     ),
     genresService.getGenres({
       next: { revalidate: 3600, tags: [CACHE_TAGS.genres] },

@@ -21,7 +21,7 @@ export default async function PanelArtistPage({ params }: PanelArtistPageProps) 
 
   const artist = await artistsService
     .getArtistById(id, {
-      next: { revalidate: 60, tags: [CACHE_TAGS.artists] },
+      next: { revalidate: 300, tags: [CACHE_TAGS.artists] },
     })
     .catch(() => null);
   if (!artist) notFound();
@@ -31,7 +31,7 @@ export default async function PanelArtistPage({ params }: PanelArtistPageProps) 
       albumsService
         .getAlbums(
           { artistId: id, limit: 100 },
-          { next: { revalidate: 60, tags: [CACHE_TAGS.albums] } }
+          { next: { revalidate: 300, tags: [CACHE_TAGS.albums] } }
         )
         .catch(() => ({ items: [] })),
       // Ojo: la API limita `limit` a 100 (`le=100` en /songs) — más de eso
@@ -39,13 +39,13 @@ export default async function PanelArtistPage({ params }: PanelArtistPageProps) 
       songsService
         .getSongs(
           { artistId: id, limit: 100 },
-          { next: { revalidate: 60, tags: [CACHE_TAGS.songs] } }
+          { next: { revalidate: 300, tags: [CACHE_TAGS.songs] } }
         )
         .catch(() => ({ items: [] })),
       songsService
         .getSongs(
           { collaboratorId: id, limit: 100 },
-          { next: { revalidate: 60, tags: [CACHE_TAGS.songs] } }
+          { next: { revalidate: 300, tags: [CACHE_TAGS.songs] } }
         )
         .catch(() => ({ items: [] })),
     ]);

@@ -14,7 +14,7 @@ export default async function PanelPlaylistsPage() {
   const feed = await playlistsService
     .getPublicPlaylists(
       { limit: 50 },
-      { next: { revalidate: 60, tags: [CACHE_TAGS.playlists] } }
+      { next: { revalidate: 300, tags: [CACHE_TAGS.playlists] } }
     )
     .catch(() => ({ items: [] }));
   const systemPlaylists = feed.items.filter((pl) => pl.kind === "system");

@@ -22,7 +22,7 @@ export default async function PanelSongPage({ params }: PanelSongPageProps) {
 
   const song = await songsService
     .getSongById(id, {
-      next: { revalidate: 60, tags: [CACHE_TAGS.songs] },
+      next: { revalidate: 300, tags: [CACHE_TAGS.songs] },
     })
     .catch(() => null);
   if (!song) notFound();
@@ -34,13 +34,13 @@ export default async function PanelSongPage({ params }: PanelSongPageProps) {
     albumsService
       .getAlbums(
         { limit: 100 },
-        { next: { revalidate: 60, tags: [CACHE_TAGS.albums] } }
+        { next: { revalidate: 300, tags: [CACHE_TAGS.albums] } }
       )
       .catch(() => ({ items: [] })),
     artistsService
       .getArtists(
         { limit: 100 },
-        { next: { revalidate: 60, tags: [CACHE_TAGS.artists] } }
+        { next: { revalidate: 300, tags: [CACHE_TAGS.artists] } }
       )
       .catch(() => ({ items: [] })),
   ]);

@@ -18,7 +18,7 @@ export default async function PanelAlbumPage({ params }: PanelAlbumPageProps) {
   const { id } = await params;
   const album = await albumsService
     .getAlbumById(id, {
-      next: { revalidate: 60, tags: [CACHE_TAGS.albums] },
+      next: { revalidate: 300, tags: [CACHE_TAGS.albums] },
     })
     .catch(() => null);
   if (!album) notFound();

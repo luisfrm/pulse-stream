@@ -13,11 +13,11 @@ export default async function PanelHome() {
   const [artists, songs] = await Promise.all([
     artistsService.getArtists(
       { limit: 5 },
-      { next: { revalidate: 60, tags: [CACHE_TAGS.artists] } }
+      { next: { revalidate: 300, tags: [CACHE_TAGS.artists] } }
     ),
     songsService.getSongs(
       { limit: 5 },
-      { next: { revalidate: 60, tags: [CACHE_TAGS.songs] } }
+      { next: { revalidate: 300, tags: [CACHE_TAGS.songs] } }
     ),
   ]);
 
