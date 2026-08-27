@@ -21,7 +21,7 @@ export async function generateMetadata({
   const { id } = await params;
   try {
     const song = await songsService.getSongById(id, {
-      next: { revalidate: 60, tags: [CACHE_TAGS.songs] },
+      next: { revalidate: 300, tags: [CACHE_TAGS.songs] },
     });
     return { title: `${song.title} — ${song.artist.name}` };
   } catch {
@@ -35,7 +35,7 @@ export default async function SongPage({ params }: SongPageProps) {
   const { id } = await params;
   const song = await songsService
     .getSongById(id, {
-      next: { revalidate: 60, tags: [CACHE_TAGS.songs] },
+      next: { revalidate: 300, tags: [CACHE_TAGS.songs] },
     })
     .catch(() => null);
 

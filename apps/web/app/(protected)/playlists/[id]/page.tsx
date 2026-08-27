@@ -53,7 +53,7 @@ export default async function PlaylistDetailPage({ params }: PlaylistDetailPageP
     songsService
       .getSongs(
         { playlistId: id, offset: 0, limit: SONGS_PAGE_LIMIT },
-        { next: { revalidate: 60, tags: [CACHE_TAGS.songs] } },
+        { next: { revalidate: 300, tags: [CACHE_TAGS.songs] } },
       )
       .catch(() => ({ items: [], total: 0, offset: 0, limit: SONGS_PAGE_LIMIT })),
   ]);

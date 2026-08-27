@@ -20,7 +20,7 @@ export async function generateMetadata({
   const { id } = await params;
   try {
     const artist = await artistsService.getArtistById(id, {
-      next: { revalidate: 60, tags: [CACHE_TAGS.artists] },
+      next: { revalidate: 300, tags: [CACHE_TAGS.artists] },
     });
     return { title: artist.name };
   } catch {
@@ -40,7 +40,7 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
   // artistas grandes; el resto se appendea con "Ver más" en el cliente.
   const artist = await artistsService
     .getArtistById(id, {
-      next: { revalidate: 60, tags: [CACHE_TAGS.artists] },
+      next: { revalidate: 300, tags: [CACHE_TAGS.artists] },
     })
     .catch(() => null);
   if (!artist) notFound();
@@ -50,19 +50,19 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
       songsService
         .getSongs(
           { artistId: id, offset: 0, limit: PAGE_LIMIT },
-          { next: { revalidate: 60, tags: [CACHE_TAGS.songs] } },
+          { next: { revalidate: 300, tags: [CACHE_TAGS.songs] } },
         )
         .catch(() => ({ items: [], total: 0, offset: 0, limit: PAGE_LIMIT })),
       songsService
         .getSongs(
           { collaboratorId: id, offset: 0, limit: PAGE_LIMIT },
-          { next: { revalidate: 60, tags: [CACHE_TAGS.songs] } },
+          { next: { revalidate: 300, tags: [CACHE_TAGS.songs] } },
         )
         .catch(() => ({ items: [], total: 0, offset: 0, limit: PAGE_LIMIT })),
       albumsService
         .getAlbums(
           { artistId: id, offset: 0, limit: PAGE_LIMIT },
-          { next: { revalidate: 60, tags: [CACHE_TAGS.albums] } },
+          { next: { revalidate: 300, tags: [CACHE_TAGS.albums] } },
         )
         .catch(() => ({ items: [], total: 0, offset: 0, limit: PAGE_LIMIT })),
       getUserLibrary(),

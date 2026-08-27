@@ -19,7 +19,7 @@ export default async function PlaylistsPage() {
     playlistsService
       .getPublicPlaylists(
         { limit: 30 },
-        { next: { revalidate: 60, tags: [CACHE_TAGS.playlists] } }
+        { next: { revalidate: 300, tags: [CACHE_TAGS.playlists] } }
       )
       .catch(() => ({ items: [] })),
   ]);
