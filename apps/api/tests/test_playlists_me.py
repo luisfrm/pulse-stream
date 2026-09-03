@@ -20,11 +20,20 @@ async def _create_artist(client, name: str) -> dict:
     return resp.json()
 
 
+async def _create_album(client, artist_id: str, title: str = "Álbum") -> dict:
+    resp = await client.post(
+        "/albums", json={"title": title, "artist_id": artist_id}
+    )
+    assert resp.status_code == 201, resp.text
+    return resp.json()
+
+
 async def _create_song(client, title: str, artist: dict, key: str) -> dict:
-    # Sin album_id: canciones sin álbum (regla 14.1 — album null sin romper).
+    # Toda canción requiere álbum (antes regla 14.1, ahora obligatorio).
+    album = await _create_album(client, artist["id"], f"Álbum de {title}")
     resp = await client.post(
         "/songs",
-        json={"title": title, "artist_id": artist["id"], "object_key": key},
+        json={"title": title, "artist_id": artist["id"], "album_id": album["id"], "object_key": key},
     )
     assert resp.status_code == 201, resp.text
     return resp.json()
@@ -47,7 +56,7 @@ async def test_me_playlists_exposes_song_ids_in_position_order(client, session):
     """song_ids por playlist, respetando el orden de posición (0..n-1).
 
     Playlist A: [s1]; Playlist B: [s2, s1] (s1 compartida, en posición 1);
-    Playlist C: vacía -> []. Las canciones no tienen álbum (regla 14.1).
+    Playlist C: vacía -> []. Cada canción tiene su álbum propio.
     """
     await register_and_login(client, admin=True, session=session)
     artist = await _create_artist(client, f"Artista {uuid.uuid4().hex[:6]}")

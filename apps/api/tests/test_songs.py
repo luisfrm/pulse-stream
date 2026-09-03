@@ -13,15 +13,25 @@ async def _create_artist(client, name: str) -> dict:
     return resp.json()
 
 
+async def _create_album(client, artist_id: str, title: str = "Álbum") -> dict:
+    resp = await client.post(
+        "/albums", json={"title": title, "artist_id": artist_id}
+    )
+    assert resp.status_code == 201, resp.text
+    return resp.json()
+
+
 async def test_create_song_with_existing_artist(client, session):
     await register_and_login(client, admin=True, session=session)
     artist = await _create_artist(client, "Gustavo Cerati")
+    album = await _create_album(client, artist["id"], "Bocanada")
 
     resp = await client.post(
         "/songs",
         json={
             "title": "Crimen",
             "artist_id": artist["id"],
+            "album_id": album["id"],
             "genres": ["rock", "pop"],
             "object_key": "songs/abc.mp3",
             "lyrics": "Un crimen...",
@@ -41,24 +51,39 @@ async def test_create_song_with_existing_artist(client, session):
     )
 
 
+async def test_create_song_requires_album(client, session):
+    """Toda canción requiere álbum (422 sin album_id)."""
+    await register_and_login(client, admin=True, session=session)
+    artist = await _create_artist(client, "Sin Álbum")
+    resp = await client.post(
+        "/songs",
+        json={"title": "Huérfana", "artist_id": artist["id"], "object_key": "songs/x.mp3"},
+    )
+    assert resp.status_code == 422, resp.text
+
+
 async def test_create_song_with_inline_artist(client, session):
     """Regla del plan: `artist_name` sin `artist_id` crea el artista primero."""
     await register_and_login(client, admin=True, session=session)
+    # El álbum debe existir (la validación solo exige existencia, no dueño).
+    other = await _create_artist(client, "Dueño Del Álbum")
+    album = await _create_album(client, other["id"], "Álbum Prestado")
 
     resp = await client.post(
         "/songs",
         json={
             "title": "De Música Ligera",
-            "artist_name": "Soda Stereo",
+            "artist_name": "Soda Stereo Nuevo",
+            "album_id": album["id"],
             "genres": ["rock"],
             "object_key": "songs/def.mp3",
         },
     )
     assert resp.status_code == 201, resp.text
-    assert resp.json()["artist"]["name"] == "Soda Stereo"
+    assert resp.json()["artist"]["name"] == "Soda Stereo Nuevo"
 
     # El artista quedó creado en la misma operación
-    resp = await client.get("/artists", params={"q": "soda"})
+    resp = await client.get("/artists", params={"q": "soda stereo nuevo"})
     assert resp.json()["total"] == 1
 
 
@@ -66,11 +91,12 @@ async def test_create_song_reuses_existing_inline_artist(client, session):
     # Nombre único por corrida: los tests comparten la DB y los artistas son únicos
     name = f"Soda Stereo {uuid.uuid4().hex[:6]}"
     await register_and_login(client, admin=True, session=session)
-    await _create_artist(client, name)
+    artist = await _create_artist(client, name)
+    album = await _create_album(client, artist["id"])
 
     resp = await client.post(
         "/songs",
-        json={"title": "Nada Personal", "artist_name": name.lower(), "object_key": "songs/ghi.mp3"},
+        json={"title": "Nada Personal", "artist_name": name.lower(), "album_id": album["id"], "object_key": "songs/ghi.mp3"},
     )
     assert resp.status_code == 201, resp.text
     assert resp.json()["artist"]["name"] == name
@@ -90,11 +116,13 @@ async def test_create_song_without_artist_rejected(client, session):
 async def test_create_song_invalid_genre_rejected(client, session):
     await register_and_login(client, admin=True, session=session)
     artist = await _create_artist(client, "Algo")
+    album = await _create_album(client, artist["id"])
     resp = await client.post(
         "/songs",
         json={
             "title": "X",
             "artist_id": artist["id"],
+            "album_id": album["id"],
             "genres": ["reggae-no-existe"],
             "object_key": "songs/x.mp3",
         },
@@ -104,11 +132,52 @@ async def test_create_song_invalid_genre_rejected(client, session):
 
 async def test_create_song_invalid_artist_id(client, session):
     await register_and_login(client, admin=True, session=session)
+    other = await _create_artist(client, "Dueño Álbum Inválido")
+    album = await _create_album(client, other["id"])
     resp = await client.post(
         "/songs",
-        json={"title": "X", "artist_id": str(uuid.uuid4()), "object_key": "songs/x.mp3"},
+        json={"title": "X", "artist_id": str(uuid.uuid4()), "album_id": album["id"], "object_key": "songs/x.mp3"},
     )
     assert resp.status_code == 404
+
+
+async def test_update_song_cannot_remove_album(client, session):
+    """Quitar el álbum (null) → 400 AlbumRequiredError."""
+    await register_and_login(client, admin=True, session=session)
+    artist = await _create_artist(client, "No Quitar Álbum")
+    album = await _create_album(client, artist["id"])
+    song = (
+        await client.post(
+            "/songs",
+            json={"title": "Con Álbum", "artist_id": artist["id"], "album_id": album["id"], "object_key": "songs/na.mp3"},
+        )
+    ).json()
+    resp = await client.patch(f"/songs/{song['id']}", json={"album_id": None})
+    assert resp.status_code == 400, resp.text
+
+
+async def test_song_cover_inherits_album(client, session):
+    """cover_url de la canción = cover del álbum (una sola imagen)."""
+    await register_and_login(client, admin=True, session=session)
+    artist = await _create_artist(client, "Hereda Cover")
+    # Key con formato del presign (`covers/{uuid}.webp`): el schema exige el
+    # patrón estricto en escritura.
+    album_key = "covers/33333333-3333-4333-8333-333333333333.webp"
+    album_resp = await client.post(
+        "/albums",
+        json={"title": "Con Cover", "artist_id": artist["id"], "cover_key": album_key},
+    )
+    assert album_resp.status_code == 201, album_resp.text
+    album = album_resp.json()
+    song = (
+        await client.post(
+            "/songs",
+            json={"title": "Heredada", "artist_id": artist["id"], "album_id": album["id"], "object_key": "songs/h.mp3"},
+        )
+    ).json()
+    assert "cover_key" not in song
+    assert song["cover_url"] is not None
+    assert song["cover_url"].endswith(f"/{album_key}")
 
 
 async def test_normal_user_cannot_create_song(client):
@@ -123,10 +192,11 @@ async def test_normal_user_cannot_create_song(client):
 async def test_list_search_get_update_delete(client, session):
     await register_and_login(client, admin=True, session=session)
     artist = await _create_artist(client, "Queen")
+    album = await _create_album(client, artist["id"], "A Night at the Opera")
     song = (
         await client.post(
             "/songs",
-            json={"title": "Bohemian Rhapsody", "artist_id": artist["id"], "object_key": "songs/queen1.mp3"},
+            json={"title": "Bohemian Rhapsody", "artist_id": artist["id"], "album_id": album["id"], "object_key": "songs/queen1.mp3"},
         )
     ).json()
 
@@ -195,6 +265,7 @@ async def test_list_songs_filter_by_playlist_id(client, session):
     """Filtra por playlist en orden de posición (PlaylistSong.position)."""
     await register_and_login(client, admin=True, session=session)
     artist = await _create_artist(client, "Filter Playlist Artist")
+    album = await _create_album(client, artist["id"], "Filter Album")
     playlist = (
         await client.post(
             "/playlists",
@@ -205,25 +276,25 @@ async def test_list_songs_filter_by_playlist_id(client, session):
     s1 = (
         await client.post(
             "/songs",
-            json={"title": "Primera", "artist_id": artist["id"], "object_key": "songs/p1.mp3"},
+            json={"title": "Primera", "artist_id": artist["id"], "album_id": album["id"], "object_key": "songs/p1.mp3"},
         )
     ).json()
     s2 = (
         await client.post(
             "/songs",
-            json={"title": "Segunda", "artist_id": artist["id"], "object_key": "songs/p2.mp3"},
+            json={"title": "Segunda", "artist_id": artist["id"], "album_id": album["id"], "object_key": "songs/p2.mp3"},
         )
     ).json()
     s3 = (
         await client.post(
             "/songs",
-            json={"title": "Tercera", "artist_id": artist["id"], "object_key": "songs/p3.mp3"},
+            json={"title": "Tercera", "artist_id": artist["id"], "album_id": album["id"], "object_key": "songs/p3.mp3"},
         )
     ).json()
     # Cancion sin agregar a la playlist — no debe aparecer
     await client.post(
         "/songs",
-        json={"title": "Fuera", "artist_id": artist["id"], "object_key": "songs/p4.mp3"},
+        json={"title": "Fuera", "artist_id": artist["id"], "album_id": album["id"], "object_key": "songs/p4.mp3"},
     )
 
     for song_id in (s1["id"], s2["id"], s3["id"]):

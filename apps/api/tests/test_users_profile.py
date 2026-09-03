@@ -41,9 +41,11 @@ async def test_update_username_and_cover(client):
     body = resp.json()
     assert body["username"] == "nuevo-nombre"
     # cover del perfil: se asigna con el object_key del presign
-    resp = await client.patch("/users/me", json={"cover_key": "covers/profile-1.jpg"})
+    # (`covers/{uuid}.webp`: el schema exige el patrón estricto en escritura).
+    profile_key = "covers/44444444-4444-4444-8444-444444444444.webp"
+    resp = await client.patch("/users/me", json={"cover_key": profile_key})
     assert resp.status_code == 200
-    assert resp.json()["cover_key"] == "covers/profile-1.jpg"
+    assert resp.json()["cover_key"] == profile_key
 
     resp = await client.get("/users/me")
     assert resp.json()["username"] == "nuevo-nombre"

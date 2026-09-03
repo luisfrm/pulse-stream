@@ -13,10 +13,20 @@ async def _create_artist(client, name: str) -> dict:
     return resp.json()
 
 
+async def _create_album(client, artist_id: str, title: str = "Álbum") -> dict:
+    resp = await client.post(
+        "/albums", json={"title": title, "artist_id": artist_id}
+    )
+    assert resp.status_code == 201, resp.text
+    return resp.json()
+
+
 async def _create_song(client, title: str, artist: dict, key: str) -> dict:
+    # Toda canción requiere álbum: uno por defecto si no se indica.
+    album = await _create_album(client, artist["id"], f"Álbum de {title}")
     resp = await client.post(
         "/songs",
-        json={"title": title, "artist_id": artist["id"], "object_key": key},
+        json={"title": title, "artist_id": artist["id"], "album_id": album["id"], "object_key": key},
     )
     assert resp.status_code == 201, resp.text
     return resp.json()
@@ -112,16 +122,19 @@ async def test_update_and_delete_playlist(client, session):
     await register_and_login(client)
     pl = await _create_playlist(client, "Viejo nombre")
 
+    # Key con formato del presign (`covers/{uuid}.webp`): el schema exige el
+    # patrón estricto en escritura.
+    cover_key = "covers/55555555-5555-4555-8555-555555555555.webp"
     resp = await client.patch(
         f"/playlists/{pl['id']}",
-        json={"name": "Nuevo nombre", "is_public": True, "cover_key": "covers/x.jpg"},
+        json={"name": "Nuevo nombre", "is_public": True, "cover_key": cover_key},
     )
     assert resp.status_code == 200
     body = resp.json()
     assert body["name"] == "Nuevo nombre"
     assert body["is_public"] is True
-    assert body["cover_key"] == "covers/x.jpg"
-    assert body["cover_url"] is None or body["cover_url"].endswith("/covers/x.jpg")
+    assert body["cover_key"] == cover_key
+    assert body["cover_url"] is None or body["cover_url"].endswith(f"/{cover_key}")
 
     resp = await client.delete(f"/playlists/{pl['id']}")
     assert resp.status_code == 204

@@ -13,10 +13,20 @@ async def _create_artist(client, name: str) -> dict:
     return resp.json()
 
 
+async def _create_album(client, artist_id: str, title: str = "Álbum") -> dict:
+    resp = await client.post(
+        "/albums", json={"title": title, "artist_id": artist_id}
+    )
+    assert resp.status_code == 201, resp.text
+    return resp.json()
+
+
 async def _create_song(client, title: str, artist: dict, key: str) -> dict:
+    # Toda canción requiere álbum: uno por defecto si no se indica.
+    album = await _create_album(client, artist["id"], f"Álbum de {title}")
     resp = await client.post(
         "/songs",
-        json={"title": title, "artist_id": artist["id"], "object_key": key},
+        json={"title": title, "artist_id": artist["id"], "album_id": album["id"], "object_key": key},
     )
     assert resp.status_code == 201, resp.text
     return resp.json()

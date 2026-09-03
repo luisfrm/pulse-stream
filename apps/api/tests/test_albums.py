@@ -22,12 +22,12 @@ async def _create_album(client, artist: dict, title: str = "Álbum") -> dict:
 
 
 async def _create_song(
-    client, title: str, artist: dict, key: str, **extra
+    client, title: str, artist: dict, key: str, album_id: str | None = None, **extra
 ) -> dict:
-    resp = await client.post(
-        "/songs",
-        json={"title": title, "artist_id": artist["id"], "object_key": key, **extra},
-    )
+    payload = {"title": title, "artist_id": artist["id"], "object_key": key, **extra}
+    if album_id is not None:
+        payload["album_id"] = album_id
+    resp = await client.post("/songs", json=payload)
     assert resp.status_code == 201, resp.text
     return resp.json()
 
@@ -66,6 +66,11 @@ async def test_album_with_songs_and_detail(client, session):
     body = resp.json()
     assert body["song_count"] == 2
     assert [s["id"] for s in body["songs"]] == [s1["id"], s2["id"]]
+    # cada canción del detalle trae su álbum (back-population al propio padre,
+    # con artista) y sus colaboradores: es un SongRead completo.
+    assert body["songs"][0]["album"]["id"] == album["id"]
+    assert body["songs"][0]["album"]["artist"]["id"] == artist["id"]
+    assert body["songs"][0]["collaborators"] == []
     # la canción conoce su álbum (con su artista)
     resp = await client.get(f"/songs/{s1['id']}")
     assert resp.json()["album"]["id"] == album["id"]
@@ -86,21 +91,33 @@ async def test_album_list_and_filter(client, session):
     assert "De otro" not in titles
 
 
-async def test_delete_album_sets_song_album_null(client, session):
+async def test_delete_album_with_songs_blocked(client, session):
+    """Borrar un álbum con canciones → 400 (requieren álbum)."""
     await register_and_login(client, admin=True, session=session)
     artist = await _create_artist(client, f"Artista {uuid.uuid4().hex[:6]}")
     album = await _create_album(client, artist)
-    song = await _create_song(
+    await _create_song(
         client, "Tema", artist, f"songs/del-{uuid.uuid4().hex[:6]}.mp3", album_id=album["id"]
     )
 
     resp = await client.delete(f"/albums/{album['id']}")
-    assert resp.status_code == 204
+    assert resp.status_code == 400, resp.text
 
-    # la canción sobrevive, sin álbum
-    resp = await client.get(f"/songs/{song['id']}")
+    # el álbum y la canción siguen intactos
+    resp = await client.get(f"/albums/{album['id']}")
     assert resp.status_code == 200
-    assert resp.json()["album"] is None
+
+
+async def test_delete_album_without_songs(client, session):
+    await register_and_login(client, admin=True, session=session)
+    artist = await _create_artist(client, f"Artista {uuid.uuid4().hex[:6]}")
+    album = await _create_album(client, artist)
+
+    resp = await client.delete(f"/albums/{album['id']}")
+    assert resp.status_code == 204, resp.text
+
+    resp = await client.get(f"/albums/{album['id']}")
+    assert resp.status_code == 404
 
 
 async def test_song_collaborators_and_artist_collaborations(client, session):
@@ -108,12 +125,14 @@ async def test_song_collaborators_and_artist_collaborations(client, session):
     main = await _create_artist(client, f"Principal {uuid.uuid4().hex[:6]}")
     guest = await _create_artist(client, f"Invitado {uuid.uuid4().hex[:6]}")
     other = await _create_artist(client, f"Otro {uuid.uuid4().hex[:6]}")
+    album = await _create_album(client, main, "Feat Album")
 
     song = await _create_song(
         client,
         "Feat.",
         main,
         f"songs/feat-{uuid.uuid4().hex[:6]}.mp3",
+        album_id=album["id"],
         collaborator_ids=[guest["id"]],
     )
 

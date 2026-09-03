@@ -116,7 +116,9 @@ async def _create_album(client) -> tuple[dict, dict]:
             json={
                 "title": "Un Verano Sin Ti",
                 "artist_id": artist["id"],
-                "cover_key": "covers/uvst.jpg",
+                # Key con formato del presign: el schema exige el patrón
+                # estricto `covers/{uuid}.webp` en escritura.
+                "cover_key": "covers/66666666-6666-4666-8666-666666666666.webp",
             },
         )
     ).json()
@@ -170,7 +172,12 @@ async def test_import_zip_creates_songs_with_album_data(import_client, session):
     for song in data["imported"]:
         assert song["album"]["id"] == album["id"]
         assert song["artist"]["id"] == artist["id"]
-        assert song["cover_key"] == "covers/uvst.jpg"
+        # Sin cover propio: hereda el del álbum (una sola imagen).
+        assert "cover_key" not in song
+        assert song["cover_url"] is not None
+        assert song["cover_url"].endswith(
+            "/covers/66666666-6666-4666-8666-666666666666.webp"
+        )
         assert song["duration_seconds"] == 1
         assert song["object_key"].startswith("songs/")
 

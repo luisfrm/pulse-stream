@@ -147,7 +147,8 @@ async def test_like_system_playlist_does_not_mutate_content(client, session):
     """Un usuario normal puede dar like a una playlist system, pero NO mutarla."""
     await register_and_login(client, admin=True, session=session)
     artist = await _create_artist(client, f"Artista {uuid.uuid4().hex[:6]}")
-    song = await _create_song(client, "Tema", artist, f"songs/sys-{uuid.uuid4().hex[:6]}.mp3")
+    album_sys = await _create_album(client, artist, "Disco System")
+    song = await _create_song(client, "Tema", artist, f"songs/sys-{uuid.uuid4().hex[:6]}.mp3", album_sys)
     # query="new" (sin plays): no contamina el ranking global de /songs/popular
     # que test_listens.py asume vacío al correr antes que este archivo.
     resp = await client.post(
@@ -178,8 +179,8 @@ async def test_library_ids_mixed(client, session):
     """GET /me/library/ids: los 3 sets (canciones, álbumes, playlists)."""
     await register_and_login(client, admin=True, session=session)
     artist = await _create_artist(client, f"Artista {uuid.uuid4().hex[:6]}")
-    song = await _create_song(client, "Tema", artist, f"songs/lib-{uuid.uuid4().hex[:6]}.mp3")
     album = await _create_album(client, artist, "Disco")
+    song = await _create_song(client, "Tema", artist, f"songs/lib-{uuid.uuid4().hex[:6]}.mp3", album)
 
     await register_and_login(client)  # usuario normal
     resp = await client.get("/me/library/ids")
