@@ -103,7 +103,7 @@
 | # | Tarea | Estado |
 |---|---|---|
 | 52 | **Backend: pertenencia canción↔playlist + duplicado idempotente** (§14.2) | Resuelto — opción A: `song_ids` por playlist en `GET /me/playlists` (`MyPlaylistRead`); duplicado idempotente + tests (`test_playlists_me.py`) |
-| 53 | **Backend: tests "canción sin álbum" + auditoría frontend** (§14.1) | Resuelto — canciones sin álbum OK (`album: null`); frontend ya guarda con `?.` |
+| 53 | **Backend: tests "canción sin álbum" + auditoría frontend** (§14.1) | Resuelto — canciones sin álbum OK (`album: null`); frontend ya guarda con `?.`. NOTA Fase 7: la API hoy exige `album_id` (crear sin él = `422` Pydantic, quitarlo = `400`), así que el caso "sin álbum" solo se da con dato legacy o fixture directa en DB — no se puede crear por API |
 | 54 | **Regenerar tipos** (`pnpm gen:types`) | Resuelto — `MyPlaylistRead` + `song_ids` en `generated.ts` |
 | 55 | **Frontend: PlaylistPicker "Ya está en esta playlist"** (§14.2) | Resuelto — fila deshabilitada + check (2 tests vitest) |
 | 56 | **Frontend: PlaylistCard compacta en el catálogo** (§14.3) | Resuelto — prop `compact` (cover `h-14 w-14`) |
@@ -112,6 +112,39 @@
 | 59 | **Frontend: rutas en inglés top-level + redirects + nav** (§14.5) | Resuelto — `/catalog`, `/songs`, `/settings`, `/search`, `/playlists`, `/recently-played` top-level; redirects viejos; nav/proxy/manifest/AGENTS.md actualizados |
 | 60 | **Frontend: arreglar buscador de `/songs`** (§14.5) | Resuelto — causa raíz: services mandaban `query` pero la API espera `q` (afectaba `/songs` y `/search`) |
 | 61 | **Verificación final Fase 5.5 + docs** | Resuelto — **95 passed** backend · web typecheck/lint/37 tests/build OK · fix de aislamiento de tests (nombres únicos) |
+
+## ✅ Fase 6 — Performance home (Lighthouse, resuelta parcial · thumbnails → Fase 2)
+
+> Auditoría `http://localhost:3000/` (mobile): dev perf 0.75 → prod (`next build` +
+> `next start`) perf **0.93** / a11y **0.96**. El JS sin usar de dev era artefacto
+> de Turbopack/devtools (sin acción). Implementado en esta pasada:
+> - Home sin `priority` en songs/artists/playlists (LCP = H1 texto, todo bajo el
+>   fold 88dvh) → covers eager t=33ms → lazy t=125ms (`app/(public)/page.tsx`).
+> - `SongCard`: `PlaylistPicker`/`FavoriteButton` a `next/dynamic` (chunk separado;
+>   home anónimo no los descarga) + test async (`findByRole`).
+> - `SongCard`: links título/artista con `min-h-6` (WCAG 2.2 AA 24px).
+> Re-auditoría prod: perf **0.92** / a11y **1.0** (target-size OK; TBT 40→30ms).
+> LCP 3.2→3.3s dentro de varianza (render-delay texto ~320ms, limitado por CPU
+> throttled; resto = covers 125–168 KiB → Fase 2).
+
+| # | Tarea | Estado |
+|---|---|---|
+| 62 | **Fase 2: thumbnails de covers** (353 KiB desperdiciados en 4 webp) | Pendiente — generar variante thumb al asignar cover (backend `uploads`) o redimensionado R2/CDN + `srcset`/`sizes` en cards. Blocker del LCP restante |
+
+## ✅ Fase 7 — Covers: álbum obligatorio + WebP + caché inmutable (Resuelta)
+
+> `Song.cover_url` hereda `album.cover_key` (migración `0009` dropea
+> `songs.cover_key`); `SongCreate.album_id` obligatorio (quitarlo = 400);
+> borrar álbum con canciones = 400; covers solo WebP ≤ 256 KB con
+> `Cache-Control: public, max-age=31536000, immutable` firmado en el presign +
+> backfill de los 27 `covers/*` históricos (`scripts/backfill_cover_cache.py`).
+> Panel sin cover propio en songs + álbum siempre requerido. OJO: el edge de
+> Cloudflare puede capar el TTL (visto `max-age=14400` con `cf-cache-status:
+> HIT`) — agregar Cache Rule `/covers/*` en el dashboard si sigue así.
+
+| # | Tarea | Estado |
+|---|---|---|
+| 63 | **Verificación Fase 7** | `uv run pytest` = **111 passed** · `uv run alembic upgrade head` (0009 en dev) · web typecheck/lint/**40 tests**/build OK · regen tipos · E2E API (422/400/400/400+presign firmado + limpieza) y browser (dedup 26 imgs→7 URLs, panel sin cover en songs, copy WebP/256KB/800×800, 0 errores consola) OK |
 
 **Detalle por tarea (archivos · criterio de "hecho" · dependencias):**
 

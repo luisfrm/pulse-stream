@@ -113,9 +113,22 @@ stateless: borrar la cookie ES cerrar sesión). CSRF del logout = solo molesto
   Postgres por la columna JSON).
 - `AlbumDetail` (con canciones) vive en `albums/router.py`, no en `schemas.py`,
   para evitar el ciclo de imports albums↔songs.
-- Covers (canciones/artistas/álbumes/perfil) aceptan **JPG y WebP ≤ 512 KB**
-  (`uploads.service.ALLOWED_COVER_TYPES` + `COVER_EXTENSIONS` para el
-  `object_key`).
+- Covers (artistas/álbumes/playlists/perfil; **las canciones NO tienen cover
+  propio**) aceptan **solo WebP ≤ 256 KB** (`uploads.service.ALLOWED_COVER_TYPES`
+  + `COVER_EXTENSIONS` para el `object_key`). El presign firma `Cache-Control:
+  public, max-age=31536000, immutable` (keys con UUID = inmutables) y el front
+  lo envía en el PUT (`uploadToR2`); mismo header en los `covers/*` históricos
+  vía `scripts/backfill_cover_cache.py`. OJO: el edge de Cloudflare puede
+  capar el TTL (regla de 4h vista en prod) — si el `cf-cache-status: HIT`
+  sirve `max-age=14400`, agregar Cache Rule en el dashboard para `/covers/*`
+  (Edge + Browser TTL 1 año). Sugerido en el panel: **800×800 WebP q~75**.
+- **Toda canción requiere álbum** (`SongCreate.album_id` obligatorio: crearlo
+  sin `album_id` es `422` de Pydantic; quitarlo con `PATCH {album_id:null}` es
+  `400` `AlbumRequiredError`, migración `0009` dropeó `songs.cover_key`):
+  `Song.cover_url` resuelve `album.cover_key` (misma URL para todo el álbum =
+  1 descarga; `Song.album` ya viene con selectinload). Canciones legacy sin
+  álbum quedan sin cover hasta asignarles uno. Borrar un álbum con canciones =
+  400 `AlbumHasSongsError` (reasignar primero).
 - **Import por ZIP de álbumes** (`POST /albums/{id}/import-zip`, admin):
   excepción deliberada a "el audio nunca pasa por FastAPI" — el ZIP viaja por
   la API (carga masiva), pero cada audio se guarda en R2 con PUT server-side
@@ -123,7 +136,8 @@ stateless: borrar la cookie ES cerrar sesión). CSRF del logout = solo molesto
   (uploads feature, orquesta repos de songs+albums) valida .mp3/.aac (≤ 50 MB,
   no vacíos), lee **título + duración de los tags ID3 con `mutagen`** (fallback:
   filename), saltea duplicados por título (case-insensitive) y no-audio, y crea
-  cada canción con `artist_id`/`album_id`/`cover_key` del álbum. Respuesta
+  cada canción con `artist_id`/`album_id` del álbum (el cover se hereda).
+  Respuesta
   `ZipImportResult` (`imported` songs, `skipped`/`failed` issues) — un archivo
   que falla no aborta el resto. Botón "Importar ZIP" en el `AlbumManager` del
   panel.

@@ -127,11 +127,11 @@ pnpm test        # tests de la API (requieren TEST_DATABASE_URL)
 
 - [x] **Playlists**: tablas `playlists` + `playlist_songs` (posición, PK compuesta, cascade). CRUD + agregar/quitar canciones con renumeración, reglas de acceso (privada = solo dueño, pública = visible)
 - [x] **Favoritos**: tabla `user_favorites` + `GET/PUT/DELETE /me/favorites` y `GET /me/favorites/ids`. Corazón en cada canción (home, artista, favoritos, playlists) con estado optimista
-- [x] **Covers**: `cover_key` + `cover_url` en canciones, artistas y playlists; `POST /uploads/presign-cover` (JPG ≤ 512 KB)
+- [x] **Covers**: `cover_key` + `cover_url` en álbumes, artistas y playlists (las canciones heredan el cover de su álbum — Fase 7); `POST /uploads/presign-cover` (solo WebP ≤ 256 KB, con `Cache-Control: immutable` de 1 año)
 - [x] **UI kit ampliado**: `Select` (combobox accesible con teclado, opcionalmente buscable) y `BottomSheet` (panel inferior con backdrop, ESC, reduced-motion)
 - [x] **Bottom-sheet del reproductor**: al tocar la barra inferior se abre la canción en grande (cover, progreso con seek, controles grandes, Media Session con artwork)
 - [x] **Playlists en la UI**: `/dashboard/playlists` (listado + crear) y `/dashboard/playlists/[id]` (detalle con canciones reproducibles, borrar)
-- [x] **Panel más útil**: stats del catálogo, últimas canciones con badge de cover, editor de cover por artista/canción con descripción de peso (≤512 KB) y tamaño sugerido (600×600)
+- [x] **Panel más útil**: stats del catálogo, últimas canciones con badge de cover, editor de cover por artista/álbum con descripción de peso (WebP ≤256 KB) y tamaño sugerido (800×800)
 - [x] Migración 0004 aplicada y **45/45 tests** verdes (31 previos + 14 nuevos)
 - [x] Ledger de tareas en [`tasks.md`](./tasks.md)
 
