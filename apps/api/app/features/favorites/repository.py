@@ -14,6 +14,7 @@ from app.features.favorites.models import (
 )
 from app.features.playlists.models import Playlist
 from app.features.songs.models import Song
+from app.features.songs.repository import _song_load_options
 
 
 class FavoriteRepository:
@@ -35,7 +36,10 @@ class FavoriteRepository:
         result = await self._session.execute(
             select(Song)
             .join(UserFavorite, UserFavorite.song_id == Song.id)
-            .options(selectinload(Song.artist), selectinload(Song.album))
+            # Mismo eager que SongRead exige (ver _song_load_options en
+            # songs/repository): sin Album.artist ni collaborators da
+            # MissingGreenlet en async.
+            .options(*_song_load_options())
             .where(UserFavorite.user_id == user_id)
             .order_by(UserFavorite.created_at.desc())
             .offset(offset)

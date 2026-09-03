@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.db.session import get_session
+from app.features.albums.models import Album
 from app.features.playlists.models import Playlist, PlaylistSong
 from app.features.songs.models import Song
 
@@ -17,8 +18,9 @@ class PlaylistRepository:
         self._session = session
 
     def _with_songs(self, query):
-        # owner + items -> PlaylistSong -> Song -> Artist + Album (el detalle
-        # valida SongRead.album; sin eager-load da MissingGreenlet en async).
+        # owner + items -> PlaylistSong -> Song -> Artist + Album (+ artista del
+        # álbum) + collaborators (el detalle valida SongRead completo; sin
+        # eager-load da MissingGreenlet en async).
         # owner se carga SIEMPRE: `owner_email` se lee como propiedad del modelo.
         return query.options(
             selectinload(Playlist.owner),
@@ -27,7 +29,11 @@ class PlaylistRepository:
             .selectinload(Song.artist),
             selectinload(Playlist.items)
             .selectinload(PlaylistSong.song)
-            .selectinload(Song.album),
+            .selectinload(Song.album)
+            .selectinload(Album.artist),
+            selectinload(Playlist.items)
+            .selectinload(PlaylistSong.song)
+            .selectinload(Song.collaborators),
         )
 
     async def list_by_owner(

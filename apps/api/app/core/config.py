@@ -8,6 +8,7 @@ from enum import Enum
 from typing import Literal
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -52,6 +53,11 @@ class Environment(str, Enum):
     PROD = "prod"
 
 
+# Regex CORS autoritativo en local: solo localhost/127.0.0.1 en cualquier
+# puerto (puertos distintos siguen siendo same-site, Lax funciona).
+LOCAL_CORS_ORIGIN_REGEX = r"http://localhost:\d+|http://127\.0\.0\.1:\d+"
+
+
 class Settings(BaseSettings):
     """Settings tipados leídos desde variables de entorno / `.env`."""
 
@@ -75,6 +81,7 @@ class Settings(BaseSettings):
     # --- CORS ---
     # Regex de orígenes permitidos con credenciales (cookies).
     # Nunca `*` con cookies: el navegador lo bloquea.
+    # En local se ignora y se fuerza el loopback (ver validador).
     cors_origin_regex: str = (
         r"https://([a-zA-Z0-9-]+\.)?tudominio\.com|http://localhost:\d+"
     )
@@ -139,15 +146,38 @@ class Settings(BaseSettings):
     # pulse-stream-api.luisrivas.site). Seteá "none" SOLO si front y API viven
     # en dominios completamente distintos (cross-site real) — en ese caso el
     # navegador exige además Secure=True (ya lo garantiza cookie_secure).
+    # En local se fuerza "lax" (ver validador): "none" sobre http plano el
+    # navegador lo rechaza.
     cookie_samesite: Literal["lax", "none"] = "lax"
 
-    # Dominio de la cookie de sesión. En local NO se setea (cookie host-only
-    # para localhost, que el navegador comparte entre puertos). En prod con
-    # subdominios (front en pulse-stream.luisrivas.site + API en
-    # pulse-stream-api.luisrivas.site) seteá el dominio registrable
-    # ("luisrivas.site") para que la cookie viaje a todos los subdominios —
-    # sin esto el proxy del front nunca ve la cookie y se bucla en /login.
+    # Dominio de la cookie de sesión. En prod con subdominios (front en
+    # pulse-stream.luisrivas.site + API en pulse-stream-api.luisrivas.site)
+    # seteá el dominio registrable ("luisrivas.site") para que la cookie viaje
+    # a todos los subdominios — sin esto el proxy del front nunca ve la cookie
+    # y se bucla en /login. En local se fuerza None (ver validador): cookie
+    # host-only para localhost, que el navegador comparte entre puertos
+    # (3000/8000). Un Domain de prod en local hace que el navegador descarte
+    # el Set-Cookie del login (204) y el siguiente GET /users/me dé 401.
     cookie_domain: str | None = None
+
+    @model_validator(mode="after")
+    def _normalize_for_env(self) -> "Settings":
+        """Hace a `ENV` autoritativo sin campos nuevos.
+
+        Solo cambiando `ENV` se ajusta todo; los valores de prod pueden quedar
+        en el `.env` local sin romper nada:
+        - local: `cookie_domain` -> None, `cors_origin_regex` -> loopback,
+          `cookie_samesite` "none" -> "lax".
+        - dev/prod: se respetan los valores tal cual (más normalizar "" a None).
+        """
+        if not self.cookie_domain:
+            self.cookie_domain = None
+        if self.env == Environment.LOCAL:
+            self.cookie_domain = None
+            self.cors_origin_regex = LOCAL_CORS_ORIGIN_REGEX
+            if self.cookie_samesite == "none":
+                self.cookie_samesite = "lax"
+        return self
 
     @property
     def docs_enabled(self) -> bool:
