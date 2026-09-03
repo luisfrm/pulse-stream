@@ -10,7 +10,8 @@
     "typecheck": "turbo typecheck",
     "test": "turbo test",
     "gen:types": "pnpm --filter @pulse-stream/api-types gen:types",
-    "start:api": "cd apps/api && uv run uvicorn app.main:app --reload"
+    "start:api": "cd apps/api && uv run uvicorn app.main:app --reload",
+    "start:web": "pnpm --filter @pulse-stream/web dev"
   },
   "devDependencies": {
     "turbo": "^2.5.0"
