@@ -1,13 +1,22 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { Pause, Play } from "lucide-react";
 
 import type { MyPlaylist, Song } from "@/lib/services/types";
 import { cn } from "@/components/ui";
 import { usePlayer } from "./player/player-provider";
-import { FavoriteButton } from "./favorite-button";
-import { PlaylistPicker } from "./playlist-picker";
+
+// Solo se usan con sesión (corner de la card). dynamic → chunk separado que el
+// home anónimo y las vistas sin sesión nunca descargan (ahorra JS en el path
+// crítico del LCP). SSR intacto: con sesión se renderizan igual.
+const FavoriteButton = dynamic(() =>
+  import("./favorite-button").then((m) => m.FavoriteButton)
+);
+const PlaylistPicker = dynamic(() =>
+  import("./playlist-picker").then((m) => m.PlaylistPicker)
+);
 
 interface SongCardProps {
   song: Song;
@@ -92,18 +101,20 @@ export function SongCard({
         </button>
       </div>
 
+      {/* min-h-6: WCAG 2.2 AA exige targets ≥24px (Lighthouse target-size);
+          el texto va en span truncate interno para no romper el ellipsis. */}
       <div className="min-w-0 flex-1">
         <Link
           href={`/song/${song.id}`}
-          className="block truncate font-display text-sm font-bold hover:underline"
+          className="flex min-h-6 items-center font-display text-sm font-bold hover:underline"
         >
-          {song.title}
+          <span className="truncate">{song.title}</span>
         </Link>
         <Link
           href={`/artist/${song.artist.id}`}
-          className="block truncate text-xs text-text-subdued hover:underline"
+          className="flex min-h-6 items-center text-xs text-text-subdued hover:underline"
         >
-          {song.artist.name}
+          <span className="truncate">{song.artist.name}</span>
         </Link>
       </div>
 

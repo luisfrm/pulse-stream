@@ -49,10 +49,11 @@ beforeEach(() => {
 });
 
 describe("SongCard", () => {
-  it("muestra el botón + (agregar a playlist) cuando llegan playlists", () => {
+  it("muestra el botón + (agregar a playlist) cuando llegan playlists", async () => {
+    // PlaylistPicker va en dynamic (chunk separado): resuelve async.
     render(<SongCard song={song} playlists={playlists} />);
     expect(
-      screen.getByRole("button", { name: "Agregar a playlist" })
+      await screen.findByRole("button", { name: "Agregar a playlist" })
     ).toBeInTheDocument();
   });
 
