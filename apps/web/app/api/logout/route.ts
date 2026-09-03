@@ -19,13 +19,23 @@ import type { NextRequest } from "next/server";
  * seteadas con y sin Domain según el entorno.
  */
 export async function POST(request: NextRequest) {
-  const samesite = ["lax", "strict", "none"].includes(
-    process.env.COOKIE_SAMESITE ?? ""
-  )
-    ? process.env.COOKIE_SAMESITE!
-    : "lax";
-  const secure = (process.env.ENV ?? "local") !== "local";
-  const domain = process.env.COOKIE_DOMAIN;
+  // Espejo del backend (apps/api/app/core/config.py): ENV es autoritativo.
+  // En local la cookie es host-only (sin Domain) y SameSite=lax, así que un
+  // COOKIE_DOMAIN / COOKIE_SAMESITE=none heredado del .env de prod debe
+  // ignorarse aquí también o el borrado no matchea.
+  const isLocal = (process.env.ENV ?? "local") === "local";
+  const rawSamesite = process.env.COOKIE_SAMESITE ?? "";
+  const samesite = isLocal
+    ? "lax"
+    : ["lax", "strict", "none"].includes(rawSamesite)
+      ? rawSamesite!
+      : "lax";
+  const secure = !isLocal;
+  const rawDomain = process.env.COOKIE_DOMAIN;
+  const domain =
+    isLocal || !rawDomain || rawDomain.trim() === ""
+      ? undefined
+      : rawDomain;
 
   const base = `session=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=${samesite}${secure ? "; Secure" : ""}`;
 
