@@ -9,6 +9,7 @@ from app.features.songs.repository import SongRepository, get_song_repository
 from app.features.songs.schemas import SongCreate, SongUpdate
 from app.shared.exceptions import (
     AlbumNotFoundError,
+    AlbumRequiredError,
     ArtistNotFoundError,
     SongNotFoundError,
 )
@@ -87,8 +88,8 @@ class SongService:
                 artist = await self._artists.create(payload.artist_name or "")
             artist_id = artist.id
 
-        if payload.album_id is not None:
-            await self._validate_album(payload.album_id)
+        # `album_id` es requerido por el schema (Pydantic): siempre presente.
+        await self._validate_album(payload.album_id)
         await self._validate_collaborators(payload.collaborator_ids)
 
         genres = [g.value for g in payload.genres]
@@ -99,7 +100,6 @@ class SongService:
             genres=genres,
             lyrics=payload.lyrics,
             object_key=payload.object_key,
-            cover_key=payload.cover_key,
             duration_seconds=payload.duration_seconds,
         )
         if payload.collaborator_ids:
@@ -116,8 +116,9 @@ class SongService:
             await self._validate_artist(data["artist_id"])
             updates["artist_id"] = data["artist_id"]
         if "album_id" in data:
-            if data["album_id"] is not None:
-                await self._validate_album(data["album_id"])
+            if data["album_id"] is None:
+                raise AlbumRequiredError()
+            await self._validate_album(data["album_id"])
             updates["album_id"] = data["album_id"]
         if "title" in data:
             updates["title"] = data["title"]
@@ -127,8 +128,6 @@ class SongService:
             updates["lyrics"] = data["lyrics"]
         if "duration_seconds" in data:
             updates["duration_seconds"] = data["duration_seconds"]
-        if "cover_key" in data:
-            updates["cover_key"] = data["cover_key"]
 
         if "collaborator_ids" in data:
             collaborator_ids = data["collaborator_ids"] or []

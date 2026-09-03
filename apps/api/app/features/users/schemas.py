@@ -47,7 +47,12 @@ class UserUpdate(users_schemas.BaseUserUpdate):
     username: str | None = Field(
         default=None, min_length=2, max_length=50, pattern=r"^[\w.\- ]+$"
     )
-    cover_key: str | None = None
+    # Solo keys del presign (`covers/{uuid}.webp`): rechaza el bypass por
+    # PATCH directo con una key arbitraria (mismo patrón que albums/artists/
+    # playlists — duplicado a propósito, sin import cruzado entre features).
+    cover_key: str | None = Field(
+        default=None, pattern=r"^covers/[0-9a-f-]+\.webp$"
+    )
 
 
 class UserRoleUpdate(BaseModel):

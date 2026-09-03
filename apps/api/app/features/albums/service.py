@@ -6,7 +6,11 @@ from app.features.albums.models import Album
 from app.features.albums.repository import AlbumRepository, get_album_repository
 from app.features.albums.schemas import AlbumCreate, AlbumUpdate
 from app.features.artists.repository import ArtistRepository, get_artist_repository
-from app.shared.exceptions import AlbumNotFoundError, ArtistNotFoundError
+from app.shared.exceptions import (
+    AlbumHasSongsError,
+    AlbumNotFoundError,
+    ArtistNotFoundError,
+)
 
 
 class AlbumService:
@@ -65,4 +69,9 @@ class AlbumService:
 
     async def delete_album(self, album_id: uuid.UUID) -> None:
         album = await self.get_album(album_id)
+        # Las canciones requieren álbum: borrar uno con canciones las dejaría
+        # huérfanas (y sin cover). COUNT en DB, sin traer las filas.
+        song_count = await self._repository.count_songs(album_id)
+        if song_count > 0:
+            raise AlbumHasSongsError(album_id, song_count)
         await self._repository.delete(album)

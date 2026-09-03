@@ -29,5 +29,6 @@ async def presign_cover(
     service: UploadService = Depends(get_upload_service),
     _=Depends(current_user),
 ) -> PresignResponse:
-    """Firma una URL de subida directa a R2 para COVERS (JPG <= 512 KB)."""
+    """Firma una URL de subida directa a R2 para COVERS (solo WebP <= 256 KB,
+    con Cache-Control inmutable firmado)."""
     return await service.presign_cover(payload)

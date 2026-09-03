@@ -23,23 +23,29 @@ export interface CreateSongPayload {
   title: string;
   artist_id?: string;
   artist_name?: string;
-  album_id?: string;
+  /**
+   * Obligatorio: la canción hereda el cover del álbum. Crear sin `album_id`
+   * es 422 en la API (campo requerido de `SongCreate`).
+   */
+  album_id: string;
   genres: string[];
   lyrics?: string;
   object_key: string;
-  cover_key?: string;
   collaborator_ids?: string[];
 }
 
 export interface UpdateSongPayload {
   title?: string;
   artist_id?: string;
-  /** null = quitar la canción del álbum. */
-  album_id?: string | null;
+  /**
+   * Reasignar a otro álbum. Quitarlo está prohibido: `PATCH {album_id: null}`
+   * responde 400 (`AlbumRequiredError`); crear sin `album_id` es 422
+   * (Pydantic, campo requerido en el backend `SongCreate`).
+   */
+  album_id?: string;
   genres?: string[];
   lyrics?: string;
   duration_seconds?: number;
-  cover_key?: string;
   collaborator_ids?: string[];
 }
 

@@ -13,11 +13,11 @@ class SongCreate(BaseModel):
     # Se manda artist_id (artista existente) o artist_name (se crea inline).
     artist_id: uuid.UUID | None = None
     artist_name: str | None = Field(default=None, min_length=1, max_length=255)
-    album_id: uuid.UUID | None = None
+    # Obligatorio: toda canción vive en un álbum y hereda su cover.
+    album_id: uuid.UUID
     genres: list[SongGenre] = Field(default_factory=list)
     lyrics: str | None = None
     object_key: str = Field(min_length=1, max_length=1024)
-    cover_key: str | None = None
     duration_seconds: int | None = Field(default=None, ge=0)
     collaborator_ids: list[uuid.UUID] = Field(default_factory=list)
 
@@ -31,11 +31,11 @@ class SongCreate(BaseModel):
 class SongUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=255)
     artist_id: uuid.UUID | None = None
+    # Reasignar a otro álbum sí; dejar sin álbum no (llegar null → 400).
     album_id: uuid.UUID | None = None
     genres: list[SongGenre] | None = None
     lyrics: str | None = None
     duration_seconds: int | None = Field(default=None, ge=0)
-    cover_key: str | None = None
     collaborator_ids: list[uuid.UUID] | None = None
 
 
@@ -49,11 +49,11 @@ class SongRead(BaseModel):
     genres: list[SongGenre] = Field(default_factory=list)
     lyrics: str | None = None
     object_key: str
-    cover_key: str | None = None
     duration_seconds: int | None = None
     play_count: int = 0
     created_at: datetime
-    # Se leen desde las propiedades `Song.stream_url` / `Song.cover_url`.
+    # Se leen desde las propiedades `Song.stream_url` / `Song.cover_url`
+    # (el cover se hereda del álbum, no hay cover propio).
     stream_url: str | None = None
     cover_url: str | None = None
     collaborators: list[ArtistRead] = Field(default_factory=list)

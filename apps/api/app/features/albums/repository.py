@@ -59,12 +59,22 @@ class AlbumRepository:
         return result.scalar_one()
 
     async def get(self, album_id: uuid.UUID) -> Album | None:
-        """Detalle: artista + canciones (con sus artistas) cargados."""
+        """Detalle: artista + canciones (con sus artistas y colaboradores).
+
+        `AlbumDetail.songs` es `list[SongRead]`. `Song.album` NO se eager-loadea
+        a propósito: es un ciclo autorreferencial (las canciones de
+        `album.songs` apuntan al mismo álbum) y el selectin de vuelta trunca
+        `album.songs` en el identity map (probado: `song_count` 2 → 1). No hace
+        falta: al cargar `Album.songs`, cada `song.album` queda poblado por
+        back-population al propio padre —sin IO, sin MissingGreenlet— con su
+        `artist` ya cargado (lo que `SongRead.album` necesita).
+        """
         result = await self._session.execute(
             select(Album)
             .options(
                 selectinload(Album.artist),
                 selectinload(Album.songs).selectinload(Song.artist),
+                selectinload(Album.songs).selectinload(Song.collaborators),
             )
             .where(Album.id == album_id)
         )
@@ -97,6 +107,13 @@ class AlbumRepository:
 
     async def delete(self, album: Album) -> None:
         await self._session.delete(album)
+
+    async def count_songs(self, album_id: uuid.UUID) -> int:
+        """Cuenta las canciones del álbum sin traer las filas (COUNT en DB)."""
+        result = await self._session.execute(
+            select(func.count()).select_from(Song).where(Song.album_id == album_id)
+        )
+        return result.scalar_one()
 
 
 async def get_album_repository(

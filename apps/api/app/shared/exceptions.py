@@ -61,6 +61,24 @@ class AlbumNotFoundError(NotFoundError):
         super().__init__(f"Álbum {album_id} no existe")
 
 
+class AlbumRequiredError(AppError):
+    """Toda canción requiere un álbum (el cover se hereda del álbum)."""
+
+    status_code = 400
+    detail = "La canción requiere un álbum"
+
+
+class AlbumHasSongsError(AppError):
+    status_code = 400
+
+    def __init__(self, album_id: uuid.UUID, song_count: int) -> None:
+        super().__init__(
+            f"El álbum {album_id} tiene {song_count} "
+            f"{'canción' if song_count == 1 else 'canciones'}: "
+            "reasignalas a otro álbum antes de borrarlo"
+        )
+
+
 class InvalidUploadError(AppError):
     status_code = 400
 

@@ -28,7 +28,8 @@ interface SongsResultsProps {
 
 /**
  * Hoja cliente: grid de cards de canciones con preview propio, edición de
- * metadatos y de cover, y borrado con confirmación (diálogo, no `confirm()`).
+ * metadatos y borrado con confirmación (diálogo, no `confirm()`).
+ * El cover se hereda del álbum (se edita en la página del álbum).
  */
 export function SongsResults({
   initialSongs,
@@ -67,17 +68,6 @@ export function SongsResults({
     }
   }
 
-  async function handleCoverChange(song: Song, coverKey: string | null) {
-    setError(null);
-    try {
-      await songsService.updateSong(song.id, { cover_key: coverKey ?? undefined });
-      await onRevalidate();
-      router.refresh();
-    } catch (err) {
-      setError(friendlyError(err));
-    }
-  }
-
   return (
     <div className="mt-6">
       {error && (
@@ -99,7 +89,6 @@ export function SongsResults({
               pending={pendingId === song.id}
               onEdit={(s) => setEditing(s)}
               onDelete={(s) => setDeleting(s)}
-              onCoverChange={handleCoverChange}
             />
           ))}
         </ul>

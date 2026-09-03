@@ -67,16 +67,18 @@ export function SongEditDialog({
     e.preventDefault();
     if (!song) return;
     if (!title.trim()) return setError("El título no puede quedar vacío.");
+    // Álbum obligatorio: "" mantiene el actual; quitarlo está prohibido (400).
+    if (albumId === "" && !song.album) {
+      return setError("La canción requiere un álbum.");
+    }
 
     setPending(true);
     setError(null);
     try {
       await songsService.updateSong(song.id, {
         title: title.trim(),
-        // "" -> undefined (no tocar); "none" -> null (quitar álbum)
-        ...(albumId !== song.album?.id
-          ? { album_id: albumId === "" ? null : albumId }
-          : {}),
+        // "" -> no tocar (nunca null: quitar el álbum está prohibido)
+        ...(albumId !== song.album?.id && albumId !== "" ? { album_id: albumId } : {}),
         genres: selectedGenres,
         lyrics: lyrics.trim() || undefined,
         collaborator_ids: collaboratorIds,
@@ -111,9 +113,9 @@ export function SongEditDialog({
           value={albumId}
           onChange={setAlbumId}
           placeholder={
-            artistAlbums.length === 0 ? "Sin álbumes de este artista" : "Sin álbum"
+            artistAlbums.length === 0 ? "Sin álbumes de este artista" : "Elegí un álbum…"
           }
-          emptyLabel="Este artista no tiene álbumes"
+          emptyLabel="Este artista no tiene álbumes — crealo desde su página"
         />
 
         <fieldset className="flex flex-col text-sm font-medium">

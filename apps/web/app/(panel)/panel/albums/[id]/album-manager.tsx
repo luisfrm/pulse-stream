@@ -323,12 +323,16 @@ export function AlbumManager({ album, onMutated }: AlbumManagerProps) {
         </div>
       </Modal>
 
-      {/* Confirmación de borrado */}
+      {/* Confirmación de borrado (la API bloquea si el álbum tiene canciones) */}
       <Modal
         open={deleting}
         onClose={() => setDeleting(false)}
         title="¿Borrar este álbum?"
-        description={`"${album.title}" se eliminará. Las canciones quedan sin álbum (no se borran).`}
+        description={
+          songs.length > 0
+            ? `"${album.title}" tiene ${songs.length} ${songs.length === 1 ? "canción" : "canciones"}: primero reasignalas a otro álbum (las canciones requieren álbum).`
+            : `"${album.title}" se eliminará. Esta acción no se puede deshacer.`
+        }
       >
         <div className="flex justify-end gap-3">
           <Button variant="outline" onClick={() => setDeleting(false)}>

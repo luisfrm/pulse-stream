@@ -17,8 +17,10 @@ if TYPE_CHECKING:
 class Album(Base):
     """Tabla `albums`: un álbum pertenece a un artista y agrupa canciones.
 
-    `songs.album_id` apunta acá con ON DELETE SET NULL: borrar un álbum no
-    borra las canciones, solo las deja sin álbum.
+    Borrar un álbum con canciones está BLOQUEADO a nivel API (400
+    `AlbumHasSongsError` en `AlbumService.delete_album`: reasignar primero).
+    El `ON DELETE SET NULL` de `songs.album_id` solo aplica a borrados fuera
+    de la API (las canciones legacy sin álbum quedan sin cover).
     """
 
     __tablename__ = "albums"

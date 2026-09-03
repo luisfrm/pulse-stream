@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
 
 import { AudioPreviewPlayer } from "@/components/audio-preview-player";
-import { CoverUploader } from "@/components/cover-uploader";
 import { Button, Checkbox, Modal, Input, Select, Textarea } from "@/components/ui";
 import { songsService } from "@/lib/services/songs-service";
 import type { Album, Artist, Song } from "@/lib/services/types";
@@ -21,7 +20,7 @@ interface SongManagerProps {
   readonly onMutated: () => Promise<void>;
 }
 
-/** Página admin de la canción: datos, metadatos, cover y analytics. */
+/** Página admin de la canción: datos, metadatos y analytics (el cover se hereda del álbum). */
 export function SongManager({
   song,
   genres,
@@ -41,7 +40,6 @@ export function SongManager({
   const [duration, setDuration] = React.useState<string>(
     song.duration_seconds ? String(song.duration_seconds) : ""
   );
-  const [coverKey, setCoverKey] = React.useState<string | null>(song.cover_key ?? null);
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [deleting, setDeleting] = React.useState(false);
@@ -68,17 +66,18 @@ export function SongManager({
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!title.trim()) return setError("El título no puede quedar vacío.");
+    // Álbum obligatorio: el cover se hereda del álbum (sin cover propio).
+    if (!albumId) return setError("La canción requiere un álbum.");
     setPending(true);
     setError(null);
     try {
       await songsService.updateSong(song.id, {
         title: title.trim(),
         artist_id: artistId,
-        album_id: albumId === "" ? null : albumId,
+        album_id: albumId,
         genres: selectedGenres,
         lyrics: lyrics.trim() || undefined,
         duration_seconds: duration ? Number(duration) : undefined,
-        ...(coverKey !== song.cover_key ? { cover_key: coverKey ?? undefined } : {}),
         collaborator_ids: collaboratorIds,
       });
       await onMutated();
@@ -185,8 +184,8 @@ export function SongManager({
               options={albumOptions}
               value={albumId}
               onChange={setAlbumId}
-              placeholder={selectedArtistAlbums.length === 0 ? "Sin álbumes" : "Sin álbum"}
-              emptyLabel="Este artista no tiene álbumes"
+              placeholder={selectedArtistAlbums.length === 0 ? "Sin álbumes" : "Elegí un álbum…"}
+              emptyLabel="Este artista no tiene álbumes — crealo desde su página"
             />
           </div>
 
@@ -269,12 +268,7 @@ key={artist.id}
             placeholder="La letra de la canción…"
           />
 
-          <CoverUploader
-            value={coverKey}
-            previewUrl={song.cover_url}
-            onChange={setCoverKey}
-            label="Cover"
-          />
+          {/* Sin CoverUploader: el cover se hereda del álbum (se edita en su página). */}
 
           <div className="flex justify-between gap-3">
             <div className="flex gap-3">

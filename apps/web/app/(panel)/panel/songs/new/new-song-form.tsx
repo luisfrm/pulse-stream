@@ -8,6 +8,7 @@ import { Loader2, Music2 } from "lucide-react";
 import { CoverUploader } from "@/components/cover-uploader";
 import { Checkbox, FileInput, Input, Select, Textarea } from "@/components/ui";
 import { albumsService } from "@/lib/services/albums-service";
+import { artistsService } from "@/lib/services/artists-service";
 import { songsService } from "@/lib/services/songs-service";
 import type { Album, Artist } from "@/lib/services/types";
 import {
@@ -50,7 +51,10 @@ export function NewSongForm({
   const [collaboratorIds, setCollaboratorIds] = useState<string[]>([]);
   const [lyrics, setLyrics] = useState("");
   const [file, setFile] = useState<File | null>(null);
-  const [coverKey, setCoverKey] = useState<string | null>(null);
+  // La canción hereda el cover del álbum: sin CoverUploader propio.
+  // Con artista nuevo, el álbum también se crea acá (título + cover opcional).
+  const [newAlbumTitle, setNewAlbumTitle] = useState("");
+  const [newAlbumCoverKey, setNewAlbumCoverKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -106,12 +110,30 @@ export function NewSongForm({
         : null;
     if (!artistSpec) return setError("Elegí o creá un artista.");
 
+    // Álbum obligatorio en todos los caminos (el cover se hereda del álbum).
     if (!createNewArtist && !albumId) {
-      return setError("El flujo requiere un álbum: elegí uno o crealo para el artista.");
+      return setError("Elegí un álbum o crealo para el artista.");
+    }
+    if (createNewArtist && !newAlbumTitle.trim()) {
+      return setError("Poné el título del álbum para el artista nuevo.");
     }
 
     setPending(true);
     try {
+      // 0) Con artista nuevo, crearlo + su álbum antes de subir el audio.
+      let resolvedArtistId = artistId;
+      let resolvedAlbumId = albumId;
+      if (createNewArtist) {
+        const artist = await artistsService.createArtist(newArtistName.trim());
+        resolvedArtistId = artist.id;
+        const album = await albumsService.create({
+          title: newAlbumTitle.trim(),
+          artist_id: artist.id,
+          ...(newAlbumCoverKey ? { cover_key: newAlbumCoverKey } : {}),
+        });
+        resolvedAlbumId = album.id;
+      }
+
       // 1) Presign + subida directa a R2 (el audio no pasa por la API)
       const presign = await uploadsService.presignUpload(
         file.name,
@@ -123,12 +145,13 @@ export function NewSongForm({
       // 2) Crear la canción con el object_key confirmado
       await songsService.createSong({
         title: title.trim(),
-        ...artistSpec,
-        ...(albumId ? { album_id: albumId } : {}),
+        ...(createNewArtist
+          ? { artist_id: resolvedArtistId }
+          : artistSpec),
+        album_id: resolvedAlbumId,
         genres: selectedGenres,
         lyrics: lyrics.trim() || undefined,
         object_key: presign.object_key,
-        ...(coverKey ? { cover_key: coverKey } : {}),
         ...(collaboratorIds.length > 0
           ? { collaborator_ids: collaboratorIds }
           : {}),
@@ -194,8 +217,24 @@ export function NewSongForm({
           </label>
         </fieldset>
 
-        {/* 2) Álbum del artista */}
-        {!createNewArtist && artistId && (
+        {/* 2) Álbum (obligatorio: la canción hereda su cover) */}
+        {createNewArtist ? (
+          <fieldset className="flex flex-col gap-3 text-sm font-medium">
+            <legend className="mb-1.5">Álbum del artista nuevo</legend>
+            <Input
+              value={newAlbumTitle}
+              onChange={(e) => setNewAlbumTitle(e.target.value)}
+              placeholder="Título del álbum (ej. Bocanada)"
+              required
+            />
+            <CoverUploader
+              value={newAlbumCoverKey}
+              onChange={setNewAlbumCoverKey}
+              label="Cover del álbum"
+            />
+          </fieldset>
+        ) : (
+          artistId && (
           <fieldset className="flex flex-col text-sm font-medium">
             <legend className="mb-1.5">Álbum</legend>
             <Select
@@ -227,6 +266,7 @@ export function NewSongForm({
               />
             )}
           </fieldset>
+          )
         )}
 
         {/* 3) Géneros */}
@@ -297,8 +337,6 @@ export function NewSongForm({
           rows={5}
           placeholder="La letra de la canción…"
         />
-
-        <CoverUploader value={coverKey} onChange={setCoverKey} label="Cover (opcional)" />
 
         <div className="flex flex-col gap-1.5">
           <FileInput

@@ -1,12 +1,10 @@
 "use client";
 
-import * as React from "react";
 import Link from "next/link";
-import { ImagePlus, Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 
 import { AudioPreviewPlayer } from "@/components/audio-preview-player";
-import { CoverUploader } from "@/components/cover-uploader";
-import { Badge, cn } from "@/components/ui";
+import { Badge } from "@/components/ui";
 import type { Song } from "@/lib/services/types";
 import { formatGenre } from "@/lib/utils/format";
 
@@ -15,19 +13,15 @@ interface PanelSongCardProps {
   pending: boolean;
   onEdit: (song: Song) => void;
   onDelete: (song: Song) => void;
-  onCoverChange: (song: Song, coverKey: string | null) => Promise<void>;
 }
 
-/** Card de canción del panel: cover, metadatos, preview y acciones admin. */
+/** Card de canción del panel: cover (heredado del álbum), metadatos, preview y acciones admin. */
 export function PanelSongCard({
   song,
   pending,
   onEdit,
   onDelete,
-  onCoverChange,
 }: PanelSongCardProps) {
-  const [coverOpen, setCoverOpen] = React.useState(false);
-
   return (
     <li className="card-lift flex flex-col gap-3 rounded-2xl border border-bg-highlight bg-bg-elevated p-4">
       {/* Cover (cuadrado, tipo grid de streaming) */}
@@ -94,19 +88,6 @@ export function PanelSongCard({
         </button>
         <button
           type="button"
-          onClick={() => setCoverOpen((o) => !o)}
-          aria-expanded={coverOpen}
-          className={cn(
-            "flex items-center gap-1.5 rounded-pill px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-400",
-            coverOpen
-              ? "bg-bg-highlight text-text-primary"
-              : "text-text-subdued hover:bg-bg-highlight hover:text-text-primary"
-          )}
-        >
-          <ImagePlus size={13} /> {coverOpen ? "Cerrar cover" : "Editar cover"}
-        </button>
-        <button
-          type="button"
           disabled={pending}
           onClick={() => onDelete(song)}
           className="ml-auto flex items-center gap-1.5 rounded-pill px-3 py-1.5 text-xs font-medium text-text-subdued transition-colors hover:bg-brand-900/40 hover:text-brand-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-400 disabled:opacity-50"
@@ -114,16 +95,6 @@ export function PanelSongCard({
           <Trash2 size={13} /> {pending ? "Borrando…" : "Borrar"}
         </button>
       </div>
-
-      {coverOpen && (
-        <div className="border-t border-bg-highlight pt-3">
-          <CoverUploader
-            value={song.cover_key}
-            previewUrl={song.cover_url}
-            onChange={(key) => onCoverChange(song, key)}
-          />
-        </div>
-      )}
     </li>
   );
 }

@@ -59,7 +59,9 @@ class Song(Base):
     )
     lyrics: Mapped[str | None] = mapped_column(Text)
     object_key: Mapped[str] = mapped_column(String(1024), nullable=False, unique=True)
-    cover_key: Mapped[str | None] = mapped_column(String(1024))
+    # Sin cover propio: el cover se hereda SIEMPRE del álbum (una sola imagen
+    # por álbum, compartida por todas sus canciones → 1 descarga en vez de N).
+    # Las canciones legacy sin álbum quedan sin cover hasta asignarles uno.
     duration_seconds: Mapped[int | None] = mapped_column(Integer)
     play_count: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default=text("0"), index=True
@@ -98,8 +100,13 @@ class Song(Base):
 
     @property
     def cover_url(self) -> str | None:
-        """URL pública del cover (cuadrícula) vía el dominio público de R2."""
-        return self._public_url(self.cover_key) if self.cover_key else None
+        """Cover heredado del álbum (cuadrícula) vía el dominio público de R2.
+
+        `Song.album` viene con selectinload en el repository, así que no hay
+        N+1 ni MissingGreenlet. Sin álbum → None (placeholder del front).
+        """
+        key = self.album.cover_key if self.album else None
+        return self._public_url(key) if key else None
 
     @staticmethod
     def _public_url(key: str) -> str | None:

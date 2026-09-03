@@ -44,7 +44,12 @@ class PlaylistUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     description: str | None = None
     is_public: bool | None = None
-    cover_key: str | None = None
+    # Solo keys del presign (`covers/{uuid}.webp`): rechaza el bypass por
+    # PATCH directo con una key arbitraria (mismo patrón que albums/artists —
+    # duplicado a propósito, sin import cruzado entre features).
+    cover_key: str | None = Field(
+        default=None, pattern=r"^covers/[0-9a-f-]+\.webp$"
+    )
 
 
 class PlaylistAddSong(BaseModel):

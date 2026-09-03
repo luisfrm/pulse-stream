@@ -3,12 +3,14 @@
 import * as React from "react";
 import { ImagePlus, Loader2, X } from "lucide-react";
 
-import { uploadsService, uploadToR2 } from "@/lib/services/uploads-service";
+import { uploadsService, uploadToR2, COVER_CACHE_CONTROL } from "@/lib/services/uploads-service";
 import { friendlyError } from "@/lib/utils/error";
 import { cn } from "@/components/ui";
 
-const MAX_COVER_BYTES = 512 * 1024; // 512 KB
-const SUGGESTED_SIZE = "600×600 px";
+const MAX_COVER_BYTES = 256 * 1024; // 256 KB
+// Resolución recomendada: 800×800 WebP q~75 (pesa 60-100 KB y cubre el slot
+// más grande — héroes de ~500px — con margen para DPR 2x en cards de ~300px).
+const SUGGESTED_SIZE = "800×800 px WebP";
 
 interface CoverUploaderProps {
   /** object_key actual (para mostrar el cover ya subido). */
@@ -20,9 +22,11 @@ interface CoverUploaderProps {
 }
 
 /**
- * Subida de cover (cuadrícula): JPG/WebP <= 512 KB, subida directa a R2 vía
- * presign. Muestra el peso y el tamaño sugerido como ayuda (el backend
- * valida lo mismo). `onChange` recibe el object_key (o null al quitar).
+ * Subida de cover (cuadrícula): solo WebP <= 256 KB, subida directa a R2 vía
+ * presign con `Cache-Control: public, max-age=31536000, immutable` (las keys
+ * con UUID son inmutables: navegador + CDN cachean por años). Muestra el peso
+ * y el tamaño sugerido como ayuda (el backend valida lo mismo). `onChange`
+ * recibe el object_key (o null al quitar).
  *
  * El preview usa un object URL local del archivo elegido apenas se selecciona
  * (no espera a que el RSC se refresque con la URL pública de R2), y recién
@@ -54,16 +58,12 @@ export function CoverUploader({
     setError(null);
 
     // Validaciones locales (el backend valida lo mismo al firmar)
-    if (
-      file.type !== "image/jpeg" &&
-      file.type !== "image/jpg" &&
-      file.type !== "image/webp"
-    ) {
-      setError("Solo se aceptan archivos JPG o WebP.");
+    if (file.type !== "image/webp") {
+      setError("Solo se acepta formato WebP (liviano y con transparencia si la necesitás).");
       return;
     }
     if (file.size > MAX_COVER_BYTES) {
-      setError(`El archivo pesa ${(file.size / 1024).toFixed(0)} KB. Máximo 512 KB.`);
+      setError(`El archivo pesa ${(file.size / 1024).toFixed(0)} KB. Máximo 256 KB.`);
       return;
     }
 
@@ -76,7 +76,7 @@ export function CoverUploader({
     setPending(true);
     try {
       const presign = await uploadsService.presignCover(file.name, file.type, file.size);
-      await uploadToR2(presign.url, file);
+      await uploadToR2(presign.url, file, COVER_CACHE_CONTROL);
       onChange(presign.object_key);
     } catch (err) {
       setError(friendlyError(err));
@@ -113,7 +113,7 @@ export function CoverUploader({
           <label className="inline-flex w-fit cursor-pointer items-center gap-2">
             <input
               type="file"
-              accept="image/jpeg,.jpg,.jpeg,image/webp,.webp"
+              accept="image/webp,.webp"
               className="sr-only"
               onChange={(e) => handleFile(e.target.files?.[0])}
             />
@@ -143,9 +143,10 @@ export function CoverUploader({
       </div>
 
       <p className="text-xs text-text-subdued">
-        Formato <strong>JPG o WebP</strong> · peso máximo <strong>512 KB</strong> ·
-        tamaño sugerido <strong>{SUGGESTED_SIZE}</strong> (se muestra en
-        cuadrículas).
+        Formato <strong>solo WebP</strong> · peso máximo <strong>256 KB</strong> ·
+        tamaño sugerido <strong>{SUGGESTED_SIZE}</strong> (cubre pills de 40px,
+        cards de ~300px y héroes de ~500px; la misma imagen se reutiliza en
+        todos lados y se cachea por años).
       </p>
 
       {error && (

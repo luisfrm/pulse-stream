@@ -49,7 +49,7 @@ ALLOWED_CONTENT_TYPES = {
     # Los navegadores/OS reportan .aac como ADTS (DLNA) — variante del mismo codec.
     "audio/vnd.dlna.adts",
 }
-ALLOWED_COVER_TYPES = {"image/jpeg", "image/jpg", "image/webp"}
+ALLOWED_COVER_TYPES = {"image/webp"}
 # Extensión del object_key según el content type del audio.
 AUDIO_EXTENSIONS = {
     "audio/mpeg": ".mp3",
@@ -58,10 +58,18 @@ AUDIO_EXTENSIONS = {
     "audio/x-hx-aac-adts": ".aac",
     "audio/vnd.dlna.adts": ".aac",
 }
-# Extensión del object_key según el content type del cover.
-COVER_EXTENSIONS = {"image/jpeg": ".jpg", "image/jpg": ".jpg", "image/webp": ".webp"}
-# Covers son cuadrículas (portadas/artistas): JPG/WebP de hasta 512 KB.
-MAX_COVER_BYTES = 512 * 1024
+# Extensión del object_key según el content type del cover (solo WebP).
+COVER_EXTENSIONS = {"image/webp": ".webp"}
+# Covers: WebP de hasta 256 KB (un 800×800 q~75 pesa 60-100 KB). Se muestran
+# en pills de 40px, cards de ~300px y héroes de ~500px (ver CoverUploader).
+MAX_COVER_BYTES = 256 * 1024
+# Las keys llevan UUID → contenido inmutable: caché agresivo en R2 + CDN +
+# navegador (el front puede cachear por años sin riesgo).
+# DUPLICADO en el front (`apps/web/lib/services/uploads-service.ts` →
+# `COVER_CACHE_CONTROL`): el backend lo FIRMA en el presign y el front lo
+# REENVÍA como header en el PUT a R2. Si cambia acá, cambiar allá (y
+# viceversa) o R2 rechaza la firma.
+COVER_CACHE_CONTROL = "public, max-age=31536000, immutable"
 PRESIGN_EXPIRES_SECONDS = 600  # 5-10 min: ventana para subir el archivo
 # Import por ZIP de álbumes: solo MP3 y AAC (mismos codecs que /uploads/presign).
 IMPORT_EXTENSIONS = {".mp3": "audio/mpeg", ".aac": "audio/aac"}
@@ -110,15 +118,25 @@ class R2Storage:
                 config=Config(signature_version="s3v4"),
             )
 
-    def presign_put(self, object_key: str, content_type: str) -> str:
+    def presign_put(
+        self,
+        object_key: str,
+        content_type: str,
+        cache_control: str | None = None,
+    ) -> str:
         assert self._client is not None
+        params: dict[str, str] = {
+            "Bucket": settings.r2_bucket_name,
+            "Key": object_key,
+            "ContentType": content_type,
+        }
+        # Firmado: el cliente DEBE enviar el mismo header Cache-Control en el
+        # PUT (igual que Content-Type). Ver `uploadToR2` en el front.
+        if cache_control is not None:
+            params["CacheControl"] = cache_control
         return self._client.generate_presigned_url(
             "put_object",
-            Params={
-                "Bucket": settings.r2_bucket_name,
-                "Key": object_key,
-                "ContentType": content_type,
-            },
+            Params=params,
             ExpiresIn=PRESIGN_EXPIRES_SECONDS,
         )
 
@@ -129,6 +147,46 @@ class R2Storage:
             Bucket=settings.r2_bucket_name,
             Key=object_key,
             Body=data,
+            ContentType=content_type,
+        )
+
+    def list_keys(self, prefix: str) -> list[str]:
+        """Lista las keys bajo un prefijo (usado por el backfill de covers)."""
+        assert self._client is not None
+        paginator = self._client.get_paginator("list_objects_v2")
+        keys: list[str] = []
+        for page in paginator.paginate(
+            Bucket=settings.r2_bucket_name, Prefix=prefix
+        ):
+            for obj in page.get("Contents", []):
+                keys.append(obj["Key"])
+        return keys
+
+    def head_content_type(self, object_key: str) -> str | None:
+        """Content-Type actual del objeto (None si no se puede leer)."""
+        assert self._client is not None
+        try:
+            resp = self._client.head_object(
+                Bucket=settings.r2_bucket_name, Key=object_key
+            )
+        except Exception:
+            return None
+        content_type = resp.get("ContentType")
+        return content_type if isinstance(content_type, str) else None
+
+    def replace_cache_control(
+        self, object_key: str, cache_control: str, content_type: str
+    ) -> None:
+        """Reescribe metadata (Cache-Control + Content-Type) copiando el objeto
+        sobre sí mismo (los bytes no cambian)."""
+        assert self._client is not None
+        bucket = settings.r2_bucket_name
+        self._client.copy_object(
+            Bucket=bucket,
+            Key=object_key,
+            CopySource={"Bucket": bucket, "Key": object_key},
+            MetadataDirective="REPLACE",
+            CacheControl=cache_control,
             ContentType=content_type,
         )
 
@@ -165,15 +223,20 @@ class UploadService:
         )
 
     async def presign_cover(self, payload: PresignRequest) -> PresignResponse:
-        """Presigned PUT para covers (cuadrículas): JPG o WebP <= 512 KB."""
+        """Presigned PUT para covers (cuadrículas): solo WebP <= 256 KB.
+
+        El PUT firmado incluye `Cache-Control: public, max-age=31536000,
+        immutable` (las keys con UUID son inmutables): el front lo envía como
+        header y R2/CDN/navegador cachean por años.
+        """
         if payload.content_type not in ALLOWED_COVER_TYPES:
             raise InvalidUploadError(
                 f"Tipo de archivo no permitido: {payload.content_type}. "
-                "Los covers se suben en JPG o WebP (image/jpeg, image/webp)."
+                "Los covers se suben solo en WebP (image/webp)."
             )
         if payload.size > MAX_COVER_BYTES:
             raise InvalidUploadError(
-                f"El cover supera el tamaño máximo de 512 KB "
+                f"El cover supera el tamaño máximo de 256 KB "
                 f"({payload.size} bytes)."
             )
         if not self._storage.enabled:
@@ -181,7 +244,9 @@ class UploadService:
 
         ext = COVER_EXTENSIONS[payload.content_type]
         object_key = f"covers/{uuid.uuid4()}{ext}"
-        url = self._storage.presign_put(object_key, payload.content_type)
+        url = self._storage.presign_put(
+            object_key, payload.content_type, cache_control=COVER_CACHE_CONTROL
+        )
         return PresignResponse(
             url=url,
             object_key=object_key,
@@ -314,7 +379,7 @@ class ZipImportService:
                         artist_id=album.artist_id,
                         album_id=album.id,
                         object_key=object_key,
-                        cover_key=album.cover_key,
+                        # Sin cover propio: hereda el del álbum vía la relación.
                         duration_seconds=duration,
                     )
                 )

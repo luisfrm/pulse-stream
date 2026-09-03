@@ -430,7 +430,8 @@ export interface paths {
         put?: never;
         /**
          * Presign Cover
-         * @description Firma una URL de subida directa a R2 para COVERS (JPG <= 512 KB).
+         * @description Firma una URL de subida directa a R2 para COVERS (solo WebP <= 256 KB,
+         *     con Cache-Control inmutable firmado).
          */
         post: operations["presign_cover_uploads_presign_cover_post"];
         delete?: never;
@@ -596,6 +597,30 @@ export interface paths {
          *     muestre "Ya está en esta playlist" sin traer las canciones completas.
          */
         get: operations["list_my_playlists_me_playlists_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/playlists/page": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List My Playlists Paginated
+         * @description Versión paginada para el listado /playlists de la app (Ver más).
+         *
+         *     `GET /me/playlists` (sin paginar) sigue trayendo TODAS las playlists del
+         *     usuario porque el PlaylistPicker las necesita enteras (suele ser < 50);
+         *     este endpoint solo lo usa el listado para acotar el primer render.
+         */
+        get: operations["list_my_playlists_paginated_me_playlists_page_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1160,6 +1185,17 @@ export interface components {
             /** Limit */
             limit: number;
         };
+        /** Page[MyPlaylistRead] */
+        Page_MyPlaylistRead_: {
+            /** Items */
+            items: components["schemas"]["MyPlaylistRead"][];
+            /** Total */
+            total: number;
+            /** Offset */
+            offset: number;
+            /** Limit */
+            limit: number;
+        };
         /** Page[PlaylistRead] */
         Page_PlaylistRead_: {
             /** Items */
@@ -1367,8 +1403,6 @@ export interface components {
             lyrics?: string | null;
             /** Object Key */
             object_key: string;
-            /** Cover Key */
-            cover_key?: string | null;
             /** Duration Seconds */
             duration_seconds?: number | null;
             /**
@@ -1401,16 +1435,17 @@ export interface components {
             artist_id?: string | null;
             /** Artist Name */
             artist_name?: string | null;
-            /** Album Id */
-            album_id?: string | null;
+            /**
+             * Album Id
+             * Format: uuid
+             */
+            album_id: string;
             /** Genres */
             genres?: components["schemas"]["SongGenre"][];
             /** Lyrics */
             lyrics?: string | null;
             /** Object Key */
             object_key: string;
-            /** Cover Key */
-            cover_key?: string | null;
             /** Duration Seconds */
             duration_seconds?: number | null;
             /** Collaborator Ids */
@@ -1443,8 +1478,6 @@ export interface components {
             lyrics?: string | null;
             /** Object Key */
             object_key: string;
-            /** Cover Key */
-            cover_key?: string | null;
             /** Duration Seconds */
             duration_seconds?: number | null;
             /**
@@ -1478,8 +1511,6 @@ export interface components {
             lyrics?: string | null;
             /** Duration Seconds */
             duration_seconds?: number | null;
-            /** Cover Key */
-            cover_key?: string | null;
             /** Collaborator Ids */
             collaborator_ids?: string[] | null;
         };
@@ -1503,8 +1534,6 @@ export interface components {
             lyrics?: string | null;
             /** Object Key */
             object_key: string;
-            /** Cover Key */
-            cover_key?: string | null;
             /** Duration Seconds */
             duration_seconds?: number | null;
             /**
@@ -3256,6 +3285,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MyPlaylistRead"][];
+                };
+            };
+        };
+    };
+    list_my_playlists_paginated_me_playlists_page_get: {
+        parameters: {
+            query?: {
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_MyPlaylistRead_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

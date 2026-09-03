@@ -8,11 +8,12 @@ vi.mock("@/lib/services/uploads-service", () => ({
   uploadsService: {
     presignCover: vi.fn().mockResolvedValue({
       url: "https://presign.example.com/put",
-      object_key: "covers/test-123.jpg",
+      object_key: "covers/11111111-1111-4111-8111-111111111111.webp",
       expires_in: 600,
     }),
   },
   uploadToR2: vi.fn().mockResolvedValue(undefined),
+  COVER_CACHE_CONTROL: "public, max-age=31536000, immutable",
 }));
 
 const objectUrls: string[] = [];
@@ -53,7 +54,7 @@ describe("CoverUploader", () => {
     render(<CoverUploader value={null} onChange={onChange} />);
 
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
-    const file = new File(["data"], "cover.jpg", { type: "image/jpeg" });
+    const file = new File(["data"], "cover.webp", { type: "image/webp" });
     selectFile(fileInput, file);
 
     // El <img> aparece con la URL local (object URL) sin esperar el servidor.
@@ -61,7 +62,11 @@ describe("CoverUploader", () => {
     expect(img).toHaveAttribute("src", "blob:cover-preview-1");
 
     // Tras subir, onChange recibe el object_key confirmado.
-    await waitFor(() => expect(onChange).toHaveBeenCalledWith("covers/test-123.jpg"));
+    await waitFor(() =>
+      expect(onChange).toHaveBeenCalledWith(
+        "covers/11111111-1111-4111-8111-111111111111.webp"
+      )
+    );
   });
 
   it("rechaza un tipo de archivo no permitido sin subir ni mostrar preview", async () => {
@@ -72,22 +77,67 @@ describe("CoverUploader", () => {
     const file = new File(["data"], "video.mp4", { type: "video/mp4" });
     selectFile(fileInput, file);
 
-    expect(await screen.findByText(/solo se aceptan/i)).toBeInTheDocument();
+    expect(await screen.findByText(/solo se acepta formato webp/i)).toBeInTheDocument();
     expect(onChange).not.toHaveBeenCalled();
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
+  });
+
+  it("rechaza un jpg (solo webp) sin subir", async () => {
+    const onChange = vi.fn();
+    render(<CoverUploader value={null} onChange={onChange} />);
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(["data"], "cover.jpg", { type: "image/jpeg" });
+    selectFile(fileInput, file);
+
+    expect(await screen.findByText(/solo se acepta formato webp/i)).toBeInTheDocument();
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   it("usa el previewUrl del servidor cuando no hay archivo local nuevo", () => {
     render(
       <CoverUploader
-        value="covers/x.jpg"
-        previewUrl="https://media.example.com/covers/x.jpg"
+        value="covers/22222222-2222-4222-8222-222222222222.webp"
+        previewUrl="https://media.example.com/covers/22222222-2222-4222-8222-222222222222.webp"
         onChange={() => {}}
       />
     );
     expect(screen.getByRole("img")).toHaveAttribute(
       "src",
-      "https://media.example.com/covers/x.jpg"
+      "https://media.example.com/covers/22222222-2222-4222-8222-222222222222.webp"
+    );
+  });
+
+  it("rechaza un archivo de más de 256 KB sin subir ni mostrar preview", async () => {
+    const onChange = vi.fn();
+    render(<CoverUploader value={null} onChange={onChange} />);
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const big = new Uint8Array(256 * 1024 + 1);
+    const file = new File([big], "cover.webp", { type: "image/webp" });
+    selectFile(fileInput, file);
+
+    expect(await screen.findByText(/máximo 256 kb/i)).toBeInTheDocument();
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+  });
+
+  it("pasa COVER_CACHE_CONTROL a uploadToR2 (el PUT firmado lo exige)", async () => {
+    const { uploadToR2, COVER_CACHE_CONTROL } = await import(
+      "@/lib/services/uploads-service"
+    );
+    const onChange = vi.fn();
+    render(<CoverUploader value={null} onChange={onChange} />);
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(["data"], "cover.webp", { type: "image/webp" });
+    selectFile(fileInput, file);
+
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    expect(vi.mocked(uploadToR2)).toHaveBeenCalledWith(
+      "https://presign.example.com/put",
+      file,
+      COVER_CACHE_CONTROL
     );
   });
 });
