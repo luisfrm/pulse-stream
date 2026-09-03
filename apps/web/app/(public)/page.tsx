@@ -118,8 +118,11 @@ export default async function HomePage() {
               </Link>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
-              {songs.map((song, idx) => (
-                <SongCard key={song.id} song={song} queue={songs} priority={idx < 4} />
+              {/* Sin priority: el LCP de esta ruta es el H1 del hero (texto) y
+                  todo el catálogo vive bajo el fold (hero 88dvh). Eager/high
+                  acá solo compite por ancho de banda con el LCP. */}
+              {songs.map((song) => (
+                <SongCard key={song.id} song={song} queue={songs} />
               ))}
             </div>
           </div>
@@ -131,7 +134,7 @@ export default async function HomePage() {
               Artistas del catálogo
             </h2>
             <div className="flex flex-wrap gap-3">
-              {artists.map((artist, idx) => (
+              {artists.map((artist) => (
                 <Link
                   key={artist.id}
                   href={`/artist/${artist.id}`}
@@ -142,8 +145,8 @@ export default async function HomePage() {
                     <img
                       src={artist.cover_url}
                       alt=""
-                      loading={idx < 4 ? "eager" : "lazy"}
-                      fetchPriority={idx < 4 ? "high" : "auto"}
+                      // Bajo el fold: siempre lazy (ver nota en la grilla de canciones).
+                      loading="lazy"
                       decoding="async"
                       sizes="40px"
                       className="h-10 w-10 rounded-full object-cover"
@@ -171,12 +174,11 @@ export default async function HomePage() {
               </p>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
-              {publicPlaylists.map((playlist, idx) => (
+              {publicPlaylists.map((playlist) => (
                 <PlaylistCard
                   key={playlist.id}
                   playlist={playlist}
                   href="/register"
-                  priority={idx < 4}
                 />
               ))}
             </div>
