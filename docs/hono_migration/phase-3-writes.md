@@ -59,6 +59,34 @@ usuario, listens/contadores, perfil (username/cover) y presign de covers.
 - Los contadores son incrementos atómicos; nunca `SELECT` + `UPDATE` en dos pasos.
 - El dedupe de 30 s usa el último listen del user, no el último global.
 
+## Estado implementado (2026-10-21)
+
+- **Favoritos**: `PUT` es idempotente (`ON CONFLICT DO NOTHING`); `DELETE`
+  devuelve 404 si el item no era favorito (mismo criterio que Python). El like
+  de playlist valida visibilidad (pública o propia) y nunca muta el contenido.
+- **Playlists**: crear (201 `PlaylistDetail`), editar/borrar (dueño; `system`
+  solo admin), agregar al final (`max(position)+1`, duplicado no-op) y quitar
+  con renumeración 0..n-1. `updated_at = now()` explícito.
+- **Listens**: una sola sentencia con CTEs: dedupe 30 s contra el último listen
+  del user + `songs.play_count` + `users.total_plays`; si deduplica devuelve el
+  último listen con 201 (como Python).
+- **Perfil**: `PATCH /users/me` acepta solo `username`/`cover_key`; el schema
+  Zod descarta role/email/password/is_superuser/is_active. Unicidad de username
+  case-insensitive (guard en SQL + traducción de `23505` a 400).
+- **Presign cover**: `aws4fetch` con `allHeaders: true` para firmar
+  `Content-Type` y `Cache-Control` en la query; el browser debe reenviar ambos
+  headers en el PUT. Verificado en el smoke: `X-Amz-SignedHeaders` incluye
+  `content-type` y `cache-control`.
+- **Driver local**: Neon HTTP (`ENV=local`), sin transacciones interactivas; las
+  mutaciones multi-tabla son CTEs de una sentencia. En producción `pg` +
+  Hyperdrive.
+- **Smoke real** (DB de desarrollo): favoritos idempotentes, playlist con dos
+  canciones → quitar la primera deja la segunda en posición 0, listen doble
+  dentro de 30 s → 1 fila y +1 contador, perfil actualizado y presign R2
+  firmado. Datos de prueba borrados y `play_count` restaurado.
+- **Pendiente**: rate limit Upstash (diferido); el frontend sigue en Python
+  hasta la Fase 4.
+
 ## Verificación
 
 ```bash

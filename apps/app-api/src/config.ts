@@ -21,6 +21,19 @@ export interface GoogleConfig {
   redirectUri: string;
 }
 
+/**
+ * Credenciales S3-compatibles de R2 para firmar los PUT de covers.
+ *
+ * Cualquier campo vacío = R2 no configurado: `/uploads/presign-cover` responde
+ * 503 (mismo comportamiento que `R2NotConfiguredError` de Python).
+ */
+export interface R2Config {
+  accountId: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+  bucketName: string;
+}
+
 export interface AppConfig {
   env: EnvironmentName;
   /** Sin slash final, ej. `http://localhost:3000`. */
@@ -33,6 +46,8 @@ export interface AppConfig {
   google: GoogleConfig;
   /** Sin slash final; vacío = covers sin URL pública. */
   r2PublicBaseUrl: string;
+  /** Credenciales de firma (vacías = R2 no configurado). */
+  r2: R2Config;
 }
 
 const ENVIRONMENTS: readonly EnvironmentName[] = ["local", "dev", "prod"];
@@ -118,6 +133,12 @@ export function parseConfig(env: Env): AppConfig {
       redirectUri: readString(env.GOOGLE_REDIRECT_URI),
     },
     r2PublicBaseUrl: trimTrailingSlashes(readString(env.R2_PUBLIC_BASE_URL)),
+    r2: {
+      accountId: readString(env.R2_ACCOUNT_ID),
+      accessKeyId: readString(env.R2_ACCESS_KEY_ID),
+      secretAccessKey: readString(env.R2_SECRET_ACCESS_KEY),
+      bucketName: readString(env.R2_BUCKET_NAME),
+    },
   };
 }
 

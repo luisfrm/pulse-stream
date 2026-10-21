@@ -22,6 +22,12 @@ const config: AppConfig = {
     redirectUri: "http://localhost:8787/auth/google/callback",
   },
   r2PublicBaseUrl: "",
+  r2: {
+    accountId: "",
+    accessKeyId: "",
+    secretAccessKey: "",
+    bucketName: "",
+  },
 };
 
 const app = createApp({

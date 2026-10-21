@@ -1,9 +1,10 @@
 # `@pulse-stream/app-api` — Hono en Cloudflare Workers
 
 API de la app (`app.luisrivas.site`) según
-[`docs/hono_migration`](../../docs/hono_migration/README.md). **Fase 0**:
-fundación testeable, Google OAuth y `GET /users/me`. El catálogo y las
-escrituras de usuario llegan en las fases 2/3.
+[`docs/hono_migration`](../../docs/hono_migration/README.md). **Fases 0-3**:
+Google OAuth, lecturas con paridad Python, escrituras de usuario (favoritos,
+playlists, listens/contadores, perfil) y presign de covers a R2. La app Next
+sigue apuntando a Python hasta el cutover de la Fase 4.
 
 El panel Python (`apps/api`) sigue siendo el dueño del esquema (Alembic) y de
 la administración; esta API no corre migraciones.

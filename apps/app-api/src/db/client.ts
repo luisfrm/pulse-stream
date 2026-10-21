@@ -4,6 +4,7 @@ import { Client, type QueryResult, type QueryResultRow } from "pg";
 import type { Env } from "../env";
 import { PgCatalogRepository, type CatalogRepository } from "../features/catalog/repository";
 import { PgUserRepository, type UserRepository } from "../features/users/repository";
+import { PgWritesRepository, type WritesRepository } from "../features/writes/repository";
 import type { Queryable } from "./types";
 
 /**
@@ -59,6 +60,7 @@ export class RequestDatabase implements Queryable {
 export interface RequestRepositories {
   users: UserRepository;
   catalog: CatalogRepository;
+  writes: WritesRepository;
   /** Cierra el `pg.Client` compartido del request (una sola vez). */
   close(): Promise<void>;
 }
@@ -100,7 +102,7 @@ export class NeonHttpDatabase implements Queryable {
   }
 }
 
-/** Wiring de producción: users + catalog sobre una única conexión. */
+/** Wiring de producción: users + catalog + writes sobre una única conexión. */
 export function createRequestRepositories(env: Env): RequestRepositories {
   const useNeonHttp = env.ENV === "local" && Boolean(env.DATABASE_URL);
   const database = useNeonHttp
@@ -110,6 +112,7 @@ export function createRequestRepositories(env: Env): RequestRepositories {
   return {
     users: new PgUserRepository(database),
     catalog: new PgCatalogRepository(database),
+    writes: new PgWritesRepository(database),
     close: () => database.end(),
   };
 }

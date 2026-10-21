@@ -2,10 +2,15 @@ import { createApp } from "../src/app";
 import type { GoogleClient } from "../src/auth/google";
 import type { AppConfig } from "../src/config";
 import type { CatalogRepository } from "../src/features/catalog/repository";
+import type { CoverPresigner } from "../src/features/uploads/presign";
 import type {
   UserRecord,
   UserRepository,
 } from "../src/features/users/repository";
+import type {
+  ListenRecord,
+  WritesRepository,
+} from "../src/features/writes/repository";
 
 export const TEST_SECRET = "test-auth-secret-with-enough-entropy-0123456789";
 export const TEST_CLIENT_ID = "test-client-id.apps.googleusercontent.com";
@@ -27,6 +32,12 @@ export function testConfig(overrides: Partial<AppConfig> = {}): AppConfig {
       redirectUri: TEST_REDIRECT_URI,
     },
     r2PublicBaseUrl: "",
+    r2: {
+      accountId: "",
+      accessKeyId: "",
+      secretAccessKey: "",
+      bucketName: "",
+    },
   };
 
   return {
@@ -101,6 +112,57 @@ export function fakeCatalog(
   };
 }
 
+export const TEST_LISTEN_ID = "f1111111-1111-4111-8111-111111111111";
+export const TEST_SONG_ID = "c1111111-1111-4111-8111-111111111111";
+export const TEST_PLAYLIST_ID = "e1111111-1111-4111-8111-111111111111";
+export const TEST_PRESIGNED_URL =
+  "https://account.r2.cloudflarestorage.com/bucket/covers/fake.webp?X-Amz-Signature=fake";
+
+/**
+ * `WritesRepository` en memoria: registra nada y responde éxito.
+ *
+ * Los tests de rutas overridean solo lo que necesitan y verifican las
+ * llamadas; el SQL real se cubre en `writes-repository.test.ts` y en el smoke.
+ */
+export function fakeWrites(
+  overrides: Partial<WritesRepository> = {},
+): WritesRepository {
+  return {
+    addFavoriteSong: async () => undefined,
+    removeFavoriteSong: async () => true,
+    addFavoriteAlbum: async () => undefined,
+    removeFavoriteAlbum: async () => true,
+    addFavoritePlaylist: async () => undefined,
+    removeFavoritePlaylist: async () => true,
+    createPlaylist: async () => TEST_PLAYLIST_ID,
+    updatePlaylist: async () => undefined,
+    deletePlaylist: async () => undefined,
+    addPlaylistSong: async () => true,
+    removePlaylistSong: async () => true,
+    recordListen: async (userId, songId): Promise<ListenRecord> => ({
+      id: TEST_LISTEN_ID,
+      song_id: songId,
+      played_at: "2026-10-21T10:11:12.345678",
+    }),
+    updateUserProfile: async (userId, fields) => ({
+      ...fakeUser({ id: userId }),
+      ...(fields.username !== undefined ? { username: fields.username } : {}),
+      ...(fields.coverKey !== undefined ? { cover_key: fields.coverKey } : {}),
+    }),
+    ...overrides,
+  };
+}
+
+/** Firmador fake de covers (sin red). */
+export function fakeCoverPresigner(
+  overrides: Partial<CoverPresigner> = {},
+): CoverPresigner {
+  return {
+    presignPut: async () => TEST_PRESIGNED_URL,
+    ...overrides,
+  };
+}
+
 export function fakeGoogle(overrides: Partial<GoogleClient> = {}): GoogleClient {
   return {
     buildAuthUrl: ({ state, codeChallenge }) =>
@@ -121,7 +183,10 @@ export interface TestAppOptions {
   config?: AppConfig;
   users?: UserRepository;
   catalog?: CatalogRepository;
+  writes?: WritesRepository;
   google?: GoogleClient;
+  /** `null` (default) = R2 no configurado (presign-cover 503). */
+  coverPresigner?: CoverPresigner | null;
 }
 
 export interface TestApp {
@@ -129,21 +194,27 @@ export interface TestApp {
   config: AppConfig;
   users: UserRepository;
   catalog: CatalogRepository;
+  writes: WritesRepository;
   google: GoogleClient;
+  coverPresigner: CoverPresigner | null;
 }
 
 export function buildTestApp(options: TestAppOptions = {}): TestApp {
   const config = options.config ?? testConfig();
   const users = options.users ?? fakeRepository();
   const catalog = options.catalog ?? fakeCatalog();
+  const writes = options.writes ?? fakeWrites();
   const google = options.google ?? fakeGoogle();
+  const coverPresigner = options.coverPresigner ?? null;
 
   return {
-    app: createApp({ config, users, catalog, google }),
+    app: createApp({ config, users, catalog, writes, google, coverPresigner }),
     config,
     users,
     catalog,
+    writes,
     google,
+    coverPresigner,
   };
 }
 

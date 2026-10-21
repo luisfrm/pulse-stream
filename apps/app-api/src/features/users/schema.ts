@@ -22,3 +22,30 @@ export const UserReadSchema = z
   .openapi("UserRead");
 
 export type UserRead = z.infer<typeof UserReadSchema>;
+
+/**
+ * `PATCH /users/me` (self-service). Solo username/cover: `role`, email,
+ * password, `is_superuser` e `is_active` NO se aceptan (el objeto Zod los
+ * descarta antes de llegar al repository). La app es OAuth-only, así que el
+ * perfil local nunca cambia credenciales.
+ *
+ * `username`: `\w` de Python es Unicode → `\p{L}\p{N}_` + `.`, `-` y espacio.
+ */
+export const USERNAME_PATTERN = /^[\p{L}\p{N}_.\- ]+$/u;
+
+export const UserUpdateSchema = z
+  .object({
+    username: z
+      .string()
+      .min(2)
+      .max(50)
+      .regex(USERNAME_PATTERN),
+    cover_key: z
+      .string()
+      .regex(/^covers\/[0-9a-f-]+\.webp$/)
+      .nullable(),
+  })
+  .partial()
+  .openapi("UserUpdate");
+
+export type UserUpdate = z.infer<typeof UserUpdateSchema>;

@@ -68,12 +68,23 @@ client/secrets y deploy del Worker.
 
 ## Fase 3 — Escrituras
 
-- [ ] Favoritos
-- [ ] Playlists de usuario
-- [ ] Listens + contadores (CTE)
-- [ ] Perfil + presign cover
-- [ ] Tests de estado/DB
-- [ ] Commit de fase
+- [x] Favoritos: PUT/DELETE songs/albums/playlists, idempotente, 404/403 como Python
+- [x] Playlists de usuario: crear/editar/borrar, add (max+1)/remove (renumera
+      0..n-1), dueño vs ajeno, system solo admin, `updated_at=now()`
+- [x] Listens: dedupe 30 s + `songs.play_count`/`users.total_plays` en una sola
+      sentencia con CTEs (driver Neon HTTP, sin transacción interactiva)
+- [x] Perfil: `PATCH /users/me` solo username/cover_key; role/email/password
+      ignorados; username único case-insensitive; `cover_url` resuelta
+- [x] Presign cover: WebP ≤256 KB, key `covers/{uuid}.webp`, `aws4fetch` con
+      `Cache-Control` inmutable firmado (`allHeaders`)
+- [x] Tests: **149 passed** (13 archivos; rutas con fake writes + SQL emitido)
+- [x] Smoke real contra la DB de desarrollo: favoritos idempotentes, playlist
+      add/remove/renumber (posición 1→0), listen dedupe (1 fila, +1 contador),
+      perfil y URL de R2 con `X-Amz-SignedHeaders` incluyendo
+      `content-type`/`cache-control`. Datos de prueba limpiados (play_count
+      restaurado)
+- [x] Commit de fase
+- [ ] Rate limit Upstash en `/auth/*` y `/me/listens` (diferido a Fase 4/5)
 
 ## Fase 4 — Cutover
 

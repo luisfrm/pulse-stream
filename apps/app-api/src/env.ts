@@ -26,6 +26,12 @@ export interface Env {
   GOOGLE_CLIENT_SECRET?: string;
   GOOGLE_REDIRECT_URI?: string;
 
+  // R2 (presign de covers). Sin las 4 credenciales el endpoint responde 503.
+  R2_ACCOUNT_ID?: string;
+  R2_ACCESS_KEY_ID?: string;
+  R2_SECRET_ACCESS_KEY?: string;
+  R2_BUCKET_NAME?: string;
+
   // DB: en producción manda Hyperdrive; en local/tests cae a DATABASE_URL.
   DATABASE_URL?: string;
   HYPERDRIVE?: HyperdriveBinding;
