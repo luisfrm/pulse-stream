@@ -54,6 +54,7 @@ cd apps/api
 cp .env.example .env   # completá DATABASE_URL/R2; SESSION_COOKIE_NAME=panel_session
 uv sync --all-groups
 uv run alembic upgrade head   # crea las tablas (usa la conexión directa)
+# o desde la raíz del monorepo: pnpm db:migrate (mismo .env de apps/api)
 uv run uvicorn app.main:app --reload   # http://localhost:8000
 ```
 
@@ -103,6 +104,8 @@ pnpm build
 pnpm lint
 pnpm typecheck
 pnpm test        # turbo test (web/panel/packages); API Python: cd apps/api && uv run pytest
+pnpm db:migrate  # alembic upgrade head (apps/api/.env; por defecto DB de desarrollo)
+pnpm db:current  # revisión Alembic aplicada
 ```
 
 ## Variables de entorno

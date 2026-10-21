@@ -23,6 +23,10 @@ pnpm gen:types           # regenera packages/api-types (Python/panel) desde
                          # http://localhost:8000/openapi.json (API corriendo)
 pnpm gen:types:app       # regenera packages/app-api-types (Hono/web) desde
                          # apps/app-api/openapi.json (no requiere levantar el Worker)
+pnpm db:migrate          # alembic upgrade head usando apps/api/.env
+                         # (DATABASE_URL_DIRECT; por defecto la DB de desarrollo)
+pnpm db:current          # revisión Alembic aplicada
+pnpm db:rollback         # baja una migración (cuidado: puede perder datos)
 ```
 
 > El frontend está partido en **dos apps Next** (`apps/web` y `apps/panel`) que
