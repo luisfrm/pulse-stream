@@ -7,7 +7,7 @@ import { MediaCardSkeleton } from "@/components/loading-skeletons";
 import { SongCard } from "@/components/song-card";
 import { songsService } from "@/lib/services/songs-service";
 import type { Page, Song } from "@/lib/services/types";
-import { friendlyError } from "@/lib/utils/error";
+import { friendlyError } from "@pulse-stream/shared";
 
 interface SearchSongsResultsProps {
   readonly initialPage: Page<Song>;

@@ -5,8 +5,8 @@ import Link from "next/link";
 import { ChevronDown, Pause, Play, SkipBack, SkipForward } from "lucide-react";
 
 import { OfflineButton } from "@/components/offline-button";
-import { cn } from "@/components/ui";
-import { formatGenre, formatTime } from "@/lib/utils/format";
+import { cn } from "@pulse-stream/ui";
+import { formatGenre, formatTime } from "@pulse-stream/shared";
 import { usePlayer } from "./player-provider";
 
 interface PlayerFullscreenProps {

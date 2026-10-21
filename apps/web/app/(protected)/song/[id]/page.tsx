@@ -6,10 +6,10 @@ import { Headphones } from "lucide-react";
 import { BackLink } from "@/components/back-link";
 import { LyricsView } from "@/components/lyrics-view";
 import { PlayButton } from "@/components/player/play-button";
-import { Badge } from "@/components/ui";
+import { Badge } from "@pulse-stream/ui";
 import { songsService } from "@/lib/services/songs-service";
-import { CACHE_TAGS } from "@/lib/services/tags";
-import { formatGenre } from "@/lib/utils/format";
+import { CACHE_TAGS } from "@pulse-stream/shared";
+import { formatGenre } from "@pulse-stream/shared";
 
 interface SongPageProps {
   params: Promise<{ id: string }>;

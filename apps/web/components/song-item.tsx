@@ -3,9 +3,9 @@
 import Link from "next/link";
 
 import { PlayButton } from "@/components/player/play-button";
-import { Badge } from "@/components/ui";
+import { Badge } from "@pulse-stream/ui";
 import type { MyPlaylist, Song } from "@/lib/services/types";
-import { formatGenre } from "@/lib/utils/format";
+import { formatGenre } from "@pulse-stream/shared";
 import { SongActions } from "./song-actions";
 
 interface SongItemProps {

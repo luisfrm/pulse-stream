@@ -5,7 +5,7 @@ import Link from "next/link";
 
 import { LoadMoreButton } from "@/components/load-more-button";
 import { SongItem } from "@/components/song-item";
-import { Title } from "@/components/ui";
+import { Title } from "@pulse-stream/ui";
 import { albumsService } from "@/lib/services/albums-service";
 import { songsService } from "@/lib/services/songs-service";
 import type {
@@ -14,7 +14,7 @@ import type {
   Page,
   Song,
 } from "@/lib/services/types";
-import { friendlyError } from "@/lib/utils/error";
+import { friendlyError } from "@pulse-stream/shared";
 
 interface ArtistDetailsProps {
   readonly artistId: string;

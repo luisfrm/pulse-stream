@@ -3,17 +3,15 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import * as React from "react";
-import { Home, Plus, Search, Shield, Sparkles, X } from "lucide-react";
+import { Home, Plus, Search, Sparkles, X } from "lucide-react";
 
-import { BrandLogo } from "@/components/brand-logo";
-import { Button, Input, cn } from "@/components/ui";
+import { BrandLogo, Button, Input, cn } from "@pulse-stream/ui";
 import { playlistsService } from "@/lib/services/playlists-service";
 import type { User } from "@/lib/services/types";
-import { friendlyError } from "@/lib/utils/error";
+import { friendlyError } from "@pulse-stream/shared";
 
 interface BottomNavProps {
   user: User;
-  isAdmin: boolean;
 }
 
 interface NavItem {
@@ -27,11 +25,11 @@ interface NavItem {
 
 /**
  * Barra de navegación inferior (móvil) — el estándar en pantallas chicas:
- * Inicio / Buscar / Catálogo / Crear (+) / Panel (admin) + Cuenta (→ /account).
+ * Inicio / Buscar / Catálogo / Crear (+) / Cuenta (→ /account).
  * El botón "+" abre un popup justo encima de la barra (con overlay) para crear
  * playlists y un acceso a Blend (próximamente, disabled).
  */
-export function BottomNav({ user, isAdmin }: BottomNavProps) {
+export function BottomNav({ user }: BottomNavProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [createOpen, setCreateOpen] = React.useState(false);
@@ -184,22 +182,6 @@ export function BottomNav({ user, isAdmin }: BottomNavProps) {
               </Link>
             );
           })}
-
-          {isAdmin && (
-            <Link
-              href="/panel"
-              className={cn(
-                "flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl text-[10px] font-medium transition-colors",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400",
-                pathname.startsWith("/panel")
-                  ? "text-brand-400"
-                  : "text-text-subdued hover:text-text-primary"
-              )}
-            >
-              <Shield size={22} className={cn(pathname.startsWith("/panel") && "text-brand-400")} />
-              <span className="truncate">Panel</span>
-            </Link>
-          )}
 
           {/* Cuenta: navega a /account (el drawer ahora lo abre la hamburguesa
               de la top bar del shell) */}

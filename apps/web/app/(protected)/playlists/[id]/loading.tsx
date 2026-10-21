@@ -1,5 +1,5 @@
 import { SongItemSkeleton } from "@/components/loading-skeletons";
-import { Skeleton } from "@/components/ui";
+import { Skeleton } from "@pulse-stream/ui";
 
 /** Skeleton del detalle de playlist: hero (cover + título + acciones) + lista. */
 export default function PlaylistDetailLoading() {

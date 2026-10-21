@@ -1,5 +1,5 @@
 import { SectionGridSkeleton } from "@/components/loading-skeletons";
-import { Skeleton } from "@/components/ui";
+import { Skeleton } from "@pulse-stream/ui";
 
 /** Skeleton del dashboard: header + secciones (cada una streamea al resolver). */
 export default function DashboardLoading() {

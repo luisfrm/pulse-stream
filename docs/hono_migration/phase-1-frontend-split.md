@@ -84,6 +84,55 @@ Durante la transición, si la app y el panel corren juntos contra Python, usar d
 procesos (`SESSION_COOKIE_NAME=session` y `SESSION_COOKIE_NAME=panel_session`) o
 aceptar la cookie compartida en localhost.
 
+## Mapa de acoplamientos (inventario)
+
+- **Panel → app**: único import real `components/audio-preview-player.tsx` →
+  `components/player/audio-orchestrator`. Mover el orquestador a
+  `packages/shared` (TS puro) o duplicarlo; cada app tiene su instancia.
+- **Links cruzados**: `PanelShell` linkea `/account`; `PlaylistsManager` linkea
+  `/playlists/{id}`; `DashboardShell`/`BottomNav` linkean `/panel`. Eliminar los
+  links al panel desde la app y decidir si el panel muestra links a la app.
+- **Servicios mezclados**: `songs`, `albums`, `artists`, `playlists`, `uploads`.
+  Separar por audiencia; no mover archivos enteros a un paquete compartido o el
+  web arrastra métodos admin.
+- **Cookie forwarding**: `lib/api/client.ts` reenvía **todas** las cookies. El
+  cliente debe seleccionar `SESSION_COOKIE` / `PANEL_SESSION_COOKIE`.
+- **LogoutButton**: hardcodea `/api/logout`; recibir la acción por prop o
+  resolverla por app.
+- **Server Actions inline** en páginas del panel y de la app: no se pueden mover
+  a paquetes; se recrean en cada app.
+- **PWA/SW**: `public/sw.js` y `PwaRegister` solo en la app; el panel no debe
+  registrar el SW. `@vercel/analytics` y `PlayerProvider` solo en el root layout
+  de la app.
+- **UI kit**: `modal.tsx` importa `@/lib/hooks/use-is-mobile`; mover el hook al
+  paquete. `FullScreenLoader`/`AudioPreviewPlayer` usan `bg-blooms`, `eq-bar`,
+  `card-lift` y keyframes globales: moverlos a `packages/design` o el panel
+  pierde estilos.
+- **Assets**: `BrandLogo` usa `/logo-round.webp`; copiarlo a `apps/panel/public`.
+- **Tests**: `uploads-service.test.ts` mockea `@/lib/api/client`; al pasar a
+  factory hay que adaptarlo. Faltan tests del panel (servicios admin, ZIP,
+  login) antes de mover.
+
+## Orden de extracción (del inventario)
+
+1. **Baseline**: `pnpm typecheck && lint && test && build`; snapshot del estado.
+2. **`packages/shared`**: `format.ts` + test, `error.ts`, `CACHE_TAGS`, `Page<T>`,
+   `audio-orchestrator.ts`.
+3. **`packages/design`**: `tokens.css` (`@theme`, keyframes, `bg-blooms`,
+   `card-lift`, `eq-bar`, reduced-motion, body/inputs/scrollbars), `fonts.ts`.
+4. **`packages/ui`**: `components/ui/*`, `BrandLogo`, `AuthBackground`,
+   `FullScreenLoader`, `use-is-mobile`, `FileInput`, `Sonner`; partir
+   `loading-skeletons` (app vs panel).
+5. **`packages/api-client`**: `createApiClient({baseURL, cookieName})`,
+   `ApiFetchOptions`, `Page<T>`, `uploadToR2`, `COVER_CACHE_CONTROL`.
+6. **Servicios separados**: catálogo (lecturas), library (app), admin (panel),
+   playlists públicas compartidas. `session-service` parametrizado por cookie.
+7. **`apps/panel`**: scaffold, layout lean, login, logout, mover `git mv` las
+   rutas `(panel)` → `app/panel/*`, `PanelShell`, `AudioPreviewPlayer`.
+8. **Limpiar `apps/web`**: borrar `(panel)`, servicios admin, links `/panel`,
+   matcher del proxy; mover `CreatePlaylistForm` fuera de `app/`.
+9. **Cierre**: env por app, tests, CI/turbo, `AGENTS.md`, smoke Playwright.
+
 ## Verificación
 
 ```bash

@@ -4,10 +4,10 @@ import * as React from "react";
 import { Pencil } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-import { Button, Checkbox, Input, Modal, Textarea } from "@/components/ui";
+import { Button, Checkbox, Input, Modal, Textarea } from "@pulse-stream/ui";
 import { playlistsService } from "@/lib/services/playlists-service";
 import type { PlaylistDetail } from "@/lib/services/types";
-import { friendlyError } from "@/lib/utils/error";
+import { friendlyError } from "@pulse-stream/shared";
 
 interface PlaylistEditFormProps {
   playlist: PlaylistDetail;

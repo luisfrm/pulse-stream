@@ -3,6 +3,13 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   /* config options here */
   reactCompiler: true,
+  // Paquetes compartidos publicados como TypeScript fuente (sin build).
+  transpilePackages: [
+    "@pulse-stream/ui",
+    "@pulse-stream/design",
+    "@pulse-stream/api-client",
+    "@pulse-stream/shared",
+  ],
   images: {
     // Covers vienen de R2 (presigned o público) — permitir optimización con
     // formatos modernos. Si se mantiene <img> con sizes/eager, el browser ya

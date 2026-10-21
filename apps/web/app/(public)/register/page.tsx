@@ -6,10 +6,10 @@ import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 
 import { authService } from "@/lib/services/auth-service";
-import { friendlyError } from "@/lib/utils/error";
-import { AuthBackground } from "@/components/auth-background";
-import { BrandLogo } from "@/components/brand-logo";
-import { Input } from "@/components/ui";
+import { friendlyError } from "@pulse-stream/shared";
+import { AuthBackground } from "@pulse-stream/ui";
+import { BrandLogo } from "@pulse-stream/ui";
+import { Input } from "@pulse-stream/ui";
 import { toast } from "sonner";
 
 const MIN_PASSWORD = 3;

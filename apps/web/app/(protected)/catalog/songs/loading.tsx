@@ -1,5 +1,5 @@
 import { SongItemSkeleton } from "@/components/loading-skeletons";
-import { Skeleton } from "@/components/ui";
+import { Skeleton } from "@pulse-stream/ui";
 
 /** Skeleton de "Tus canciones": header + lista de filas (espejo de la página). */
 export default function CatalogSongsLoading() {

@@ -14,12 +14,10 @@ export interface UpdatePlaylistPayload {
   cover_key?: string;
 }
 
-export interface CreateSystemPlaylistPayload {
-  name: string;
-  description?: string;
-  query: "top_week" | "top_month" | "new";
-}
-
+/**
+ * Playlists de usuario + lecturas públicas. La generación/borrado de
+ * playlists del sistema (`createSystem`, refresh) vive en `apps/panel`.
+ */
 export const playlistsService = {
   /**
    * Playlists del usuario (GET /me/playlists). Cada item trae `song_ids`
@@ -32,14 +30,6 @@ export const playlistsService = {
     return await api<MyPlaylist[]>("/me/playlists", {
       cache: "no-store",
       ...options,
-    });
-  },
-
-  /** Genera una playlist del sistema (snapshot de una query) — admin only. */
-  async createSystem(payload: CreateSystemPlaylistPayload): Promise<PlaylistDetail> {
-    return await api<PlaylistDetail>("/playlists/system", {
-      method: "POST",
-      body: payload,
     });
   },
 

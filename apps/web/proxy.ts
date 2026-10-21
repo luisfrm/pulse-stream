@@ -1,20 +1,22 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+/** Cookie de sesión de la app (Fase 4: la emite Hono). */
+const SESSION_COOKIE = process.env.SESSION_COOKIE ?? "session";
+
 // Chequeo de sesión a nivel de request (solo presencia de la cookie).
 // La validación REAL ocurre en los layouts vía /users/me:
 // - (protected)/layout.tsx exige sesión (cualquier usuario)
-// - (panel)/layout.tsx exige sesión + role=admin (si no, -> home)
+// El panel admin vive en `apps/panel` (otro deploy) y NO se matchea acá.
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const hasSession = request.cookies.has("session");
+  const hasSession = request.cookies.has(SESSION_COOKIE);
 
-  // Protege el panel, el área de usuario y las páginas de catálogo
+  // Protege el área de usuario y las páginas de catálogo
   // (artista/álbum/canción + rutas top-level en inglés viven en el grupo
   // protegido): sin cookie -> login.
   if (
     (pathname.startsWith("/dashboard") ||
-      pathname.startsWith("/panel") ||
       pathname.startsWith("/artist") ||
       pathname.startsWith("/album") ||
       pathname.startsWith("/song") ||
@@ -41,7 +43,6 @@ export function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     "/dashboard/:path*",
-    "/panel/:path*",
     "/artist/:path*",
     "/album/:path*",
     "/song/:path*",

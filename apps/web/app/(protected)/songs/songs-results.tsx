@@ -7,7 +7,7 @@ import { SongCard } from "@/components/song-card";
 import { SongItemSkeleton } from "@/components/loading-skeletons";
 import { songsService } from "@/lib/services/songs-service";
 import type { MyPlaylist, Page, Song } from "@/lib/services/types";
-import { friendlyError } from "@/lib/utils/error";
+import { friendlyError } from "@pulse-stream/shared";
 
 interface SongsResultsProps {
   readonly initialPage: Page<Song>;

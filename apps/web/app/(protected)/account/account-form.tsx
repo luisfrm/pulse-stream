@@ -6,10 +6,10 @@ import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
 import { CoverUploader } from "@/components/cover-uploader";
-import { Button, Input } from "@/components/ui";
+import { Button, Input } from "@pulse-stream/ui";
 import { authService } from "@/lib/services/auth-service";
 import type { User } from "@/lib/services/types";
-import { friendlyError } from "@/lib/utils/error";
+import { friendlyError } from "@pulse-stream/shared";
 
 const MIN_PASSWORD = 3;
 

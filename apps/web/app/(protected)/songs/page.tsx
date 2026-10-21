@@ -2,10 +2,10 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { updateTag } from "next/cache";
 
-import { SearchInput } from "@/components/search-input";
+import { SearchInput } from "@pulse-stream/ui";
 import { getUserLibrary } from "@/lib/services/library";
 import { songsService } from "@/lib/services/songs-service";
-import { CACHE_TAGS } from "@/lib/services/tags";
+import { CACHE_TAGS } from "@pulse-stream/shared";
 
 import { SongsResults, SongsResultsSkeleton } from "./songs-results";
 

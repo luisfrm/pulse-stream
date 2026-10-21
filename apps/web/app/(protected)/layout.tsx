@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 
-import { FullScreenLoader } from "@/components/full-screen-loader";
+import { FullScreenLoader } from "@pulse-stream/ui";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { getSession } from "@/lib/services/session-service";
 
@@ -30,7 +30,5 @@ async function ProtectedShell({ children }: { children: React.ReactNode }) {
   const user = await getSession();
   if (!user) redirect("/login");
 
-  const isAdmin = user.role === "admin" || user.is_superuser;
-
-  return <DashboardShell user={user} isAdmin={isAdmin}>{children}</DashboardShell>;
+  return <DashboardShell user={user}>{children}</DashboardShell>;
 }

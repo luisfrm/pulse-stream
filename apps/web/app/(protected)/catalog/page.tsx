@@ -6,14 +6,14 @@ import Link from "next/link";
 import { AlbumCard } from "@/components/album-card";
 import { MediaCardSkeleton, SongItemSkeleton } from "@/components/loading-skeletons";
 import { PlaylistCard } from "@/components/playlist-card";
-import { SearchInput } from "@/components/search-input";
+import { SearchInput } from "@pulse-stream/ui";
 import { SongItem } from "@/components/song-item";
-import { Skeleton, Title } from "@/components/ui";
+import { Skeleton, Title } from "@pulse-stream/ui";
 import { favoritesService } from "@/lib/services/favorites-service";
 import { getUserLibrary } from "@/lib/services/library";
-import { CACHE_TAGS } from "@/lib/services/tags";
+import { CACHE_TAGS } from "@pulse-stream/shared";
 
-import { CreatePlaylistForm } from "@/app/(protected)/playlists/create-playlist-form";
+import { CreatePlaylistForm } from "@/components/create-playlist-form";
 
 export const metadata: Metadata = { title: "Mi catálogo" };
 export const dynamic = "force-dynamic";

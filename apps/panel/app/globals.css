@@ -1,0 +1,5 @@
+@import "tailwindcss";
+@import "@pulse-stream/design/tokens.css";
+
+/* Clases usadas por el paquete UI compartido (vive fuera de apps/panel). */
+@source "../../../packages/ui/src";

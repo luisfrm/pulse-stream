@@ -4,9 +4,9 @@ import { Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { Button } from "@/components/ui";
+import { Button } from "@pulse-stream/ui";
 import { playlistsService } from "@/lib/services/playlists-service";
-import { friendlyError } from "@/lib/utils/error";
+import { friendlyError } from "@pulse-stream/shared";
 
 interface PlaylistActionsProps {
   playlistId: string;

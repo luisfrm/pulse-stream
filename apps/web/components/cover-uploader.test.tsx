@@ -12,6 +12,9 @@ vi.mock("@/lib/services/uploads-service", () => ({
       expires_in: 600,
     }),
   },
+}));
+
+vi.mock("@pulse-stream/api-client", () => ({
   uploadToR2: vi.fn().mockResolvedValue(undefined),
   COVER_CACHE_CONTROL: "public, max-age=31536000, immutable",
 }));
@@ -124,7 +127,7 @@ describe("CoverUploader", () => {
 
   it("pasa COVER_CACHE_CONTROL a uploadToR2 (el PUT firmado lo exige)", async () => {
     const { uploadToR2, COVER_CACHE_CONTROL } = await import(
-      "@/lib/services/uploads-service"
+      "@pulse-stream/api-client"
     );
     const onChange = vi.fn();
     render(<CoverUploader value={null} onChange={onChange} />);

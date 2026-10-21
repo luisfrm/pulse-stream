@@ -5,13 +5,13 @@ import { notFound } from "next/navigation";
 import { Sparkles } from "lucide-react";
 
 import { BackLink } from "@/components/back-link";
-import { Badge, Button } from "@/components/ui";
+import { Badge, Button } from "@pulse-stream/ui";
 import { getUserLibrary } from "@/lib/services/library";
 import { playlistsService } from "@/lib/services/playlists-service";
 import { getSession } from "@/lib/services/session-service";
 import { songsService } from "@/lib/services/songs-service";
-import { CACHE_TAGS } from "@/lib/services/tags";
-import { authorHandle } from "@/lib/utils/format";
+import { CACHE_TAGS } from "@pulse-stream/shared";
+import { authorHandle } from "@pulse-stream/shared";
 
 import { PlaylistActions } from "./playlist-actions";
 import { PlaylistEditForm } from "./playlist-edit-form";

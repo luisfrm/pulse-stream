@@ -5,9 +5,9 @@ import { Heart } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui";
+import { Button } from "@pulse-stream/ui";
 import { favoritesService } from "@/lib/services/favorites-service";
-import { friendlyError } from "@/lib/utils/error";
+import { friendlyError } from "@pulse-stream/shared";
 
 interface PlaylistLikeButtonProps {
   playlistId: string;

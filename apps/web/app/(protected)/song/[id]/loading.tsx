@@ -1,4 +1,4 @@
-import { Skeleton } from "@/components/ui";
+import { Skeleton } from "@pulse-stream/ui";
 
 export default function SongLoading() {
   return (

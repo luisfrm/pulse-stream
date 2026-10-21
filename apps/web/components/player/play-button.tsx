@@ -2,7 +2,7 @@
 
 import { Pause, Play } from "lucide-react";
 
-import { Button } from "@/components/ui";
+import { Button } from "@pulse-stream/ui";
 import type { Song } from "@/lib/services/types";
 import { usePlayer } from "./player-provider";
 

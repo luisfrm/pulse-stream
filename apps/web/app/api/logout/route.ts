@@ -19,6 +19,8 @@ import type { NextRequest } from "next/server";
  * seteadas con y sin Domain según el entorno.
  */
 export async function POST(request: NextRequest) {
+  // Cookie de sesión de la app (mismo nombre que usa el api-client/proxy).
+  const sessionCookie = process.env.SESSION_COOKIE ?? "session";
   // Espejo del backend (apps/api/app/core/config.py): ENV es autoritativo.
   // En local la cookie es host-only (sin Domain) y SameSite=lax, así que un
   // COOKIE_DOMAIN / COOKIE_SAMESITE=none heredado del .env de prod debe
@@ -37,7 +39,7 @@ export async function POST(request: NextRequest) {
       ? undefined
       : rawDomain;
 
-  const base = `session=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=${samesite}${secure ? "; Secure" : ""}`;
+  const base = `${sessionCookie}=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=${samesite}${secure ? "; Secure" : ""}`;
 
   const response = NextResponse.redirect(
     new URL("/login", request.url),

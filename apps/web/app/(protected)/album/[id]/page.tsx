@@ -6,7 +6,7 @@ import { BackLink } from "@/components/back-link";
 import { albumsService } from "@/lib/services/albums-service";
 import { getUserLibrary } from "@/lib/services/library";
 import { songsService } from "@/lib/services/songs-service";
-import { CACHE_TAGS } from "@/lib/services/tags";
+import { CACHE_TAGS } from "@pulse-stream/shared";
 
 import { AlbumSongs } from "./album-songs";
 

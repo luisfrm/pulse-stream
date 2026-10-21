@@ -1,7 +1,7 @@
 import Link from "next/link";
 
-import { cn } from "@/components/ui";
-import { authorHandle } from "@/lib/utils/format";
+import { cn } from "@pulse-stream/ui";
+import { authorHandle } from "@pulse-stream/shared";
 import type { Playlist } from "@/lib/services/types";
 
 interface PlaylistCardProps {

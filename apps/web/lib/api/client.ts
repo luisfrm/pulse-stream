@@ -1,40 +1,20 @@
-import { ofetch } from "ofetch";
-
-import type { ApiFetchOptions } from "./types";
+import {
+  createApiClient,
+  type ApiFetchOptions,
+} from "@pulse-stream/api-client";
 
 export type { ApiFetchOptions };
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
-const isServer = typeof window === "undefined";
-
 /**
- * Cliente único e isomórfico hacia la API FastAPI.
+ * Cliente único e isomórfico de la app hacia la API FastAPI.
  *
- * - Servidor (RSC / Server Action): propaga las cookies del request del
- *   navegador vía `next/headers` — así la sesión viaja en cada fetch.
- * - Navegador (Client Component): `credentials: "include"` para que el browser
- *   mande las cookies solas.
- *
- * Soporta `next: { revalidate, tags }` para el cache tagging de Next 16.
+ * El factory vive en `@pulse-stream/api-client`: en el servidor reenvía SOLO
+ * la cookie de sesión de la app (`SESSION_COOKIE`, default `session`) y en el
+ * navegador usa `credentials: "include"`.
  */
-export const api = ofetch.create({
-  baseURL: API_URL,
-  retry: 1,
-  timeout: 30_000,
-
-  async onRequest({ options }) {
-    if (isServer) {
-      // Lectura en RSC / Server Action: reenviar cookie del request entrante
-      const { cookies } = await import("next/headers");
-      const cookieStore = await cookies();
-      options.headers = new Headers(options.headers);
-      options.headers.set("cookie", cookieStore.toString());
-    } else {
-      // En el navegador las cookies viajan solas con la request
-      options.credentials = "include";
-    }
-  },
+export const api = createApiClient({
+  baseURL: process.env.NEXT_PUBLIC_API_URL,
+  cookieName: process.env.SESSION_COOKIE ?? "session",
 });
 
 /**

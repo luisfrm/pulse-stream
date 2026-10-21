@@ -4,7 +4,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { PwaRegister } from "@/components/pwa-register";
 import { PlayerBar } from "@/components/player/player-bar";
 import { PlayerProvider } from "@/components/player/player-provider";
-import { Toaster } from "@/components/ui/sonner";
+import { Toaster } from "@pulse-stream/ui";
 
 import { bricolage, inter } from "./fonts";
 import "./globals.css";
@@ -22,7 +22,7 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es" className={`${bricolage.variable} ${inter.variable} h-full antialiased`}>
       <head>

@@ -7,6 +7,10 @@ export interface GetArtistsParams {
   limit?: number;
 }
 
+/**
+ * Lecturas del catálogo de artistas para la app. Las mutaciones admin
+ * (`createArtist`/`updateArtist`/`deleteArtist`) viven en `apps/panel`.
+ */
 export const artistsService = {
   /**
    * Lista paginada/filtrada. En RSC se pasa `options` con
@@ -29,26 +33,5 @@ export const artistsService = {
 
   async getArtistById(id: string, options?: ApiFetchOptions): Promise<Artist> {
     return await api<Artist>(`/artists/${id}`, options);
-  },
-
-  async createArtist(name: string, coverKey?: string): Promise<Artist> {
-    return await api<Artist>("/artists", {
-      method: "POST",
-      body: { name, ...(coverKey ? { cover_key: coverKey } : {}) },
-    });
-  },
-
-  async updateArtist(
-    id: string,
-    payload: { name?: string; cover_key?: string },
-  ): Promise<Artist> {
-    return await api<Artist>(`/artists/${id}`, {
-      method: "PATCH",
-      body: payload,
-    });
-  },
-
-  async deleteArtist(id: string): Promise<void> {
-    await api(`/artists/${id}`, { method: "DELETE" });
   },
 };

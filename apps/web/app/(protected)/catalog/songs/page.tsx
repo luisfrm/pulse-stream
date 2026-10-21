@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { updateTag } from "next/cache";
 
 import { getUserLibrary } from "@/lib/services/library";
-import { CACHE_TAGS } from "@/lib/services/tags";
+import { CACHE_TAGS } from "@pulse-stream/shared";
 
 import { SongsList } from "./songs-list";
 

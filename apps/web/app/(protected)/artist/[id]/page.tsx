@@ -6,7 +6,7 @@ import { albumsService } from "@/lib/services/albums-service";
 import { artistsService } from "@/lib/services/artists-service";
 import { getUserLibrary } from "@/lib/services/library";
 import { songsService } from "@/lib/services/songs-service";
-import { CACHE_TAGS } from "@/lib/services/tags";
+import { CACHE_TAGS } from "@pulse-stream/shared";
 
 import { ArtistDetails } from "./artist-details";
 

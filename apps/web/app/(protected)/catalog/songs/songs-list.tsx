@@ -6,11 +6,11 @@ import { Loader2 } from "lucide-react";
 
 import { SongItem } from "@/components/song-item";
 import { SongItemSkeleton } from "@/components/loading-skeletons";
-import { Button } from "@/components/ui";
+import { Button } from "@pulse-stream/ui";
 import { favoritesService } from "@/lib/services/favorites-service";
 import type { UserLibrary } from "@/lib/services/library";
 import type { Song } from "@/lib/services/types";
-import { friendlyError } from "@/lib/utils/error";
+import { friendlyError } from "@pulse-stream/shared";
 
 const PAGE_LIMIT = 20;
 

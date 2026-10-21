@@ -1,4 +1,4 @@
-import { Skeleton } from "@/components/ui";
+import { Skeleton } from "@pulse-stream/ui";
 
 /** Skeleton de Configuración: header + lista de opciones (3 filas). */
 export default function SettingsLoading() {

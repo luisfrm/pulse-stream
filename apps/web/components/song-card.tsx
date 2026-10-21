@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Pause, Play } from "lucide-react";
 
 import type { MyPlaylist, Song } from "@/lib/services/types";
-import { cn } from "@/components/ui";
+import { cn } from "@pulse-stream/ui";
 import { usePlayer } from "./player/player-provider";
 
 // Solo se usan con sesión (corner de la card). dynamic → chunk separado que el

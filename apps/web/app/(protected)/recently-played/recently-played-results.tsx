@@ -8,7 +8,7 @@ import { SongCard } from "@/components/song-card";
 import { SongItemSkeleton } from "@/components/loading-skeletons";
 import { listensService } from "@/lib/services/listens-service";
 import type { Page, RecentlyPlayedSong } from "@/lib/services/types";
-import { friendlyError } from "@/lib/utils/error";
+import { friendlyError } from "@pulse-stream/shared";
 
 interface RecentlyPlayedResultsProps {
   readonly initialPage: Page<RecentlyPlayedSong>;

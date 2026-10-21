@@ -9,8 +9,8 @@ import { listensService } from "@/lib/services/listens-service";
 import { playlistsService } from "@/lib/services/playlists-service";
 import { getSession } from "@/lib/services/session-service";
 import { songsService } from "@/lib/services/songs-service";
-import { CACHE_TAGS } from "@/lib/services/tags";
-import { firstNameFromEmail, greetingForHour } from "@/lib/utils/format";
+import { CACHE_TAGS } from "@pulse-stream/shared";
+import { firstNameFromEmail, greetingForHour } from "@pulse-stream/shared";
 
 export const metadata: Metadata = { title: "Inicio" };
 export const dynamic = "force-dynamic";

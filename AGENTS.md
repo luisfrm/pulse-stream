@@ -13,14 +13,18 @@ serverless) · Cloudflare R2 · PWA**.
 ## 0. Comandos (desde la raíz del monorepo)
 
 ```bash
-pnpm dev                 # turbo: API (uvicorn :8000) + web (next :3000)
-pnpm build               # turbo build (web = next build)
-pnpm lint                # turbo lint (web = eslint)
-pnpm typecheck           # turbo typecheck (web = tsc --noEmit)
-pnpm test                # turbo test (API = pytest; requiere TEST_DATABASE_URL)
+pnpm dev                 # turbo dev: web (:3000) + panel (:3001) [+ app-api]
+pnpm build               # turbo build (web + panel)
+pnpm lint                # turbo lint (web + panel)
+pnpm typecheck           # turbo typecheck (apps + packages)
+pnpm test                # turbo test (web + panel + packages; la API usa uv run pytest)
 pnpm gen:types           # regenera packages/api-types/src/generated.ts desde
                          # http://localhost:8000/openapi.json (API corriendo)
 ```
+
+> El frontend está partido en **dos apps Next** (`apps/web` y `apps/panel`) que
+> comparten `packages/{ui,design,api-client,shared}`. En Fase 1 ambas apuntan a
+> la API Python local; el cutover a Hono es la Fase 4.
 
 Backend (en `apps/api`):
 ```bash
@@ -33,10 +37,21 @@ uv run pytest                          # integración; exige TEST_DATABASE_URL
 - Los tests de la API son **integración contra una Postgres real** apuntada por
   `TEST_DATABASE_URL`. Sin esa variable se **saltan** con un mensaje claro
   (`apps/api/tests/conftest.py`). No hay SQLite ni Docker en el flujo.
-- Frontend usa **alias `@/*` → `apps/web/*`** (tsconfig paths).
-- Solo un paquete: `pnpm --filter @pulse-stream/web <lint|typecheck|test|build>`
-  (`test` del web = `vitest run`). El CI (`.github/workflows/ci.yml`) corre
-  exactamente: API `uv run pytest` + web `typecheck → lint → build`.
+- Frontend usa **alias `@/*` → la raíz de cada app** (`apps/web/*` /
+  `apps/panel/*`) y los paquetes se importan como `@pulse-stream/*`.
+- Paquetes compartidos (TS fuente, sin build; cada app los transpila con
+  `transpilePackages`):
+  - `@pulse-stream/ui` — UI kit, `BrandLogo`, `AuthBackground`,
+    `FullScreenLoader`, `CoverUploader`, `Pagination`, `SearchInput`, hooks.
+  - `@pulse-stream/design` — `tokens.css` (único lugar de tokens Tailwind v4).
+  - `@pulse-stream/api-client` — `createApiClient({baseURL, cookieName})`,
+    `uploadToR2`, `COVER_CACHE_CONTROL`.
+  - `@pulse-stream/shared` — formato, errores, `CACHE_TAGS`, `Page<T>`,
+    orquestador de audio.
+- Filtros: `pnpm --filter @pulse-stream/{web,panel} <lint|typecheck|test|build>`.
+  El `test` del frontend es `vitest run` (web, panel, shared y api-client). El CI
+  (`.github/workflows/ci.yml`) corre API `uv run pytest` + typecheck → lint →
+  build de web y panel.
 
 ---
 
@@ -185,9 +200,52 @@ crear entidades vía API, assert status + shape del JSON.
 
 ---
 
-## 2. Frontend (`apps/web`) — Next.js 16 App Router
+## 2. Frontend — `apps/web` (app) + `apps/panel` (admin) + `packages/*`
 
-**Grupos de rutas:**
+**Split de Fase 1:** `apps/web` es la app de música (player, PWA, catálogo,
+biblioteca) y `apps/panel` el backoffice admin (`/panel/*`, login propio). Son
+dos apps Next independientes que comparten:
+
+- `packages/ui` — `components/ui/*` (Button, Badge, Card, Input, Textarea,
+  Title, Select, Checkbox, FileInput, Modal, BottomSheet, Skeleton, Sonner),
+  `BrandLogo`, `AuthBackground`, `FullScreenLoader`, `CoverUploader`,
+  `Pagination`, `SearchInput`, `useIsMobile`/`useDebounce` y `cn`.
+- `packages/design` — `tokens.css` con TODO el `@theme`, utilidades
+  (`bg-brand-gradient`), keyframes `ps-*`, `eq-bar`, `card-lift`, `bg-blooms`,
+  `prefers-reduced-motion`, body/inputs/scrollbars.
+- `packages/api-client` — `createApiClient({baseURL, cookieName})` isomórfico,
+  `ApiFetchOptions` (`next: { revalidate, tags }`), `uploadToR2`,
+  `COVER_CACHE_CONTROL`.
+- `packages/shared` — `format*`, `friendlyError`, `CACHE_TAGS`, `Page<T>` y el
+  orquestador de audio (TS puro; cada app tiene su instancia).
+
+Cada app tiene su `proxy.ts`, su `app/api/logout/route.ts`, su `fonts.ts`
+(`next/font` se resuelve por app) y su `globals.css`:
+
+```css
+@import "tailwindcss";
+@import "@pulse-stream/design/tokens.css";
+@source "../../../packages/ui/src";
+```
+
+No crear paletas paralelas: los tokens viven SOLO en `packages/design`.
+`next.config.ts` de ambas apps declara `transpilePackages` con los 4 paquetes.
+
+**Cookies (Fase 1 → Fase 4):** la app usa `SESSION_COOKIE` (default `session`) y
+el panel `PANEL_SESSION_COOKIE` (default **`session`** en Fase 1 para no romper
+el Python actual; Fase 4 lo cambia a `panel_session` cuando Hono emita la cookie
+del panel). El api-client reenvía SOLO la cookie configurada, no todas. En local
+ambas apps comparten la cookie de Python; en prod, `COOKIE_DOMAIN` de cada app
+debe coincidir con el backend. Los links cruzados que quedan (panel → cuenta /
+playlist) usan `NEXT_PUBLIC_APP_URL` (default `http://localhost:3000`).
+
+**Env por app (local):** web → `NEXT_PUBLIC_API_URL=http://localhost:8000`,
+`SESSION_COOKIE=session`, `ENV/COOKIE_DOMAIN/COOKIE_SAMESITE`; panel →
+`NEXT_PUBLIC_API_URL=http://localhost:8000`, `PANEL_SESSION_COOKIE=session`,
+`NEXT_PUBLIC_APP_URL=http://localhost:3000` y los mismos `ENV/COOKIE_*` para el
+borrado de cookie del logout.
+
+### `apps/web` — rutas
 - `(public)/` — home promocional, `/login`, `/register`. Sin sesión requerida;
   el home **redirige al dashboard si hay sesión**. Las páginas de detalle
   (artista/álbum/canción) NO viven acá: exigen sesión.
@@ -196,9 +254,10 @@ crear entidades vía API, assert status + shape del JSON.
   `/catalog`, `/catalog/songs`, `/songs`, `/search`, `/playlists[/[id]]`,
   `/recently-played`, `/settings` (NO bajo `/dashboard`): cualquier sesión.
   Layout con **sidebar** (escritorio) + drawer (móvil).
-  Nota: el `proxy.ts` matchea `/dashboard`, `/panel`, `/artist|/album|/song` y
+  Nota: el `proxy.ts` de la app matchea `/dashboard`, `/artist|/album|/song` y
   las rutas top-level (`/catalog`, `/songs`, `/settings`, `/search`,
   `/playlists`, `/recently-played`); `/account` lo protege únicamente el layout.
+  **`/panel` NO se matchea en la app** (el panel es otra app).
   Las URLs viejas `/dashboard/{catalogo,canciones,configuracion,search,
   playlists,recently-played,favorites}` quedaron como páginas `redirect()`.
 
@@ -208,10 +267,11 @@ top bar móvil `lg:hidden` con hamburguesa abre el drawer — el avatar de la
 bottom nav ya no lo hace). Grupos y orden: **Principal** = Inicio · Buscar;
 **Biblioteca** = Mi catálogo (`/catalog`) · Canciones (`/songs` — explorar
 catálogo) · Playlists · Recientes;
-**Administración** = Configuración (`/settings`, **todos** los
-usuarios) · Panel admin (solo admin). El chip de usuario al pie del sidebar se
-eliminó (logout vive en Configuración). Bottom nav (`components/bottom-nav.tsx`):
-Catálogo · Buscar · Cuenta (`/account`, Link) · Panel (admin) · Crear+.
+**Administración** = Configuración (`/settings`, **todos** los usuarios). El
+**Panel admin ya no vive en la app**: se accede a `apps/panel` (su propio
+deploy). El chip de usuario al pie del sidebar se eliminó (logout vive en
+Configuración). Bottom nav (`components/bottom-nav.tsx`):
+Catálogo · Buscar · Cuenta (`/account`, Link) · Crear+.
 
 - **Mi catálogo** (`/catalog`, `force-dynamic`): 3 secciones — Canciones en
   lista (`SongItem` con like/descargar/"+", SOLO las 10 más recientes + "Ver
@@ -245,24 +305,41 @@ Catálogo · Buscar · Cuenta (`/account`, Link) · Panel (admin) · Crear+.
   el borrado de cache viven en `/settings`
   (`clearOfflineCache()` + `getOfflineCacheSize()`; NO toca `pulse-shell-v1`
   del SW).
-- `(panel)/` — `/panel/*` (artists, songs, playlists) + detalles
-  `/panel/artists/[id]`, `/panel/albums/[id]`, `/panel/songs/[id]`: solo
-  `role=admin`. Sin sesión → `/login`; sin rol → `/`. **El panel NO linkea al
-  sitio público**: artista/álbum/canción abren su página admin interna.
+### `apps/panel` — admin (`:3001`)
+
+- `app/panel/**` — `/panel` (home), `/panel/artists[/id]`, `/panel/albums/[id]`,
+  `/panel/songs[/id|/new]`, `/panel/playlists`: solo `role=admin`. Sin sesión →
+  `/login?next=…`; sin rol → home de la app (`NEXT_PUBLIC_APP_URL`).
   **Flujo de alta de canciones: artista → álbum → canción.** Los álbumes se
   crean desde la página del artista (no hay nav ni página propia de álbumes).
+- `app/login` — formulario email/password propio (sin register); `next` param.
+- `app/api/logout/route.ts` — borra la cookie del panel (`PANEL_SESSION_COOKIE`)
+  y redirige 303 a `/login`.
+- `proxy.ts` — matchea `/panel/:path*` y `/login`; chequea solo la presencia de
+  la cookie del panel. La validación real (sesión + rol) está en
+  `app/panel/layout.tsx` vía `getSession()`.
+- `components/` — `PanelShell`, `AudioPreviewPlayer`, `CoverUploader` (wrapper
+  con el presign del panel) y `PanelCardSkeleton`.
+- `lib/services/` — admin: songs/albums/artists, genres, uploads (audio +
+  cover), playlists system (`createSystem`/`refreshSystem`), admin users.
+- Layout **lean**: sin `PlayerProvider`, `PlayerBar`, PWA/SW, `Analytics` ni
+  `Toaster` (errores inline). `force-dynamic` en toda página con datos.
+- No linkea al sitio público salvo "Mi cuenta" y "ver playlist", que cruzan a
+  `NEXT_PUBLIC_APP_URL`. Artista/álbum/canción abren su página admin interna.
 
-**Guards:** `apps/web/proxy.ts` chequea **solo la presencia** de la cookie
-`session` a nivel request. La validación REAL ocurre en los layouts vía
-`getSession()` (`GET /users/me`, nunca cacheado entre requests — `cache:
-"no-store"`; deduplicada con `React.cache` dentro del mismo request).
+**Guards:** cada app tiene su `proxy.ts`, que chequea **solo la presencia** de
+su cookie (`SESSION_COOKIE` en web, `PANEL_SESSION_COOKIE` en panel). La
+validación REAL ocurre en los layouts vía `getSession()` (`GET /users/me`, nunca
+cacheado entre requests — `cache: "no-store"`; deduplicada con `React.cache`
+dentro del mismo request). En el panel el layout exige además `role=admin` o
+`is_superuser`.
 
 **Carga y navegación (page transitions):** los layouts de las áreas protegidas
-(`app/(protected)/layout.tsx`, `app/(panel)/layout.tsx`) **NO son async**:
-envuelven el shell (`ProtectedShell`/`PanelGate`) en `<Suspense fallback=
-{<FullScreenLoader/>}>` y la sesión + redirect siguen siendo server-side en el
-componente hijo — el full-screen solo aparece en la entrada al área
-(post-login/hard load), no en cada navegación. El nav público
+(`apps/web/app/(protected)/layout.tsx` y `apps/panel/app/panel/layout.tsx`) **NO
+son async**: envuelven el shell (`ProtectedShell`/`PanelGate`) en `<Suspense
+fallback={<FullScreenLoader/>}>` y la sesión + redirect siguen siendo
+server-side en el componente hijo — el full-screen solo aparece en la entrada
+al área (post-login/hard load), no en cada navegación. El nav público
 (`app/(public)/layout.tsx`) resuelve la sesión en un
 `<Suspense fallback={<PillSkeleton/>}>` para no bloquear el primer chunk.
 
@@ -270,94 +347,118 @@ componente hijo — el full-screen solo aparece en la entrada al área
   `React.cache()`: deduplica `GET /users/me` DENTRO del mismo request (layout +
   página = 1 sola llamada). Se mantiene `sessionService.getSession` como wrapper
   por compat; en el server usá `getSession` directo.
-- **Skeletons por página** (patrón estándar de loading): primitiva
-  `components/ui/skeleton.tsx` (`cva`+`cn`, variantes `default`/`elevated`/
-  `brand`, shapes `rect`/`circle`/`pill`, `aria-hidden`) exportada desde
-  `components/ui/index.ts`; composiciones en `components/loading-skeletons.tsx`
-  (`MediaCardSkeleton`, `SongItemSkeleton`, `SectionGridSkeleton`,
-  `PanelCardSkeleton`). Cada ruta con datos tiene su `loading.tsx`.
+- **Skeletons por página** (patrón estándar de loading): primitiva en
+  `packages/ui/src/components/ui/skeleton.tsx` (`cva`+`cn`, variantes
+  `default`/`elevated`/`brand`, shapes `rect`/`circle`/`pill`, `aria-hidden`)
+  exportada desde `@pulse-stream/ui`; composiciones de la app en
+  `apps/web/components/loading-skeletons.tsx` (`MediaCardSkeleton`,
+  `SongItemSkeleton`, `SectionGridSkeleton`) y `PanelCardSkeleton` en
+  `apps/panel/components/loading-skeletons.tsx`. Cada ruta con datos tiene su
+  `loading.tsx`.
 - **Streaming por sección**: el dashboard usa `<Suspense>` por sección (cada
   sección es un componente async propio en `dashboard/page.tsx`) y `search`
   envuelve solo los resultados (el input queda fuera para no perder foco).
 - **Paralelismo**: las páginas resuelven sesión + datos con `Promise.all`
-  (dashboard, catalogo, artist/album/playlist detail, home público, panel).
+  (dashboard, catalogo, artist/album/playlist detail, home público y cada
+  página del panel).
 - **`PlayerFullscreen` lazy** (`next/dynamic`, `ssr: false` en
   `components/player/player-bar.tsx`): el fullscreen (con OfflineButton + letra)
   no viaja en el chunk del root layout ni se descarga en páginas que nunca lo
   abren.
-- `error.tsx` branded por área: `(protected)/error.tsx` y `(panel)/error.tsx`.
-- `app/globals.css`: `.animate-pulse` vive en el bloque `prefers-reduced-motion`
-  (los skeletons respetan reduced motion). `components/ui/button.tsx`: `loading`
-  muestra `Loader2` spinner + `aria-busy`.
+- `error.tsx` branded por área: `apps/web/app/(protected)/error.tsx` y
+  `apps/panel/app/panel/error.tsx`.
+- `packages/design/tokens.css`: `.animate-pulse` vive en el bloque
+  `prefers-reduced-motion` (los skeletons respetan reduced motion).
+  `packages/ui/src/components/ui/button.tsx`: `loading` muestra `Loader2`
+  spinner + `aria-busy`.
 
-**Cliente API** (`lib/api/client.ts`): instancia `ofetch` isomórfica.
-- Server (RSC/Server Action): reenvía la cookie del request vía `next/headers`
-  en `onRequest`.
+**Cliente API** (`packages/api-client`): `createApiClient({baseURL, cookieName})`
+devuelve una instancia `ofetch` isomórfica. Cada app la crea en su
+`lib/api/client.ts`:
+- `apps/web` → `SESSION_COOKIE` (default `session`), exporta `api`.
+- `apps/panel` → `PANEL_SESSION_COOKIE` (default `session` en Fase 1), exporta
+  `panelApi`.
+- Server (RSC/Server Action): reenvía SOLO la cookie configurada vía
+  `next/headers` en `onRequest` (no todas las cookies).
 - Browser: `credentials: "include"`.
 - Soporta `next: { revalidate, tags }` para cache tagging de Next 16.
 
 **Servicios** (`lib/services/*.service.ts`): un archivo por dominio que wrappea
-el cliente. Convenciones:
+el cliente de su app. Convenciones:
 - Tipos **generados** desde OpenAPI (`packages/api-types/src/generated.ts` vía
-  `pnpm gen:types`), re-exportados en `lib/services/types.ts`. **Nunca
-  declarar tipos a mano.**
-- `Page<T> = { items, total, offset, limit }` (paginación offset/limit).
+  `pnpm gen:types`), re-exportados en `lib/services/types.ts` de cada app.
+  **Nunca declarar tipos a mano.**
+- `Page<T>` se importa de `@pulse-stream/shared` / `@pulse-stream/api-client`.
+- **Separación por audiencia**: `apps/web/lib/services` tiene lecturas de
+  catálogo, favoritos, biblioteca, playlists de usuario, listens, auth, session
+  y uploads (solo presign de cover). Las mutaciones admin
+  (`createSong/updateSong/deleteSong`, albums CRUD/importZip, artists CRUD,
+  playlists system, `admin/users`, `presignUpload` de audio) viven en
+  `apps/panel/lib/services`.
 - Datos por usuario (favoritos, playlists, biblioteca) **nunca se cachean**.
-- Catálogo público se cachea por tags (`lib/services/tags.ts`) y se revalida con
-  Server Actions `updateTag(CACHE_TAGS.x)` (patrón visto en las páginas de
-  `dashboard/`).
+- Catálogo público se cachea por tags (`CACHE_TAGS` de `@pulse-stream/shared`) y
+  se revalida con Server Actions `updateTag(CACHE_TAGS.x)` (patrón visto en las
+  páginas de `dashboard/` y del panel).
 - Géneros y roles llegan en minúscula desde la API (`"hip-hop"`, `"admin"`);
-  para mostrar usar `formatGenre`/`formatRole` de `lib/utils/format.ts`
+  para mostrar usar `formatGenre`/`formatRole` de `@pulse-stream/shared`
   (testeado en Vitest).
 
-**Design system:** Tailwind v4 `@theme` en `app/globals.css` (único lugar de
-tokens). Paleta oscura esmeralda en OKLCH (`--color-bg-base`, `--color-brand-*`)
-+ fuentes **Bricolage Grotesque** (display) e **Inter** (body). **Preservar
-estos tokens** — no crear paletas paralelas. Para diseño UI usar el skill
-`.agents/skills/hallmark` (respeta los tokens existentes). No hay `design.md`.
+**Design system:** Tailwind v4 `@theme` en
+`packages/design/tokens.css` (ÚNICO lugar de tokens). Paleta oscura esmeralda en
+OKLCH (`--color-bg-base`, `--color-brand-*`) + fuentes **Bricolage Grotesque**
+(display) e **Inter** (body). Cada `globals.css` importa Tailwind, los tokens y
+declara `@source "../../../packages/ui/src"`. **Preservar estos tokens** — no
+crear paletas paralelas. Para diseño UI usar el skill `.agents/skills/hallmark`
+(respeta los tokens existentes). No hay `design.md`.
 
-**Reproductor** (`components/player/`): un único `<audio>` global en
-`PlayerProvider` (montado en el root layout, sobrevive navegación). API vía
-`usePlayer()`: `play(song, queue)`, `toggle`, `pause`, `next`, `prev`, `seek`,
-más `current/playing/progress/duration`. `PlayerBar` (barra inferior fija,
-animada) abre `PlayerFullscreen` (pantalla completa con cover, controles y
+**Reproductor** (`apps/web/components/player/`): un único `<audio>` global en
+`PlayerProvider` (montado en el root layout de la app, sobrevive navegación).
+API vía `usePlayer()`: `play(song, queue)`, `toggle`, `pause`, `next`, `prev`,
+`seek`, más `current/playing/progress/duration`. `PlayerBar` (barra inferior
+fija, animada) abre `PlayerFullscreen` (pantalla completa con cover, controles y
 letra). Media Session API integrada. El provider **registra cada play** (`POST
-/me/listens`) cuando una canción empieza a reproducirse.
+/me/listens`) cuando una canción empieza a reproducirse. El panel NO monta el
+player global.
 
-> ⚠️ La cookie `session` es **HttpOnly** (`auth/backend.py`): NO se puede leer
+> ⚠️ La cookie de sesión es **HttpOnly** (`auth/backend.py`): NO se puede leer
 > con `document.cookie`. No gates de sesión basados en cookies client-side (el
 > `recordPlay` usa una marca en memoria y descarta el 401 de anónimos).
 
-**Audio único en toda la app:** `components/player/audio-orchestrator.ts`
-(`claimAudio`/`releaseAudio`) garantiza que **solo suene una fuente a la vez**:
-el reproductor global y los previews del panel (`AudioPreviewPlayer`, que usan
-`new Audio()` propio) compiten por el "turno" — empezar uno pausa el otro. No
-crear más sistemas de audio sueltos sin pasar por el orquestador. El ecualizador
-solo se muestra en la fuente activa.
+**Audio único:** `packages/shared/src/audio-orchestrator.ts`
+(`claimAudio`/`releaseAudio`) garantiza que **solo suene una fuente a la vez**
+dentro de cada app. Cada app tiene su propia instancia del módulo: la app la usa
+para el reproductor global, el panel para sus `AudioPreviewPlayer` (que usan
+`new Audio()` propio). No crear más sistemas de audio sueltos sin pasar por el
+orquestador. El ecualizador solo se muestra en la fuente activa.
 
-**PWA:** `app/manifest.ts` (dinámico) + `public/sw.js` (service worker manual,
-sin integración de build) registrado desde un client component. **En dev la SW
-no se registra** (`pwa-register.tsx` la desregistra): su stale-while-revalidate
-cachea chunks viejos de `/_next/static` → hydration mismatch y errores de
-Turbopack (`chunk.reason.enqueueModel`). Si ves esos errores en dev, limpiá
-`.next` y reiniciá el server. Descarga offline = Cache API (fetch completo del
-audio con CORS → `caches`).
+**PWA (solo app):** `apps/web/app/manifest.ts` (dinámico) + `public/sw.js`
+(service worker manual, sin integración de build) registrado desde un client
+component. **En dev la SW no se registra** (`pwa-register.tsx` la desregistra):
+su stale-while-revalidate cachea chunks viejos de `/_next/static` → hydration
+mismatch y errores de Turbopack (`chunk.reason.enqueueModel`). Si ves esos
+errores en dev, limpiá `.next` y reiniciá el server. Descarga offline = Cache
+API (fetch completo del audio con CORS → `caches`). El panel NO registra SW.
 
-**UI kit** (`components/ui/`): `Button/Badge/Card/Input/Textarea/Title/Select/
-BottomSheet/Dialog` con `cva` + `cn` + `Slot` (asChild). Reutilizarlo; los 8
-estados (default/hover/focus/active/disabled/loading/error/success) son
-obligatorios. El modal (`components/ui/modal.tsx`) es Radix Dialog
+**UI kit** (`packages/ui/src/components/ui/`): `Button/Badge/Card/Input/
+Textarea/Title/Select/Checkbox/FileInput/BottomSheet/Dialog/Skeleton/Sonner` con
+`cva` + `cn` + `Slot` (asChild). Reutilizarlo; los 8 estados
+(default/hover/focus/active/disabled/loading/error/success) son obligatorios.
+`CoverUploader` es compartido y recibe `presign`/`upload`/`cacheControl` por
+props (cada app inyecta su presign y el `uploadToR2` del api-client). El modal
+(`packages/ui/src/components/ui/modal.tsx`) es Radix Dialog
 (`@radix-ui/react-dialog`, no el paquete unificado `radix-ui`): bottom sheet en
 mobile (drag-to-close) + modal centrado en desktop; Radix lockea el scroll de
 la página. **No poner `overflow-x: clip` en `html` en `globals.css`**: rompe la
 propagación del overflow del body al viewport y el lock de scroll de los
 modales deja de funcionar (la página scrollea con el modal abierto). El clip
-horizontal vive solo en `body`.
+horizontal vive solo en `body` (en `packages/design/tokens.css`).
 
 ---
 
 ## 3. Convenciones generales
 
+- `apps/web` y `apps/panel` **no se importan entre sí**: todo lo compartido vive
+  en `packages/*` (y cada app tiene sus Server Actions, servicios y `proxy.ts`).
 - No mezclar capas (backend) ni mezclar data-fetch de servidor con estado
   cliente sin razón: RSC lee con `force-dynamic` para datos por usuario y con
   `revalidate`/tags para catálogo.

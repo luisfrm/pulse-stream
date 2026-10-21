@@ -1,4 +1,4 @@
-import { FullScreenLoader } from "@/components/full-screen-loader";
+import { FullScreenLoader } from "@pulse-stream/ui";
 
 /**
  * Fallback del grupo protegido: pantalla completa de branding. Cada página

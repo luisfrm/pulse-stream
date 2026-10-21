@@ -4,7 +4,7 @@ import * as React from "react";
 import dynamic from "next/dynamic";
 import { ChevronUp, Pause, Play } from "lucide-react";
 
-import { formatTime } from "@/lib/utils/format";
+import { formatTime } from "@pulse-stream/shared";
 import { usePlayer } from "./player-provider";
 
 // Lazy: el fullscreen (con OfflineButton + letra) es pesado; no debe viajar en

@@ -3,13 +3,13 @@
 import * as React from "react";
 import { HardDrive } from "lucide-react";
 
-import { Button } from "@/components/ui";
+import { Button } from "@pulse-stream/ui";
 import {
   clearOfflineCache,
   getOfflineCacheSize,
   getStorageEstimate,
 } from "@/lib/offline";
-import { formatBytes } from "@/lib/utils/format";
+import { formatBytes } from "@pulse-stream/shared";
 
 interface CacheInfo {
   /** Uso total del origen (navigator.storage.estimate), si está disponible. */

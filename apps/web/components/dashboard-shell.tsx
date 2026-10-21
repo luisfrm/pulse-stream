@@ -12,18 +12,15 @@ import {
   Music2,
   Search,
   Settings,
-  Shield,
   X,
 } from "lucide-react";
 
-import { cn } from "@/components/ui";
+import { BrandLogo, cn } from "@pulse-stream/ui";
 import type { User } from "@/lib/services/types";
 import { BottomNav } from "./bottom-nav";
-import { BrandLogo } from "./brand-logo";
 
 interface DashboardShellProps {
   user: User;
-  isAdmin: boolean;
   children: React.ReactNode;
 }
 
@@ -35,7 +32,7 @@ interface NavItem {
   exact?: boolean;
 }
 
-function useNavItems(isAdmin: boolean): NavItem[] {
+function useNavItems(): NavItem[] {
   return [
     { href: "/dashboard", label: "Inicio", icon: Home, exact: true },
     { href: "/search", label: "Buscar", icon: Search },
@@ -44,23 +41,19 @@ function useNavItems(isAdmin: boolean): NavItem[] {
     { href: "/songs", label: "Canciones", icon: Music2, group: "Biblioteca" },
     { href: "/playlists", label: "Playlists", icon: ListMusic, group: "Biblioteca" },
     { href: "/recently-played", label: "Recientes", icon: Clock, group: "Biblioteca" },
-    // Configuración es para TODOS los usuarios; el panel sigue siendo admin-only.
+    // Configuración es para TODOS los usuarios. El panel admin vive en
+    // `apps/panel` (otro deploy): la app no linkea ni expone esa superficie.
     { href: "/settings", label: "Configuración", icon: Settings, group: "Administración" },
-    ...(isAdmin
-      ? [{ href: "/panel", label: "Panel admin", icon: Shield, group: "Administración" }]
-      : []),
   ];
 }
 
 function SidebarNav({
-  isAdmin,
   onNavigate,
 }: {
-  isAdmin: boolean;
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
-  const items = useNavItems(isAdmin);
+  const items = useNavItems();
   const groups = [...new Set(items.map((i) => i.group ?? "Principal"))];
 
   function isActive(item: NavItem): boolean {
@@ -110,7 +103,7 @@ function SidebarNav({
 }
 
 /** App shell del área protegida: sidebar (desktop) + drawer (móvil). */
-export function DashboardShell({ user, isAdmin, children }: DashboardShellProps) {
+export function DashboardShell({ user, children }: DashboardShellProps) {
   const [drawerOpen, setDrawerOpen] = React.useState(false);
 
   return (
@@ -144,7 +137,6 @@ export function DashboardShell({ user, isAdmin, children }: DashboardShellProps)
               </button>
             </div>
             <SidebarNav
-              isAdmin={isAdmin}
               onNavigate={() => setDrawerOpen(false)}
             />
           </div>
@@ -162,7 +154,7 @@ export function DashboardShell({ user, isAdmin, children }: DashboardShellProps)
           <BrandLogo size={32} />
           Pulse Stream
         </Link>
-        <SidebarNav isAdmin={isAdmin} />
+        <SidebarNav />
       </aside>
 
       {/* Barra superior móvil: la hamburguesa abre el drawer (la cuenta vive en
@@ -191,7 +183,7 @@ export function DashboardShell({ user, isAdmin, children }: DashboardShellProps)
       </main>
 
       {/* Navegación inferior (móvil) */}
-      <BottomNav user={user} isAdmin={isAdmin} />
+      <BottomNav user={user} />
     </div>
   );
 }

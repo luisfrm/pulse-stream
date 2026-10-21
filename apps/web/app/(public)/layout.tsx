@@ -2,8 +2,8 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { User } from "lucide-react";
 
-import { BrandLogo } from "@/components/brand-logo";
-import { Badge, Button, Skeleton } from "@/components/ui";
+import { BrandLogo } from "@pulse-stream/ui";
+import { Badge, Button, Skeleton } from "@pulse-stream/ui";
 import { getSession } from "@/lib/services/session-service";
 
 /**

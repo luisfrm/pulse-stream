@@ -1,5 +1,5 @@
 import { MediaCardSkeleton } from "@/components/loading-skeletons";
-import { Skeleton } from "@/components/ui";
+import { Skeleton } from "@pulse-stream/ui";
 
 /** Skeleton de Canciones: header + buscador + grid (espejo de la página). */
 export default function SongsLoading() {

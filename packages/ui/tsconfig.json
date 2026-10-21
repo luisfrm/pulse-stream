@@ -1,0 +1,7 @@
+{
+  "extends": "@pulse-stream/config/tsconfig/base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx"
+  },
+  "include": ["src"]
+}

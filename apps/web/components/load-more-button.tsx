@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Loader2 } from "lucide-react";
 
-import { cn } from "@/components/ui";
+import { cn } from "@pulse-stream/ui";
 
 interface LoadMoreButtonProps {
   /** Se llama cuando el usuario quiere la siguiente página. */

@@ -29,7 +29,7 @@ const user = {
 
 describe("BottomNav", () => {
   it("navega a /catalog desde el item Catálogo", () => {
-    render(<BottomNav user={user} isAdmin={false} />);
+    render(<BottomNav user={user} />);
     expect(screen.getByRole("link", { name: /catálogo/i })).toHaveAttribute(
       "href",
       "/catalog"
@@ -37,7 +37,7 @@ describe("BottomNav", () => {
   });
 
   it("navega a /account desde el item Cuenta", () => {
-    render(<BottomNav user={user} isAdmin={false} />);
+    render(<BottomNav user={user} />);
     expect(screen.getByRole("link", { name: /cuenta/i })).toHaveAttribute(
       "href",
       "/account"
@@ -45,7 +45,7 @@ describe("BottomNav", () => {
   });
 
   it("mantiene Inicio, Buscar y el botón Crear", () => {
-    render(<BottomNav user={user} isAdmin={false} />);
+    render(<BottomNav user={user} />);
     expect(screen.getByRole("link", { name: /inicio/i })).toHaveAttribute(
       "href",
       "/dashboard"
@@ -57,14 +57,8 @@ describe("BottomNav", () => {
     expect(screen.getByRole("button", { name: /crear/i })).toBeInTheDocument();
   });
 
-  it("muestra Panel solo para admins", () => {
-    const { rerender } = render(<BottomNav user={user} isAdmin={false} />);
+  it("no expone el panel admin (vive en apps/panel)", () => {
+    render(<BottomNav user={user} />);
     expect(screen.queryByRole("link", { name: /panel/i })).not.toBeInTheDocument();
-
-    rerender(<BottomNav user={user} isAdmin={true} />);
-    expect(screen.getByRole("link", { name: /panel/i })).toHaveAttribute(
-      "href",
-      "/panel"
-    );
   });
 });

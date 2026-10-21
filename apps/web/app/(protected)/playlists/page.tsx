@@ -3,11 +3,11 @@ import { updateTag } from "next/cache";
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
 
-import { Card, CardContent, Title } from "@/components/ui";
+import { Card, CardContent, Title } from "@pulse-stream/ui";
 import { playlistsService } from "@/lib/services/playlists-service";
-import { CACHE_TAGS } from "@/lib/services/tags";
+import { CACHE_TAGS } from "@pulse-stream/shared";
 
-import { CreatePlaylistForm } from "./create-playlist-form";
+import { CreatePlaylistForm } from "@/components/create-playlist-form";
 
 export const metadata: Metadata = { title: "Playlists" };
 export const dynamic = "force-dynamic";

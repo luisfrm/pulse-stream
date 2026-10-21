@@ -30,7 +30,7 @@ jobs:
         run: uv run pytest
 
   web:
-    name: Web (pnpm build)
+    name: Web + Panel (pnpm)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -47,11 +47,27 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Typecheck
+      - name: Typecheck (web)
         run: pnpm --filter @pulse-stream/web typecheck
 
-      - name: Lint
+      - name: Lint (web)
         run: pnpm --filter @pulse-stream/web lint
 
-      - name: Build
+      - name: Build (web)
         run: pnpm --filter @pulse-stream/web build
+
+      - name: Typecheck (panel)
+        run: pnpm --filter @pulse-stream/panel typecheck
+
+      - name: Lint (panel)
+        run: pnpm --filter @pulse-stream/panel lint
+
+      - name: Build (panel)
+        run: pnpm --filter @pulse-stream/panel build
+
+      - name: Tests (frontend)
+        run: |
+          pnpm --filter @pulse-stream/shared test
+          pnpm --filter @pulse-stream/api-client test
+          pnpm --filter @pulse-stream/web test
+          pnpm --filter @pulse-stream/panel test

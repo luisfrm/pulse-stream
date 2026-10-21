@@ -10,7 +10,7 @@ import {
   removeSong,
   canCacheOffline,
 } from "@/lib/offline";
-import { cn } from "@/components/ui";
+import { cn } from "@pulse-stream/ui";
 
 interface OfflineButtonProps {
   song: Song;

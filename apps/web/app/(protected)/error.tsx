@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Card, CardContent, Title } from "@/components/ui";
+import { Button, Card, CardContent, Title } from "@pulse-stream/ui";
 
 export default function ProtectedError({
   reset,

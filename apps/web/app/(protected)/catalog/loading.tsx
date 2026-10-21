@@ -1,5 +1,5 @@
 import { MediaCardSkeleton, SongItemSkeleton } from "@/components/loading-skeletons";
-import { Skeleton } from "@/components/ui";
+import { Skeleton } from "@pulse-stream/ui";
 
 /** Skeleton de Mi catálogo: header + buscador + las 3 secciones reales. */
 export default function CatalogLoading() {

@@ -6,7 +6,7 @@ import { LoadMoreButton } from "@/components/load-more-button";
 import { SongItem } from "@/components/song-item";
 import { songsService } from "@/lib/services/songs-service";
 import type { MyPlaylist, Page, Song } from "@/lib/services/types";
-import { friendlyError } from "@/lib/utils/error";
+import { friendlyError } from "@pulse-stream/shared";
 
 interface PlaylistSongsProps {
   readonly playlistId: string;

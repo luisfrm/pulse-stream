@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { cn } from "@/components/ui";
+import { cn } from "@pulse-stream/ui";
 import type { Album } from "@/lib/services/types";
 
 interface AlbumCardProps {

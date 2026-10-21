@@ -4,7 +4,7 @@ import * as React from "react";
 
 import { listensService } from "@/lib/services/listens-service";
 import type { Song } from "@/lib/services/types";
-import { claimAudio, releaseAudio, type AudioHandle } from "./audio-orchestrator";
+import { claimAudio, releaseAudio, type AudioHandle } from "@pulse-stream/shared";
 
 interface PlayerState {
   current: Song | null;

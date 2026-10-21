@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ChevronRight, LogOut, User } from "lucide-react";
 
-import LogoutButton from "@/components/logout-button";
+import { LogoutButton } from "@pulse-stream/ui";
 import { getSession } from "@/lib/services/session-service";
 
 import { CacheSection } from "./cache-section";

@@ -4,11 +4,11 @@ import Link from "next/link";
 
 import { BackLink } from "@/components/back-link";
 import { MediaCardSkeleton, SongItemSkeleton } from "@/components/loading-skeletons";
-import { SearchInput } from "@/components/search-input";
-import { Skeleton } from "@/components/ui";
+import { SearchInput } from "@pulse-stream/ui";
+import { Skeleton } from "@pulse-stream/ui";
 import { artistsService } from "@/lib/services/artists-service";
 import { songsService } from "@/lib/services/songs-service";
-import { CACHE_TAGS } from "@/lib/services/tags";
+import { CACHE_TAGS } from "@pulse-stream/shared";
 
 import { SearchSongsResults } from "./search-songs-results";
 

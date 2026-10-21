@@ -11,7 +11,7 @@ import { artistsService } from "@/lib/services/artists-service";
 import { playlistsService } from "@/lib/services/playlists-service";
 import { getSession } from "@/lib/services/session-service";
 import { songsService } from "@/lib/services/songs-service";
-import { CACHE_TAGS } from "@/lib/services/tags";
+import { CACHE_TAGS } from "@pulse-stream/shared";
 
 export const metadata: Metadata = { title: "Tu música, donde sea" };
 

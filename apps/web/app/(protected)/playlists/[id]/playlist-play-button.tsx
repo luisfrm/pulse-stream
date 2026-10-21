@@ -3,7 +3,7 @@
 import { Pause, Play } from "lucide-react";
 
 import { usePlayer } from "@/components/player/player-provider";
-import { Button } from "@/components/ui";
+import { Button } from "@pulse-stream/ui";
 import type { Song } from "@/lib/services/types";
 
 interface PlaylistPlayButtonProps {

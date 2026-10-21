@@ -21,14 +21,14 @@ client/secrets y deploy del Worker.
 
 ## Fase 1 — Split del frontend
 
-- [ ] `packages/ui`, `design`, `api-client`, `shared`
-- [ ] `apps/panel` (rutas, shell, servicios, login)
-- [ ] `apps/web` sin panel, sin link al panel
-- [ ] Tailwind v4 compartido + `transpilePackages`
-- [ ] Tests movidos/verdes
-- [ ] `pnpm typecheck && lint && test && build`
-- [ ] Playwright smoke (app + panel)
-- [ ] Commit de fase
+- [x] `packages/ui`, `design`, `api-client`, `shared`
+- [x] `apps/panel` (rutas, shell, servicios, login)
+- [x] `apps/web` sin panel, sin link al panel
+- [x] Tailwind v4 compartido + `transpilePackages`
+- [x] Tests movidos/verdes
+- [x] `pnpm typecheck && lint && test && build`
+- [x] Playwright smoke (app + panel) — panel login → /panel/artists|songs|playlists; app login → /dashboard|/catalog|/songs|/playlists; `/panel` en web = 404; sin errores de consola salvo el 404 intencional
+- [x] Commit de fase
 
 ## Fase 2 — Lecturas
 

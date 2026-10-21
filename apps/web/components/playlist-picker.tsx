@@ -5,11 +5,11 @@ import { Check, ListPlus, Loader2, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
-import { BottomSheet, Button, Input, Textarea, cn } from "@/components/ui";
-import { useIsMobile } from "@/lib/hooks/use-is-mobile";
+import { BottomSheet, Button, Input, Textarea, cn } from "@pulse-stream/ui";
+import { useIsMobile } from "@pulse-stream/ui";
 import { playlistsService } from "@/lib/services/playlists-service";
 import type { MyPlaylist, Song } from "@/lib/services/types";
-import { friendlyError } from "@/lib/utils/error";
+import { friendlyError } from "@pulse-stream/shared";
 
 interface PlaylistPickerProps {
   song: Song;

@@ -1,6 +1,6 @@
 import { BackLink } from "@/components/back-link";
 import { MediaCardSkeleton, SongItemSkeleton } from "@/components/loading-skeletons";
-import { Skeleton } from "@/components/ui";
+import { Skeleton } from "@pulse-stream/ui";
 
 /**
  * Skeleton de Buscar: header + input + resultados.
