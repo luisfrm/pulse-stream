@@ -32,12 +32,39 @@ client/secrets y deploy del Worker.
 
 ## Fase 2 — Lecturas
 
-- [ ] Fixtures dorados de Python
-- [ ] Endpoints de lectura en Hono
-- [ ] Parity tests
-- [ ] Caché pública
-- [ ] Smoke + presupuesto Free
-- [ ] Commit de fase
+- [x] Endpoints de lectura en Hono con contrato espejo de Python: `/songs`,
+      `/songs/popular`, `/songs/{id}`, `/albums`, `/albums/{id}`, `/artists`,
+      `/artists/{id}`, `/genres`, `/playlists/public`, `/playlists`,
+      `/playlists/{id}`, `/me/favorites[/ids|/albums|/albums/ids|/playlists|/playlists/ids]`,
+      `/me/library/ids`, `/me/playlists`, `/me/playlists/page`,
+      `/me/recently-played`
+- [x] `CatalogRepository` (`pg` parametrizado) + mappers puros + schemas Zod
+      OpenAPI + DI `catalog` en `createApp` (tests con fake)
+- [x] Un único `pg.Client` por request compartido entre `users` y `catalog`
+- [x] Tests: 123 en `apps/app-api` (rutas con repo fake, mappers, SQL emitido,
+      caché y los 42 de Fase 0)
+- [x] Caché pública 60 s (`hono/cache`) en GETs públicos; `/me/*`,
+      `/users/me` y `/playlists/{id}` sin caché (no-op si no hay `caches`)
+- [x] Smoke de integración del repository contra la DB de desarrollo (script
+      `tsx` temporal, borrado): `/songs` (51), `/albums/{id}` (13 canciones,
+      nested `song_count` 13), playlist parity (2 canciones en posición),
+      favoritos + biblioteca, `/me/playlists` con `song_ids` y
+      `/me/recently-played` (2 canciones, `user_play_count` 1)
+- [x] Driver de DB local: Neon HTTP (`@neondatabase/serverless`) cuando
+      `ENV=local`; en producción `pg` + Hyperdrive. `pg` sobre TCP no completa
+      la conexión en Miniflare.
+- [x] Desempate de orden estable para canciones con el mismo `created_at`
+      (import ZIP): Python y Hono ordenan `created_at DESC, title ASC, id ASC`;
+      el detalle de álbum por `title ASC, id ASC`.
+- [x] Paridad en vivo Python `:8000` vs Hono `:8787` contra la misma DB:
+      **25/25 endpoints OK** (JSON normalizado, incluye `/me/*`, nested
+      `song_count`, fechas y URLs de R2). Ver
+      `docs/hono_migration/phase-2-reads.md`.
+- [ ] Fixtures dorados reproducibles en CI (seed fijo) — la paridad en vivo ya
+      se corrió; falta empaquetarla para CI.
+- [ ] p99 de CPU < 8 ms medido en Workers
+- [ ] `packages/app-api-types` desde `/openapi.json`
+- [x] Commit de fase
 
 ## Fase 3 — Escrituras
 

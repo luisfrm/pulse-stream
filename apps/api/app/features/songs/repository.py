@@ -63,7 +63,9 @@ class SongRepository:
             ).where(PlaylistSong.playlist_id == playlist_id)
             query = query.order_by(PlaylistSong.position.asc())
         else:
-            query = query.order_by(Song.created_at.desc())
+            query = query.order_by(
+                Song.created_at.desc(), Song.title.asc(), Song.id.asc()
+            )
         result = await self._session.execute(query.offset(offset).limit(limit))
         return list(result.scalars().all())
 

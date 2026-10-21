@@ -1,6 +1,7 @@
 import type { Env } from "./env";
 import type { AppConfig } from "./config";
 import type { GoogleClient } from "./auth/google";
+import type { CatalogRepository } from "./features/catalog/repository";
 import type { UserRepository } from "./features/users/repository";
 import type { Context } from "hono";
 
@@ -10,6 +11,7 @@ export interface AppBindings {
   Variables: {
     config: AppConfig;
     users: UserRepository;
+    catalog: CatalogRepository;
     google: GoogleClient;
   };
 }

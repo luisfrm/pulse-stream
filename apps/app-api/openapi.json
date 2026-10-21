@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Pulse Stream App API",
-    "version": "0.1.0",
-    "description": "API de la app (Hono + Workers). Fase 0: health, sesión Google y /users/me."
+    "version": "0.2.0",
+    "description": "API de la app (Hono + Workers). Fase 2: lecturas de catálogo, biblioteca, favoritos, playlists y recientes con paridad con la API Python."
   },
   "components": {
     "securitySchemes": {
@@ -102,6 +102,857 @@
         },
         "required": [
           "detail"
+        ]
+      },
+      "SongPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SongRead"
+            }
+          },
+          "total": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "offset",
+          "limit"
+        ]
+      },
+      "SongRead": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "artist": {
+            "$ref": "#/components/schemas/ArtistRead"
+          },
+          "album": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AlbumRead"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "genres": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SongGenre"
+            }
+          },
+          "lyrics": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "object_key": {
+            "type": "string"
+          },
+          "duration_seconds": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "play_count": {
+            "type": "integer"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "stream_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cover_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "collaborators": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ArtistRead"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "artist",
+          "album",
+          "genres",
+          "lyrics",
+          "object_key",
+          "duration_seconds",
+          "play_count",
+          "created_at",
+          "stream_url",
+          "cover_url",
+          "collaborators"
+        ]
+      },
+      "ArtistRead": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "image_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cover_key": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "cover_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "image_url",
+          "cover_key",
+          "created_at",
+          "cover_url"
+        ]
+      },
+      "AlbumRead": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "artist": {
+            "$ref": "#/components/schemas/ArtistRead"
+          },
+          "cover_key": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cover_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "song_count": {
+            "type": "integer"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "artist",
+          "cover_key",
+          "cover_url",
+          "song_count",
+          "created_at"
+        ]
+      },
+      "SongGenre": {
+        "type": "string",
+        "enum": [
+          "pop",
+          "rock",
+          "hip-hop",
+          "electronic",
+          "jazz",
+          "classical",
+          "reggaeton",
+          "folk",
+          "metal",
+          "r&b",
+          "latin",
+          "indie"
+        ],
+        "description": "Géneros permitidos (mismo set que valida el backend)."
+      },
+      "SongWithPlays": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "artist": {
+            "$ref": "#/components/schemas/ArtistRead"
+          },
+          "album": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AlbumRead"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "genres": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SongGenre"
+            }
+          },
+          "lyrics": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "object_key": {
+            "type": "string"
+          },
+          "duration_seconds": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "play_count": {
+            "type": "integer"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "stream_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cover_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "collaborators": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ArtistRead"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "artist",
+          "album",
+          "genres",
+          "lyrics",
+          "object_key",
+          "duration_seconds",
+          "play_count",
+          "created_at",
+          "stream_url",
+          "cover_url",
+          "collaborators"
+        ],
+        "description": "Canción + reproducciones en la ventana pedida (no el contador persistente)."
+      },
+      "AlbumPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AlbumRead"
+            }
+          },
+          "total": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "offset",
+          "limit"
+        ]
+      },
+      "AlbumDetail": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "artist": {
+            "$ref": "#/components/schemas/ArtistRead"
+          },
+          "cover_key": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cover_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "song_count": {
+            "type": "integer"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "songs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SongRead"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "artist",
+          "cover_key",
+          "cover_url",
+          "song_count",
+          "created_at",
+          "songs"
+        ]
+      },
+      "ArtistPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ArtistRead"
+            }
+          },
+          "total": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "offset",
+          "limit"
+        ]
+      },
+      "PlaylistPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlaylistRead"
+            }
+          },
+          "total": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "offset",
+          "limit"
+        ]
+      },
+      "PlaylistRead": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/PlaylistKind"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "is_public": {
+            "type": "boolean"
+          },
+          "cover_key": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cover_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "song_count": {
+            "type": "integer"
+          },
+          "query": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlaylistSystemQuery"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "owner_email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "name",
+          "description",
+          "is_public",
+          "cover_key",
+          "cover_url",
+          "song_count",
+          "query",
+          "owner_email",
+          "created_at"
+        ]
+      },
+      "PlaylistKind": {
+        "type": "string",
+        "enum": [
+          "user",
+          "system"
+        ],
+        "description": "Tipo de playlist (columna VARCHAR plana)."
+      },
+      "PlaylistSystemQuery": {
+        "type": "string",
+        "enum": [
+          "top_week",
+          "top_month",
+          "new"
+        ],
+        "description": "Snapshot que generó una playlist del sistema."
+      },
+      "PlaylistDetail": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/PlaylistKind"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "is_public": {
+            "type": "boolean"
+          },
+          "cover_key": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cover_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "song_count": {
+            "type": "integer"
+          },
+          "query": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlaylistSystemQuery"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "owner_email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "songs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SongRead"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "name",
+          "description",
+          "is_public",
+          "cover_key",
+          "cover_url",
+          "song_count",
+          "query",
+          "owner_email",
+          "created_at",
+          "songs"
+        ]
+      },
+      "LibraryIds": {
+        "type": "object",
+        "properties": {
+          "song_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "album_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "playlist_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": [
+          "song_ids",
+          "album_ids",
+          "playlist_ids"
+        ]
+      },
+      "MyPlaylistRead": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/PlaylistKind"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "is_public": {
+            "type": "boolean"
+          },
+          "cover_key": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cover_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "song_count": {
+            "type": "integer"
+          },
+          "query": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlaylistSystemQuery"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "owner_email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "song_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "name",
+          "description",
+          "is_public",
+          "cover_key",
+          "cover_url",
+          "song_count",
+          "query",
+          "owner_email",
+          "created_at",
+          "song_ids"
+        ]
+      },
+      "MyPlaylistPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MyPlaylistRead"
+            }
+          },
+          "total": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "offset",
+          "limit"
+        ]
+      },
+      "RecentlyPlayedPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecentlyPlayedSong"
+            }
+          },
+          "total": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "offset",
+          "limit"
+        ]
+      },
+      "RecentlyPlayedSong": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "artist": {
+            "$ref": "#/components/schemas/ArtistRead"
+          },
+          "album": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AlbumRead"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "genres": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SongGenre"
+            }
+          },
+          "lyrics": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "object_key": {
+            "type": "string"
+          },
+          "duration_seconds": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "play_count": {
+            "type": "integer"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "stream_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cover_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "collaborators": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ArtistRead"
+            }
+          },
+          "user_play_count": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "artist",
+          "album",
+          "genres",
+          "lyrics",
+          "object_key",
+          "duration_seconds",
+          "play_count",
+          "created_at",
+          "stream_url",
+          "cover_url",
+          "collaborators",
+          "user_play_count"
         ]
       }
     },
@@ -273,6 +1124,1242 @@
         "responses": {
           "204": {
             "description": "Sesión cerrada"
+          }
+        }
+      }
+    },
+    "/songs": {
+      "get": {
+        "tags": [
+          "songs"
+        ],
+        "summary": "Listado de canciones",
+        "description": "Catálogo paginado. Filtros: `q` (título, ILIKE), `artist_id`, `collaborator_id` (excluye al artista principal), `album_id` y `playlist_id` (orden por posición).",
+        "parameters": [
+          {
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "default": 0
+            },
+            "required": false,
+            "name": "offset",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 255
+            },
+            "required": false,
+            "name": "q",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": false,
+            "name": "artist_id",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": false,
+            "name": "collaborator_id",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": false,
+            "name": "album_id",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": false,
+            "name": "playlist_id",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Página de canciones",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SongPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Query inválida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/songs/popular": {
+      "get": {
+        "tags": [
+          "songs"
+        ],
+        "summary": "Canciones más escuchadas",
+        "description": "Top por reproducciones en una ventana (`days`, o el mes calendario UTC con `month=true`). `play_count` es el count de la ventana.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 10
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 365,
+              "default": 30
+            },
+            "required": false,
+            "name": "days",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "0",
+                "1",
+                "true",
+                "false"
+              ]
+            },
+            "required": false,
+            "name": "month",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ranking de canciones",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SongWithPlays"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Query inválida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/songs/{song_id}": {
+      "get": {
+        "tags": [
+          "songs"
+        ],
+        "summary": "Detalle de una canción",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "song_id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Canción",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SongRead"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ID inválido",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Canción inexistente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/albums": {
+      "get": {
+        "tags": [
+          "albums"
+        ],
+        "summary": "Listado de álbumes",
+        "parameters": [
+          {
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "default": 0
+            },
+            "required": false,
+            "name": "offset",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 255
+            },
+            "required": false,
+            "name": "q",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": false,
+            "name": "artist_id",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Página de álbumes (con `song_count`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlbumPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Query inválida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/albums/{album_id}": {
+      "get": {
+        "tags": [
+          "albums"
+        ],
+        "summary": "Detalle de un álbum",
+        "description": "Álbum + canciones. Cada `song.album.song_count` es el total real del álbum (a diferencia de los listados, donde es 0).",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "album_id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Álbum con sus canciones",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlbumDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ID inválido",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Álbum inexistente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/artists": {
+      "get": {
+        "tags": [
+          "artists"
+        ],
+        "summary": "Listado de artistas",
+        "parameters": [
+          {
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "default": 0
+            },
+            "required": false,
+            "name": "offset",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 255
+            },
+            "required": false,
+            "name": "q",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Página de artistas (orden por nombre)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtistPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Query inválida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/artists/{artist_id}": {
+      "get": {
+        "tags": [
+          "artists"
+        ],
+        "summary": "Detalle de un artista",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "artist_id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Artista",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtistRead"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ID inválido",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Artista inexistente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/genres": {
+      "get": {
+        "tags": [
+          "genres"
+        ],
+        "summary": "Géneros permitidos",
+        "responses": {
+          "200": {
+            "description": "Géneros (mismo set que valida el backend)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SongGenre"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/playlists/public": {
+      "get": {
+        "tags": [
+          "playlists"
+        ],
+        "summary": "Feed público de playlists",
+        "description": "Playlists públicas de toda la comunidad: las del sistema primero y luego las nuevas.",
+        "parameters": [
+          {
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "default": 0
+            },
+            "required": false,
+            "name": "offset",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Página de playlists públicas",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlaylistPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Query inválida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/playlists": {
+      "get": {
+        "tags": [
+          "playlists"
+        ],
+        "summary": "Playlists del usuario autenticado",
+        "description": "`mine=true` (default): todas las del usuario. `mine=false`: solo las públicas del mismo perfil.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "0",
+                "1",
+                "true",
+                "false"
+              ]
+            },
+            "required": false,
+            "name": "mine",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Playlists del usuario",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PlaylistRead"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Query inválida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión válida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/playlists/{playlist_id}": {
+      "get": {
+        "tags": [
+          "playlists"
+        ],
+        "summary": "Detalle de una playlist",
+        "description": "Playlist + canciones ordenadas por posición. 403 si es privada y el usuario no es el dueño.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "playlist_id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Playlist con sus canciones",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlaylistDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ID inválido",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión válida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Playlist privada de otro usuario",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Playlist inexistente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/favorites": {
+      "get": {
+        "tags": [
+          "favorites"
+        ],
+        "summary": "Canciones favoritas",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "default": 0
+            },
+            "required": false,
+            "name": "offset",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Página de canciones favoritas (like más reciente primero)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SongPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Query inválida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión válida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/favorites/ids": {
+      "get": {
+        "tags": [
+          "favorites"
+        ],
+        "summary": "IDs de canciones favoritas",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "UUIDs ordenados",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión válida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/favorites/albums": {
+      "get": {
+        "tags": [
+          "favorites"
+        ],
+        "summary": "Álbumes favoritos",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "default": 0
+            },
+            "required": false,
+            "name": "offset",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Página de álbumes favoritos (con `song_count` real)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlbumPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Query inválida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión válida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/favorites/albums/ids": {
+      "get": {
+        "tags": [
+          "favorites"
+        ],
+        "summary": "IDs de álbumes favoritos",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "UUIDs ordenados",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión válida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/favorites/playlists": {
+      "get": {
+        "tags": [
+          "favorites"
+        ],
+        "summary": "Playlists favoritas",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "default": 0
+            },
+            "required": false,
+            "name": "offset",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Página de playlists favoritas",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlaylistPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Query inválida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión válida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/favorites/playlists/ids": {
+      "get": {
+        "tags": [
+          "favorites"
+        ],
+        "summary": "IDs de playlists favoritas",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "UUIDs ordenados",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión válida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/library/ids": {
+      "get": {
+        "tags": [
+          "library"
+        ],
+        "summary": "Los 3 sets de likes del usuario",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "`{song_ids, album_ids, playlist_ids}` ordenados",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryIds"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión válida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/playlists": {
+      "get": {
+        "tags": [
+          "playlists"
+        ],
+        "summary": "Mis playlists (con `song_ids`)",
+        "description": "Todas las playlists del usuario con `song_ids` en orden de posición (PlaylistPicker).",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Playlists del usuario",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MyPlaylistRead"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión válida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/playlists/page": {
+      "get": {
+        "tags": [
+          "playlists"
+        ],
+        "summary": "Mis playlists (paginadas)",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "default": 0
+            },
+            "required": false,
+            "name": "offset",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Página de playlists del usuario",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyPlaylistPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Query inválida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión válida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/recently-played": {
+      "get": {
+        "tags": [
+          "listens"
+        ],
+        "summary": "Canciones escuchadas recientemente",
+        "description": "Sin duplicados, último play primero. Cada item trae `user_play_count`.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "default": 0
+            },
+            "required": false,
+            "name": "offset",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Página de recientes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecentlyPlayedPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Query inválida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión válida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       }

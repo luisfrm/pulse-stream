@@ -6,24 +6,33 @@ import { SESSION_COOKIE } from "./auth/cookies";
 import type { GoogleClient } from "./auth/google";
 import { createAuthRoutes } from "./auth/routes";
 import type { AppConfig } from "./config";
+import type { RequestRepositories } from "./db/client";
 import type { Env } from "./env";
+import { createCatalogRoutes } from "./features/catalog/routes";
+import { createCatalogMeRoutes } from "./features/catalog/me-routes";
+import type { CatalogRepository } from "./features/catalog/repository";
 import type { UserRepository } from "./features/users/repository";
 import { createUsersRoutes } from "./features/users/routes";
 import { AppError, ErrorSchema } from "./lib/errors";
 import type { AppBindings, AppContext } from "./types";
 
 export type UserRepositoryFactory = (env: Env) => UserRepository;
+export type CatalogRepositoryFactory = (env: Env) => CatalogRepository;
 
 /**
  * Dependencias inyectables para testear sin DB ni red.
- * `users` puede ser:
- * - una instancia (tests: repo fake en memoria);
- * - una factory `(env) => repository` (producción: `pg.Client` por request).
+ *
+ * - `users`/`catalog`: una instancia (tests: repo fake en memoria) o una
+ *   factory `(env) => repository`.
+ * - `repositories` (producción): crea `users` + `catalog` compartiendo un
+ *   único `pg.Client` por request (`db/client.ts`).
  */
 export interface AppDependencies {
   config: AppConfig;
-  users: UserRepository | UserRepositoryFactory;
   google: GoogleClient;
+  users?: UserRepository | UserRepositoryFactory;
+  catalog?: CatalogRepository | CatalogRepositoryFactory;
+  repositories?: (env: Env) => RequestRepositories;
 }
 
 const healthRoute = createRoute({
@@ -43,19 +52,47 @@ const healthRoute = createRoute({
   },
 });
 
-function resolveUsers(
-  source: UserRepository | UserRepositoryFactory,
-  env: Env,
-): UserRepository {
-  return typeof source === "function" ? source(env) : source;
+interface ResolvedRepositories {
+  users: UserRepository;
+  catalog: CatalogRepository;
+  close(): Promise<void>;
 }
 
-function closeUsers(c: AppContext, users: UserRepository): void {
-  if (typeof users.close !== "function") return;
+function resolveRepositories(
+  deps: AppDependencies,
+  env: Env,
+): ResolvedRepositories {
+  if (deps.repositories) {
+    const repositories = deps.repositories(env);
+    return {
+      users: repositories.users,
+      catalog: repositories.catalog,
+      close: () => repositories.close(),
+    };
+  }
 
+  const users =
+    typeof deps.users === "function" ? deps.users(env) : deps.users;
+  const catalog =
+    typeof deps.catalog === "function" ? deps.catalog(env) : deps.catalog;
+
+  if (!users) throw new Error("app-api: users repository is not configured");
+  if (!catalog) throw new Error("app-api: catalog repository is not configured");
+
+  return {
+    users,
+    catalog,
+    close: async () => {
+      await users.close?.();
+      await catalog.close?.();
+    },
+  };
+}
+
+function closeRepositories(c: AppContext, repositories: ResolvedRepositories): void {
   let closing: Promise<void>;
   try {
-    closing = users.close().catch(() => undefined);
+    closing = repositories.close().catch(() => undefined);
   } catch {
     return;
   }
@@ -115,16 +152,17 @@ export function createApp(deps: AppDependencies): OpenAPIHono<AppBindings> {
   });
 
   app.use("*", async (c, next) => {
-    const users = resolveUsers(deps.users, c.env);
+    const repositories = resolveRepositories(deps, c.env);
 
     c.set("config", deps.config);
-    c.set("users", users);
+    c.set("users", repositories.users);
+    c.set("catalog", repositories.catalog);
     c.set("google", deps.google);
 
     try {
       await next();
     } finally {
-      closeUsers(c, users);
+      closeRepositories(c, repositories);
     }
   });
 
@@ -137,6 +175,8 @@ export function createApp(deps: AppDependencies): OpenAPIHono<AppBindings> {
   app.openapi(healthRoute, (c) => c.json({ status: "ok" as const }, 200));
   app.route("/", createUsersRoutes());
   app.route("/", createAuthRoutes());
+  app.route("/", createCatalogRoutes());
+  app.route("/", createCatalogMeRoutes());
 
   app.notFound((c) => c.json({ detail: "Not Found" }, 404));
   app.onError((error, c) => handleError(error, c));
@@ -145,9 +185,9 @@ export function createApp(deps: AppDependencies): OpenAPIHono<AppBindings> {
     openapi: "3.1.0",
     info: {
       title: "Pulse Stream App API",
-      version: "0.1.0",
+      version: "0.2.0",
       description:
-        "API de la app (Hono + Workers). Fase 0: health, sesión Google y /users/me.",
+        "API de la app (Hono + Workers). Fase 2: lecturas de catálogo, biblioteca, favoritos, playlists y recientes con paridad con la API Python.",
     },
   });
 

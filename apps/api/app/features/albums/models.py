@@ -42,7 +42,14 @@ class Album(Base):
     )
 
     artist: Mapped["Artist"] = relationship(back_populates="albums")
-    songs: Mapped[list["Song"]] = relationship(back_populates="album")
+    songs: Mapped[list["Song"]] = relationship(
+        back_populates="album",
+        # Orden estable de las canciones del álbum. El import ZIP crea todas
+        # las canciones en la misma transacción (mismo `created_at`), así que
+        # hace falta un desempate: título + id (los filenames del ZIP ya vienen
+        # ordenados por nombre, así que el orden es el esperado).
+        order_by="Song.title, Song.id",
+    )
     favorited_by: Mapped[list["UserFavoriteAlbum"]] = relationship(
         back_populates="album", cascade="all, delete-orphan"
     )

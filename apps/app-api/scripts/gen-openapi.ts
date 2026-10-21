@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { createApp } from "../src/app";
 import { createGoogleClient } from "../src/auth/google";
 import type { AppConfig } from "../src/config";
-import type { UserRepository } from "../src/features/users/repository";
+import { createRequestRepositories } from "../src/db/client";
 
 /**
  * Genera `openapi.json` sin DB ni credenciales reales.
@@ -24,20 +24,12 @@ const config: AppConfig = {
   r2PublicBaseUrl: "",
 };
 
-const users: UserRepository = {
-  getById: async () => null,
-  findByEmail: async () => null,
-  findByOAuth: async () => null,
-  createUserWithOAuth: async () => {
-    throw new Error("not implemented for OpenAPI generation");
-  },
-  linkOAuth: async () => undefined,
-};
-
 const app = createApp({
   config,
-  users,
   google: createGoogleClient(config.google),
+  // Sin `DATABASE_URL`: los repositories existen pero nunca se conectan
+  // (generar el documento no ejecuta queries).
+  repositories: () => createRequestRepositories({}),
 });
 
 const response = await app.request("http://localhost/openapi.json");

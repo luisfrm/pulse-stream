@@ -69,18 +69,82 @@
 - `domain` de `genres` en minúscula; `formatGenre` sigue en el front.
 - `MyPlaylistRead.song_ids` en orden de `position`.
 
+## Contrato verificado contra Python (dev DB, 2026-10-21)
+
+- `Page<T> = {items,total,offset,limit}`.
+- `ArtistRead`: `id,name,image_url,cover_key,created_at,cover_url`.
+- `AlbumRead`: `id,title,artist,cover_key,cover_url,song_count,created_at`.
+- `SongRead`: `id,title,artist,album,genres,lyrics,object_key,duration_seconds,play_count,created_at,stream_url,cover_url,collaborators`.
+  - En listas, detalle de song, favoritos, recientes y playlist detail, `song.album.song_count` es **0** (comportamiento de Python; no "corregir").
+  - En `GET /albums/{id}`, `song.album.song_count` es el total del álbum.
+- `PlaylistRead`: `id,kind,name,description,is_public,cover_key,cover_url,song_count,query,owner_email,created_at`.
+- `PlaylistDetail`: PlaylistRead + `songs` (orden position; nested album song_count 0).
+- `MyPlaylistRead`: PlaylistRead + `song_ids` (orden position), sin `songs`.
+- `RecentlyPlayedSong`: SongRead + `user_play_count`.
+- `SongWithPlays`: SongRead con `play_count` = count de la ventana (no el contador persistente).
+- URLs: `stream_url = R2_PUBLIC_BASE_URL + "/" + object_key`; cover de song = cover del álbum; el resto = su `cover_key`; null si falta key/base.
+- Fechas ISO-8601 con `Z`; UUIDs string.
+
+Datos de paridad sembrados en dev:
+
+| Dato | Valor |
+|---|---|
+| Usuario | `parity@pulse.example.com` / `Parity-Pass-2026!` — id `ad26a7b7-2d81-44ad-b905-d97a1e174ba8` |
+| Playlist pública | `0336f34f-05f1-4a4d-a0f8-374c9905da67` ("Parity Mix", 2 songs, posiciones 0/1) |
+| Favoritos | song `94813f9e-fcd3-41b2-b92a-bf3daa6048fa`, album `20bfa259-2923-4835-bbba-8be7a3cf9598`, playlist de arriba |
+| Escuchas | 2 plays (song1 + song2) del usuario parity |
+
+Smoke de paridad sugerido (después de implementar): levantar Python `:8000` y Hono
+`:8787` contra la misma DB, firmar una sesión Hono para el usuario parity y
+comparar JSON normalizado de cada endpoint (público y `/me/*`).
+
 ## Verificación
 
-```bash
-pnpm --filter @pulse-stream/app-api test
-pnpm --filter @pulse-stream/app-api typecheck
-# smoke local
-pnpm --filter @pulse-stream/app-api dev
-pnpm --filter @pulse-stream/web dev
-```
+### Driver de DB local (hallazgo real)
 
-Playwright: home, dashboard, search, catálogo, detalle de canción/álbum/artista,
-playlists, recientes. Comparar respuestas/UX contra la versión Python.
+`pg` sobre TCP + Hyperdrive local se cuelga en `wrangler dev` contra Neon
+(Miniflare no completa el socket y el runtime cancela el request). La solución:
+
+- `ENV=local` + `DATABASE_URL` → `NeonHttpDatabase`
+  (`@neondatabase/serverless`, HTTP). Misma SQL parametrizada, sin TCP.
+- `ENV=dev|prod` + `HYPERDRIVE` → `RequestDatabase` (`pg` + Hyperdrive), el
+  camino recomendado por Neon para Workers en producción.
+- Un solo `Queryable` por request compartido entre `users` y `catalog`.
+
+### Orden estable con timestamps iguales
+
+El import ZIP crea todas las canciones en una transacción → mismo
+`created_at`. Para que la paginación sea determinista y la paridad posible:
+
+- `/songs` (y favoritos): `created_at DESC, title ASC, id ASC`.
+- `GET /albums/{id}` (`Album.songs`): `title ASC, id ASC` (los filenames del ZIP
+  ya venían ordenados por nombre, así que el orden es el esperado).
+- Python (`songs/repository.py`, `albums/models.py`) y Hono usan la misma regla.
+
+### Paridad en vivo (2026-10-21)
+
+Python `:8000` + Hono `:8787` (Neon HTTP) contra la misma DB de desarrollo, con
+el usuario parity y una sesión Hono firmada. **25/25 endpoints OK**, comparando
+JSON normalizado (fechas, claves, orden de items):
+
+- Públicos: songs (+ filtros playlist/q), popular (days/month), detalle,
+  albums, album detail, artists, genres, playlists/public.
+- Auth: `/playlists?mine=true`, playlist detail, favoritos (songs/albums/
+  playlists + ids), library ids, `/me/playlists`, `/me/playlists/page`,
+  `/me/recently-played`, `/users/me`.
+- Diferencias esperadas y documentadas: `400 {detail}` en validación (FastAPI
+  devuelve 422), `mine=false` sin el tope accidental de 100 de Python, y
+  `MyPlaylistRead` sin el corte de 50 (devuelve todas).
+
+### Comandos
+
+```bash
+pnpm --filter @pulse-stream/app-api typecheck
+pnpm --filter @pulse-stream/app-api test
+pnpm --filter @pulse-stream/app-api gen:openapi
+# smoke local: wrangler dev con .dev.vars (ENV=local, DATABASE_URL, AUTH_SECRET,
+# R2_PUBLIC_BASE_URL) + uvicorn :8000, misma DB
+```
 
 ## Criterios de cierre
 

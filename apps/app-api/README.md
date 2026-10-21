@@ -73,6 +73,11 @@ local, comentar el bloque `hyperdrive` de `wrangler.jsonc` para que
 `db/client.ts` use `DATABASE_URL`, o dejar el binding y exportar
 `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE="postgresql://..."`
 
+**Driver de DB local:** con `ENV=local` + `DATABASE_URL`, `db/client.ts` usa
+`@neondatabase/serverless` (HTTP) porque `pg` sobre TCP no completa la conexión
+en Miniflare. En `dev`/`prod` usa `pg` + Hyperdrive (el camino de producción).
+El resto del código (repositorios, SQL) es idéntico.
+
 ## Contrato (Fase 0)
 
 | Método | Path | Respuesta |

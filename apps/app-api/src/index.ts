@@ -1,7 +1,7 @@
 import { createApp } from "./app";
 import { createGoogleClient } from "./auth/google";
 import { parseConfig } from "./config";
-import { createRequestUserRepository } from "./db/client";
+import { createRequestRepositories } from "./db/client";
 import type { Env } from "./env";
 
 /**
@@ -9,7 +9,8 @@ import type { Env } from "./env";
  *
  * `createApp` se construye por request porque `parseConfig(env)` necesita los
  * bindings/secrets del runtime y el `pg.Client` es por request. El registro de
- * rutas es barato; la conexión a la DB se abre recién en la primera query.
+ * rutas es barato; la conexión a la DB se abre recién en la primera query y
+ * `users` + `catalog` comparten esa única conexión.
  */
 export default {
   async fetch(
@@ -21,8 +22,8 @@ export default {
       const config = parseConfig(env);
       const app = createApp({
         config,
-        users: (requestEnv) => createRequestUserRepository(requestEnv),
         google: createGoogleClient(config.google),
+        repositories: (requestEnv) => createRequestRepositories(requestEnv),
       });
 
       return await app.fetch(request, env, ctx);

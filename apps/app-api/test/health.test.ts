@@ -12,7 +12,7 @@ describe("GET /health", () => {
     await expect(response.json()).resolves.toEqual({ status: "ok" });
   });
 
-  it("expone el OpenAPI 3.1 con las rutas de Fase 0", async () => {
+  it("expone el OpenAPI 3.1 con las rutas publicadas", async () => {
     const { app } = buildTestApp();
 
     const response = await app.request("/openapi.json");
@@ -26,10 +26,31 @@ describe("GET /health", () => {
 
     expect(document.openapi).toBe("3.1.0");
     expect(Object.keys(document.paths).sort()).toEqual([
+      "/albums",
+      "/albums/{album_id}",
+      "/artists",
+      "/artists/{artist_id}",
       "/auth/google",
       "/auth/google/callback",
       "/auth/logout",
+      "/genres",
       "/health",
+      "/me/favorites",
+      "/me/favorites/albums",
+      "/me/favorites/albums/ids",
+      "/me/favorites/ids",
+      "/me/favorites/playlists",
+      "/me/favorites/playlists/ids",
+      "/me/library/ids",
+      "/me/playlists",
+      "/me/playlists/page",
+      "/me/recently-played",
+      "/playlists",
+      "/playlists/public",
+      "/playlists/{playlist_id}",
+      "/songs",
+      "/songs/popular",
+      "/songs/{song_id}",
       "/users/me",
     ]);
     expect(document.components?.securitySchemes).toHaveProperty(

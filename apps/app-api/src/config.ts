@@ -121,11 +121,19 @@ export function parseConfig(env: Env): AppConfig {
   };
 }
 
+/** URL pública de un objeto de R2 (`R2_PUBLIC_BASE_URL` + key). */
+export function publicObjectUrl(
+  baseUrl: string,
+  key: string | null | undefined,
+): string | null {
+  if (!baseUrl || !key) return null;
+  return `${trimTrailingSlashes(baseUrl)}/${key.replace(/^\/+/, "")}`;
+}
+
 /** URL pública de un cover (`R2_PUBLIC_BASE_URL` + `cover_key`). */
 export function publicCoverUrl(
   baseUrl: string,
   coverKey: string | null,
 ): string | null {
-  if (!baseUrl || !coverKey) return null;
-  return `${trimTrailingSlashes(baseUrl)}/${coverKey.replace(/^\/+/, "")}`;
+  return publicObjectUrl(baseUrl, coverKey);
 }

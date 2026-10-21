@@ -1,6 +1,7 @@
 import { createApp } from "../src/app";
 import type { GoogleClient } from "../src/auth/google";
 import type { AppConfig } from "../src/config";
+import type { CatalogRepository } from "../src/features/catalog/repository";
 import type {
   UserRecord,
   UserRepository,
@@ -66,6 +67,40 @@ export function fakeRepository(
   };
 }
 
+/** `CatalogRepository` vacío (todas las lecturas devuelven listas vacías). */
+export function fakeCatalog(
+  overrides: Partial<CatalogRepository> = {},
+): CatalogRepository {
+  return {
+    listSongs: async () => ({ items: [], total: 0 }),
+    listPopularSongs: async () => [],
+    getSongById: async () => null,
+    listAlbums: async () => ({ items: [], total: 0 }),
+    getAlbumWithSongs: async () => null,
+    listArtists: async () => ({ items: [], total: 0 }),
+    getArtistById: async () => null,
+    listPublicPlaylists: async () => ({ items: [], total: 0 }),
+    listPlaylistsByOwner: async () => [],
+    listPublicPlaylistsByOwner: async () => [],
+    getPlaylistWithSongs: async () => null,
+    listFavoriteSongs: async () => ({ items: [], total: 0 }),
+    listFavoriteSongIds: async () => [],
+    listFavoriteAlbums: async () => ({ items: [], total: 0 }),
+    listFavoriteAlbumIds: async () => [],
+    listFavoritePlaylists: async () => ({ items: [], total: 0 }),
+    listFavoritePlaylistIds: async () => [],
+    getLibraryIds: async () => ({
+      song_ids: [],
+      album_ids: [],
+      playlist_ids: [],
+    }),
+    listMyPlaylists: async () => [],
+    listMyPlaylistsPage: async () => ({ items: [], total: 0 }),
+    listRecentlyPlayed: async () => ({ items: [], total: 0 }),
+    ...overrides,
+  };
+}
+
 export function fakeGoogle(overrides: Partial<GoogleClient> = {}): GoogleClient {
   return {
     buildAuthUrl: ({ state, codeChallenge }) =>
@@ -85,6 +120,7 @@ export function fakeGoogle(overrides: Partial<GoogleClient> = {}): GoogleClient 
 export interface TestAppOptions {
   config?: AppConfig;
   users?: UserRepository;
+  catalog?: CatalogRepository;
   google?: GoogleClient;
 }
 
@@ -92,15 +128,23 @@ export interface TestApp {
   app: ReturnType<typeof createApp>;
   config: AppConfig;
   users: UserRepository;
+  catalog: CatalogRepository;
   google: GoogleClient;
 }
 
 export function buildTestApp(options: TestAppOptions = {}): TestApp {
   const config = options.config ?? testConfig();
   const users = options.users ?? fakeRepository();
+  const catalog = options.catalog ?? fakeCatalog();
   const google = options.google ?? fakeGoogle();
 
-  return { app: createApp({ config, users, google }), config, users, google };
+  return {
+    app: createApp({ config, users, catalog, google }),
+    config,
+    users,
+    catalog,
+    google,
+  };
 }
 
 type HeadersWithSetCookie = Headers & { getSetCookie?: () => string[] };

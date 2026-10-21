@@ -1,10 +1,13 @@
-import type { Client, QueryResultRow } from "pg";
+import type { QueryResultRow } from "pg";
+
+import type { Queryable } from "../../db/types";
 
 /**
  * Acceso a `users` + `oauth_accounts`.
  *
- * SQL parametrizado (sin interpolación de valores). El cliente `pg` es por
- * request y lo cierra el middleware de `app.ts` con `ctx.waitUntil`.
+ * SQL parametrizado (sin interpolación de valores). El cliente es por request
+ * (`db/client.ts`) y lo comparte con `catalog`; el cierre vive en `app.ts`
+ * (`ctx.waitUntil`), nunca en el repository.
  */
 export const GOOGLE_PROVIDER = "google";
 
@@ -45,7 +48,7 @@ export interface UserRepository {
   ): Promise<UserRecord | null>;
   createUserWithOAuth(input: CreateUserWithOAuthInput): Promise<UserRecord>;
   linkOAuth(userId: string, input: LinkOAuthInput): Promise<void>;
-  /** Cierra el `pg.Client` del request (no-op si nunca se usó). */
+  /** Cierra el cliente si el repository es dueño de uno (tests/producción). */
   close?(): Promise<void>;
 }
 
@@ -103,11 +106,9 @@ function translateCreateUserError(error: unknown): unknown {
 }
 
 export class PgUserRepository implements UserRepository {
-  private used = false;
+  constructor(private readonly client: Queryable | null) {}
 
-  constructor(private readonly client: Client | null) {}
-
-  private get db(): Client {
+  private get db(): Queryable {
     if (!this.client) {
       throw new Error(
         "Database is not configured: bind HYPERDRIVE or set DATABASE_URL",
@@ -120,7 +121,6 @@ export class PgUserRepository implements UserRepository {
     text: string,
     values: unknown[],
   ): Promise<T[]> {
-    this.used = true;
     const result = await this.db.query<T>(text, values);
     return result.rows;
   }
@@ -163,7 +163,6 @@ export class PgUserRepository implements UserRepository {
   async createUserWithOAuth(
     input: CreateUserWithOAuthInput,
   ): Promise<UserRecord> {
-    this.used = true;
     const db = this.db;
     const userId = crypto.randomUUID();
     const oauthId = crypto.randomUUID();
@@ -208,7 +207,6 @@ export class PgUserRepository implements UserRepository {
   }
 
   async linkOAuth(userId: string, input: LinkOAuthInput): Promise<void> {
-    this.used = true;
     // Idempotente: si otra request ya linkeó (provider, account) o el usuario
     // ya tenía ese provider, no rompe el login.
     await this.db.query(
@@ -225,11 +223,5 @@ export class PgUserRepository implements UserRepository {
         input.email ?? null,
       ],
     );
-  }
-
-  async close(): Promise<void> {
-    if (!this.used) return;
-    this.used = false;
-    await this.db.end();
   }
 }
