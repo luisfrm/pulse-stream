@@ -36,3 +36,6 @@ Thumbs.db
 
 # Next.js
 *.tsbuildinfo
+
+# Playwright MCP artifacts
+.playwright-mcp/
