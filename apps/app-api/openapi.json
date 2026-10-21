@@ -1,0 +1,282 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Pulse Stream App API",
+    "version": "0.1.0",
+    "description": "API de la app (Hono + Workers). Fase 0: health, sesión Google y /users/me."
+  },
+  "components": {
+    "securitySchemes": {
+      "sessionCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "session"
+      }
+    },
+    "schemas": {
+      "Health": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "UserRead": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "is_active": {
+            "type": "boolean"
+          },
+          "is_verified": {
+            "type": "boolean"
+          },
+          "is_superuser": {
+            "type": "boolean"
+          },
+          "role": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "admin",
+              null
+            ]
+          },
+          "username": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cover_key": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cover_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "total_plays": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "is_active",
+          "is_verified",
+          "is_superuser",
+          "role",
+          "username",
+          "cover_key",
+          "cover_url",
+          "total_plays"
+        ]
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "detail": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "detail"
+        ]
+      }
+    },
+    "parameters": {}
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "summary": "Healthcheck",
+        "responses": {
+          "200": {
+            "description": "El Worker está vivo",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/me": {
+      "get": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Usuario autenticado",
+        "description": "Devuelve el usuario dueño de la cookie `session`. Responde 401 si no hay sesión válida.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Usuario autenticado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserRead"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin sesión válida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/google": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Inicia el login con Google",
+        "description": "Genera state + PKCE S256, firma la cookie `oauth_state` (10 min) y redirige a Google.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "example": "/dashboard",
+              "description": "Path interno del frontend al que volver tras el login (default `/dashboard`)."
+            },
+            "required": false,
+            "description": "Path interno del frontend al que volver tras el login (default `/dashboard`).",
+            "name": "returnTo",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirect a accounts.google.com"
+          },
+          "503": {
+            "description": "Google OAuth sin configurar",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/google/callback": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Callback de Google",
+        "description": "Valida state/PKCE, intercambia el code, verifica el id_token, resuelve el usuario y setea la cookie `session`.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "code",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "state",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirect a APP_URL + returnTo"
+          },
+          "400": {
+            "description": "State/code inválido",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Fallo del token endpoint de Google",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Google OAuth sin configurar",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Cierra la sesión",
+        "description": "Expira la cookie `session` (Max-Age=0).",
+        "responses": {
+          "204": {
+            "description": "Sesión cerrada"
+          }
+        }
+      }
+    }
+  },
+  "webhooks": {}
+}

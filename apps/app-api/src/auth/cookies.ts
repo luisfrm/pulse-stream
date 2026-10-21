@@ -1,0 +1,95 @@
+import type { Context } from "hono";
+import { getCookie, setCookie } from "hono/cookie";
+import type { CookieOptions } from "hono/utils/cookie";
+
+import type { AppConfig } from "../config";
+import type { AppBindings } from "../types";
+
+/**
+ * Cookies de la app.
+ *
+ * - `session`: HttpOnly, Path=/, SameSite=Lax, Secure salvo `ENV=local`,
+ *   7 días. Con `COOKIE_DOMAIN` seteado viaja a los subdominios del dominio
+ *   registrable (en prod app/api son subdominios distintos).
+ * - `oauth_state`: JWT firmado con state + PKCE verifier + returnTo, Path=/auth,
+ *   10 minutos. `Path=/auth` alcanza tanto el inicio como el callback.
+ */
+export const SESSION_COOKIE = "session";
+export const OAUTH_STATE_COOKIE = "oauth_state";
+
+export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7; // 7 días
+export const OAUTH_STATE_MAX_AGE_SECONDS = 60 * 10; // 10 minutos
+export const OAUTH_STATE_COOKIE_PATH = "/auth";
+
+type CookieContext = Context<AppBindings>;
+
+function baseOptions(
+  config: AppConfig,
+  path: string,
+  maxAge: number,
+): CookieOptions {
+  const options: CookieOptions = {
+    httpOnly: true,
+    path,
+    sameSite: "Lax",
+    secure: config.env !== "local",
+    maxAge,
+  };
+
+  if (config.cookieDomain) {
+    options.domain = config.cookieDomain;
+  }
+
+  return options;
+}
+
+export function setSessionCookie(
+  c: CookieContext,
+  token: string,
+  config: AppConfig,
+): void {
+  setCookie(
+    c,
+    SESSION_COOKIE,
+    token,
+    baseOptions(config, "/", SESSION_MAX_AGE_SECONDS),
+  );
+}
+
+/** Expira la cookie (`Max-Age=0`) manteniendo path/domain/atributos. */
+export function clearSessionCookie(c: CookieContext, config: AppConfig): void {
+  setCookie(c, SESSION_COOKIE, "", baseOptions(config, "/", 0));
+}
+
+export function getSessionCookie(c: CookieContext): string | undefined {
+  return getCookie(c, SESSION_COOKIE);
+}
+
+export function setOAuthStateCookie(
+  c: CookieContext,
+  token: string,
+  config: AppConfig,
+): void {
+  setCookie(
+    c,
+    OAUTH_STATE_COOKIE,
+    token,
+    baseOptions(config, OAUTH_STATE_COOKIE_PATH, OAUTH_STATE_MAX_AGE_SECONDS),
+  );
+}
+
+export function clearOAuthStateCookie(
+  c: CookieContext,
+  config: AppConfig,
+): void {
+  setCookie(
+    c,
+    OAUTH_STATE_COOKIE,
+    "",
+    baseOptions(config, OAUTH_STATE_COOKIE_PATH, 0),
+  );
+}
+
+export function getOAuthStateCookie(c: CookieContext): string | undefined {
+  return getCookie(c, OAUTH_STATE_COOKIE);
+}

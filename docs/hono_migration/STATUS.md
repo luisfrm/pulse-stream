@@ -4,17 +4,20 @@ Actualizado: 2026-10-21
 
 ## Fase 0 — Fundación
 
-- [ ] Migración 0010 (`hashed_password` nullable + `oauth_accounts`)
-- [ ] Modelo `OAuthAccount` + `UserManager.authenticate` guard
-- [ ] `SESSION_COOKIE_NAME` configurable
-- [ ] `upsert_admin` + `scripts/create_admin.py`
-- [ ] Tests Python (nullable, login 400, constraints, admin seed)
-- [ ] `apps/app-api` skeleton (Hono, config, env, errores)
-- [ ] JWT/cookies + Google OAuth (state + PKCE + ID token)
-- [ ] `GET /users/me`, `/auth/logout`, `/health`
-- [ ] Tests Hono + typecheck
-- [ ] Suite Python completa verde
-- [ ] Commit de fase
+- [x] Migración 0010 (`hashed_password` nullable + `oauth_accounts`) — aplicada en dev; test con upgrade/downgrade
+- [x] Modelo `OAuthAccount` + `UserManager.authenticate` guard
+- [x] `SESSION_COOKIE_NAME` configurable
+- [x] `upsert_admin` + `scripts/create_admin.py`
+- [x] Tests Python (nullable, login 400, constraints, admin seed) — 6 tests
+- [x] `apps/app-api` skeleton (Hono, config, env, errores)
+- [x] JWT/cookies + Google OAuth (state + PKCE + ID token)
+- [x] `GET /users/me`, `/auth/logout`, `/health`
+- [x] Tests Hono + typecheck — 6 archivos / 42 tests
+- [x] Suite Python completa verde — 118 passed
+- [x] Commit de fase
+
+Pendiente externo (no bloquea local): Hyperdrive ID real, Google OAuth
+client/secrets y deploy del Worker.
 
 ## Fase 1 — Split del frontend
 

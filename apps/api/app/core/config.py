@@ -160,6 +160,12 @@ class Settings(BaseSettings):
     # el Set-Cookie del login (204) y el siguiente GET /users/me dé 401.
     cookie_domain: str | None = None
 
+    # Nombre de la cookie HttpOnly de sesión. Default "session" (la que ya usa
+    # el web). En local, el panel nuevo (Hono) puede usar otro nombre
+    # (`SESSION_COOKIE_NAME=panel_session`) para no compartir sesión con la API
+    # FastAPI; el `CookieTransport` lo respeta.
+    session_cookie_name: str = "session"
+
     @model_validator(mode="after")
     def _normalize_for_env(self) -> "Settings":
         """Hace a `ENV` autoritativo sin campos nuevos.

@@ -14,7 +14,7 @@ from app.features.users.models import User
 # dominio registrable — sin él, la cookie es host-only de la API y el guard del
 # frontend (que chequea la cookie en su propio dominio) nunca la ve.
 cookie_transport = CookieTransport(
-    cookie_name="session",
+    cookie_name=settings.session_cookie_name,
     cookie_max_age=60 * 60 * 24 * 7,  # 7 días
     cookie_secure=settings.cookie_secure,
     cookie_httponly=True,

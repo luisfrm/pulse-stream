@@ -3,6 +3,7 @@ from collections.abc import AsyncIterator
 
 import structlog
 from fastapi import Depends, HTTPException, Request, status as http_status
+from fastapi.security import OAuth2PasswordRequestForm
 from fastapi_users import BaseUserManager, FastAPIUsers, UUIDIDMixin, exceptions
 from fastapi_users_db_sqlalchemy import SQLAlchemyUserDatabase
 from sqlalchemy import func, select
@@ -65,6 +66,45 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
             if existing is not None:
                 raise exceptions.UserAlreadyExists()
         return await super().update(user_update, user, safe=safe, request=request)
+
+    async def authenticate(
+        self, credentials: OAuth2PasswordRequestForm
+    ) -> User | None:
+        """Login por email + password; los usuarios OAuth (sin hash) no entran.
+
+        Copia el comportamiento de `BaseUserManager.authenticate` (incluido el
+        dummy hash para mitigar timing attacks cuando el email no existe) con
+        un corte extra: `pwdlib.verify_and_update` explota si el hash es None,
+        así que un usuario creado por Google se trata como credenciales
+        inválidas (400 en el router) en vez de 500.
+        """
+        try:
+            user = await self.get_by_email(credentials.username)
+        except exceptions.UserNotExists:
+            # Run the hasher to mitigate timing attack
+            # Inspired from Django: https://code.djangoproject.com/ticket/20760
+            self.password_helper.hash(credentials.password)
+            return None
+
+        if user.hashed_password is None:
+            # Usuario OAuth (Google): sin password local. Mismo costo de
+            # hashing que un login real para no filtrar la existencia del email
+            # por timing.
+            self.password_helper.hash(credentials.password)
+            return None
+
+        verified, updated_password_hash = self.password_helper.verify_and_update(
+            credentials.password, user.hashed_password
+        )
+        if not verified:
+            return None
+        # Update password hash to a more robust one if needed
+        if updated_password_hash is not None:
+            await self.user_db.update(
+                user, {"hashed_password": updated_password_hash}
+            )
+
+        return user
 
     async def on_after_register(
         self, user: User, request: Request | None = None

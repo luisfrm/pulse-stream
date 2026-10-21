@@ -1,0 +1,15 @@
+# Copiar a `.dev.vars` (gitignored) para `wrangler dev`.
+# NUNCA commitear valores reales.
+
+# Obligatorio. HS256: usar al menos 32 caracteres aleatorios.
+AUTH_SECRET=replace-with-a-long-random-development-secret
+
+# Google OAuth Client (Google Cloud Console > Credentials > OAuth client).
+GOOGLE_CLIENT_ID=replace-with-google-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=replace-with-google-client-secret
+# Debe coincidir EXACTAMENTE con el Authorized redirect URI del cliente.
+GOOGLE_REDIRECT_URI=http://localhost:8787/auth/google/callback
+
+# Conexión directa a Neon para desarrollo local.
+# En producción el Worker usa el binding HYPERDRIVE (wrangler.jsonc).
+DATABASE_URL=postgresql://user:password@host/db?sslmode=require

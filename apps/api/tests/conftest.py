@@ -44,7 +44,7 @@ async def engine():
     import app.features.albums.models  # noqa: F401
     import app.features.artists.models  # noqa: F401
     import app.features.songs.models  # noqa: F401
-    import app.features.users.models  # noqa: F401
+    import app.features.users.models  # noqa: F401  (User + OAuthAccount)
     import app.features.playlists.models  # noqa: F401
     import app.features.favorites.models  # noqa: F401
     import app.features.listens.models  # noqa: F401
