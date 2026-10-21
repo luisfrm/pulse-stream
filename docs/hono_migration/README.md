@@ -11,8 +11,8 @@ Plan de ejecución por fases para dividir Pulse Stream en:
 
 | Tema | Decisión |
 |---|---|
-| Plan Workers | Free primero; Paid ($5) cuando se necesite password auth o más límites |
-| Auth app | Google OAuth-only (`openid email profile`), sesión JWT HS256 en cookie `session` |
+| Plan Workers | Free para Google/lecturas; Paid ($5) **requerido para password auth en prod** (argon2 > 10 ms CPU) |
+| Auth app | Google OAuth + email/username/password (argon2id de pwdlib verificado con `@noble/hashes`), JWT HS256 en cookie `session` |
 | Auth panel | Email/password local (fastapi-users), admin separado por seed, cookie `panel_session` |
 | Frontend | Dos apps Next separadas, paquetes compartidos en `packages/*` |
 | API app | Hono + Zod OpenAPI + Drizzle + `pg` sobre Hyperdrive |
@@ -35,12 +35,12 @@ panel localhost:3001 Next/panel ── panel_session ── localhost:8000 Pytho
 
 | Fase | Doc | Estado |
 |---|---|---|
-| 0. Fundación: migración 0010, admin seed, esqueleto Hono + Google OAuth | [phase-0-foundation.md](phase-0-foundation.md) | En curso |
-| 1. Split del frontend en `apps/web` + `apps/panel` + packages | [phase-1-frontend-split.md](phase-1-frontend-split.md) | Pendiente |
-| 2. Lecturas de la app en Hono con paridad y caché | [phase-2-reads.md](phase-2-reads.md) | Pendiente |
-| 3. Escrituras de usuario en Hono | [phase-3-writes.md](phase-3-writes.md) | Pendiente |
-| 4. Cutover, deploy y documentación | [phase-4-cutover.md](phase-4-cutover.md) | Pendiente |
-| 5. Upgrade a Workers Paid (opcional) | [phase-5-paid.md](phase-5-paid.md) | Pendiente |
+| 0. Fundación: migración 0010, admin seed, esqueleto Hono + Google OAuth | [phase-0-foundation.md](phase-0-foundation.md) | Completada |
+| 1. Split del frontend en `apps/web` + `apps/panel` + packages | [phase-1-frontend-split.md](phase-1-frontend-split.md) | Completada |
+| 2. Lecturas de la app en Hono con paridad y caché | [phase-2-reads.md](phase-2-reads.md) | Completada (paridad 25/25) |
+| 3. Escrituras de usuario en Hono | [phase-3-writes.md](phase-3-writes.md) | Completada |
+| 4. Cutover de código, docs y deploy | [phase-4-cutover.md](phase-4-cutover.md) | Código completo (Google + password, panel_session, fix loop); deploy bloqueado por credenciales |
+| 5. Upgrade a Workers Paid | [phase-5-paid.md](phase-5-paid.md) | Requerido para password auth en prod; upgrade pendiente |
 
 Estado detallado: [STATUS.md](STATUS.md).
 
@@ -51,7 +51,7 @@ Estado detallado: [STATUS.md](STATUS.md).
 3. **La app no es read-only.** Además de lecturas, Hono es dueño de favoritos, playlists de usuario, listens/contadores, perfil (username/cover) y presign de covers.
 4. **El panel es dueño del catálogo**: artists/albums/songs, ZIP, playlists system, uploads de audio, admin de usuarios.
 5. **Contratos idénticos**: `{detail}` para errores, `Page<T> = {items,total,offset,limit}`, mismos status codes y shapes que Python en todo endpoint compartido. Los tests de paridad son obligatorios.
-6. **Presupuesto Free**: ≤3 queries por request, sin N+1, respuestas ≤50 KB, lecturas públicas cacheadas, sin hashing de passwords hasta Paid, sin `@aws-sdk` (usar `aws4fetch`).
+6. **Presupuesto Free**: ≤3 queries por request, sin N+1, respuestas ≤50 KB, lecturas públicas cacheadas, sin `@aws-sdk` (usar `aws4fetch`) y **sin password auth en prod** (argon2 > 10 ms CPU → Workers Paid).
 7. **Cookies**: `session` (app, `Domain=.luisrivas.site` en prod) y `panel_session` (panel local). `workers.dev` no se usa para la API: es public suffix.
 8. **SQLAlchemy `onupdate` no existe en la DB.** Todo UPDATE de Hono setea `updated_at = now()` explícitamente.
 

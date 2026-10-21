@@ -69,6 +69,7 @@ export function fakeRepository(
   return {
     getById: async () => null,
     findByEmail: async () => null,
+    findByIdentifier: async () => null,
     findByOAuth: async () => null,
     createUserWithOAuth: async () => {
       throw new Error("createUserWithOAuth not stubbed");

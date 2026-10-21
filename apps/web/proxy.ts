@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-/** Cookie de sesión de la app (Fase 4: la emite Hono). */
+/** Cookie de sesión de la app (Fase 4: la emite Hono en `apps/app-api`). */
 const SESSION_COOKIE = process.env.SESSION_COOKIE ?? "session";
 
 // Chequeo de sesión a nivel de request (solo presencia de la cookie).
@@ -32,11 +32,11 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Usuario ya logueado no necesita ver login/register
-  if (hasSession && (pathname === "/login" || pathname === "/register")) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
-  }
-
+  // No redirigir /login → /dashboard SOLO por presencia de la cookie: una
+  // cookie vencida/inválida hace que el layout protegido vuelva a /login y el
+  // proxy a /dashboard (loop infinito). La sesión real se valida contra
+  // `/users/me` en el layout; el home también redirige si hay sesión válida.
+  // Un usuario logueado que entra a /login simplemente ve el botón de Google.
   return NextResponse.next();
 }
 

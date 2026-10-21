@@ -1,8 +1,9 @@
 # AGENTS.md — Pulse Stream
 
 Spotify-clone en monorepo. Stack: **pnpm workspaces · turbo · Next.js 16 (App
-Router, Tailwind v4) · FastAPI (uv) · SQLAlchemy 2.0 async · Neon (Postgres
-serverless) · Cloudflare R2 · PWA**.
+Router, Tailwind v4) · Hono en Cloudflare Workers (`apps/app-api`) · FastAPI (uv,
+solo panel local) · SQLAlchemy 2.0 async · Neon (Postgres serverless) · Cloudflare
+R2 · PWA · Google OAuth**.
 
 > Reglas de arquitectura del backend en la sección 1 (capas por feature) y del
 > frontend en la sección 2. El plan de fases vive en `plan-implementacion.md`
@@ -13,20 +14,31 @@ serverless) · Cloudflare R2 · PWA**.
 ## 0. Comandos (desde la raíz del monorepo)
 
 ```bash
-pnpm dev                 # turbo dev: web (:3000) + panel (:3001) [+ app-api]
+pnpm dev                 # turbo dev: app-api (:8787) + web (:3000) + panel (:3001)
 pnpm build               # turbo build (web + panel)
 pnpm lint                # turbo lint (web + panel)
 pnpm typecheck           # turbo typecheck (apps + packages)
-pnpm test                # turbo test (web + panel + packages; la API usa uv run pytest)
-pnpm gen:types           # regenera packages/api-types/src/generated.ts desde
+pnpm test                # turbo test (web + panel + packages; las APIs usan sus suites)
+pnpm gen:types           # regenera packages/api-types (Python/panel) desde
                          # http://localhost:8000/openapi.json (API corriendo)
+pnpm gen:types:app       # regenera packages/app-api-types (Hono/web) desde
+                         # apps/app-api/openapi.json (no requiere levantar el Worker)
 ```
 
 > El frontend está partido en **dos apps Next** (`apps/web` y `apps/panel`) que
-> comparten `packages/{ui,design,api-client,shared}`. En Fase 1 ambas apuntan a
-> la API Python local; el cutover a Hono es la Fase 4.
+> comparten `packages/{ui,design,api-client,shared}`. Desde la Fase 4 del
+> cutover, **`apps/web` habla con Hono** (`apps/app-api`: `:8787` local /
+> `https://api.luisrivas.site`) y **`apps/panel` sigue 100% contra Python**
+> (`apps/api`, `:8000`, local).
 
-Backend (en `apps/api`):
+Backend Hono (en `apps/app-api`):
+```bash
+pnpm --filter @pulse-stream/app-api dev        # wrangler dev (:8787)
+pnpm --filter @pulse-stream/app-api typecheck
+pnpm --filter @pulse-stream/app-api test
+```
+
+Backend panel (en `apps/api`):
 ```bash
 uv sync --all-groups
 uv run alembic upgrade head
@@ -55,7 +67,22 @@ uv run pytest                          # integración; exige TEST_DATABASE_URL
 
 ---
 
-## 1. Backend (`apps/api`) — arquitectura en capas por feature
+## 1. Backend — `apps/app-api` (Hono, app) + `apps/api` (FastAPI, panel)
+
+**Dos APIs desde la Fase 4:**
+
+- **`apps/app-api`** (Hono + Cloudflare Workers) — API de la app: Google OAuth,
+  lecturas del catálogo y escrituras de usuario (favoritos, playlists, listens,
+  perfil, presign de covers). La consume `apps/web`. Contrato versionado en
+  `apps/app-api/openapi.json`; espeja los schemas de Python (mismos nombres).
+- **`apps/api`** (FastAPI + SQLAlchemy async) — **solo panel/admin local**: dueño
+  del esquema (Alembic) y de las mutaciones admin (artists/albums/songs, ZIP,
+  playlists system). La consume `apps/panel` y no se despliega.
+
+La arquitectura en capas de abajo aplica a `apps/api` (y se refleja en los
+features de Hono: `routes.ts` / `service.ts` / `repository.ts` / `schema.ts`).
+
+## 1.1 `apps/api` (Python) — arquitectura en capas por feature
 
 ```
 apps/api/app/
@@ -90,31 +117,55 @@ apps/api/app/
 - Los `repository` se inyectan por constructor con `Depends()` (DI ligero de
   FastAPI, sin contenedor externo). Patrón: `get_x_repository()` como factory.
 
-**Auth (fastapi-users):** cookie HttpOnly + JWT (nombre de cookie: `session`).
-`current_user` exige sesión activa; `require_admin` exige `role=admin` o
-`is_superuser` (endpoints mutantes de artists/albums/songs/users). SameSite de
-la cookie: default `lax` (cubre localhost y subdominios del mismo dominio
-registrable); `COOKIE_SAMESITE=none` solo si front y API viven en dominios
-distintos. **CSRF sigue pendiente** antes de producción (double-submit); con
-`lax` el vector cross-site queda mitigado, con `none` es obligatorio. Si front
-y API son subdominios distintos (prod), seteá `COOKIE_DOMAIN` al dominio
-registrable: sin eso la cookie es host-only de la API y el guard del front
-(`proxy.ts`) nunca la ve → bucle en `/login?next=…` (en local funciona porque
-el navegador comparte la cookie entre puertos de `localhost`).
+**Auth (Python, panel):** cookie HttpOnly + JWT. El nombre por defecto es
+`session`, pero **en local el panel usa `panel_session`**
+(`SESSION_COOKIE_NAME=panel_session`) para no chocar con la cookie `session` que
+emite Hono en localhost. `current_user` exige sesión activa; `require_admin`
+exige `role=admin` o `is_superuser` (endpoints mutantes de
+artists/albums/songs/users). SameSite de la cookie: default `lax` (cubre
+localhost y subdominios del mismo dominio registrable); `COOKIE_SAMESITE=none`
+solo si front y API viven en dominios distintos. **CSRF sigue pendiente** antes
+de producción (double-submit); con `lax` el vector cross-site queda mitigado,
+con `none` es obligatorio. Si front y API son subdominios distintos (prod),
+seteá `COOKIE_DOMAIN` al dominio registrable: sin eso la cookie es host-only de
+la API y el guard del front (`proxy.ts`) nunca la ve → bucle en `/login?next=…`
+(en local funciona porque el navegador comparte la cookie entre puertos de
+`localhost`).
+
+**Auth de la app (Hono, `apps/app-api`):** **Google OAuth + email/usuario y
+contraseña**.
+- **Google**: `/auth/google` → `/auth/google/callback`, JWT HS256 en la cookie
+  `session` (`HttpOnly`, `Path=/`, `SameSite=Lax`, `Secure` si `ENV !== local`,
+  `Domain=COOKIE_DOMAIN` en prod). El email es la identidad de vinculación: si ya
+  existe un usuario con ese email se linkea `oauth_accounts` sin tocar `role`,
+  `username` ni `hashed_password`; si es nuevo se crea con `hashed_password=NULL`
+  y `is_verified=true`.
+- **Password**: `POST /auth/login` acepta `{identifier, password}` donde
+  `identifier` es email o username (case-insensitive). Verifica el hash argon2id
+  de `pwdlib` con `@noble/hashes` (JS puro; `hash-wasm` no compila WASM en
+  Workers). Setea la misma cookie `session`. Los usuarios creados solo con Google
+  tienen `hashed_password=NULL` y no pueden usar password.
+- **No hay registro con email/contraseña**: el alta nueva es por Google; el login
+  con password es para cuentas existentes (admin/seed/legacy).
+- ⚠️ **Password auth requiere Workers Paid en producción**: argon2 (64 MB,
+  3 pasadas) tarda ~2 s de CPU en JS puro y Free limita a 10 ms. En local
+  (`wrangler dev`) funciona sin ese límite.
 
 **Logout = responsabilidad del web, no de la API.** `session` es HttpOnly
 (solo una respuesta HTTP la borra) y la respuesta de `POST /auth/logout` es
-cross-origin desde el browser (localhost:3000 → localhost:8000), así que el
+cross-origin desde el browser (localhost:3000 → localhost:8787), así que el
 Set-Cookie de la API puede no aplicarse y la sesión queda viva. El botón de
 logout es un `<form method="POST" action="/api/logout">` (`app/api/logout/
 route.ts`): el web emite el Set-Cookie de expiración en una respuesta
 same-origin (dos variantes: host-only y con `Domain`) y responde 303 → `/login`
 (navegación dura, el proxy re-corre sin cookie). Atributos leídos del env del
-web con los MISMOS nombres que el backend (`ENV` → Secure si ≠ local,
+web con los MISMOS nombres que el backend Hono (`ENV` → Secure si ≠ local,
 `COOKIE_DOMAIN`, `COOKIE_SAMESITE`): si el API setea `COOKIE_DOMAIN`, el web
 debe tener el mismo valor o el borrado no matchea. No llama a la API (JWT
 stateless: borrar la cookie ES cerrar sesión). CSRF del logout = solo molesto
 (te desloguea), mismo riesgo que la API; pendiente del work de CSRF general.
+El panel (`apps/panel`) tiene su propio route handler que borra
+`panel_session`.
 
 **Datos de Fase 4 (columnas y relaciones no obvias):**
 - `playlists.kind` es VARCHAR `'user' | 'system'`. Las `system` son snapshots
@@ -188,8 +239,8 @@ stateless: borrar la cookie ES cerrar sesión). CSRF del logout = solo molesto
   `download_url`/`presign_get_download`.
 
 **Migraciones Alembic:** se escriben **a mano** (no autogen), estilo
-`0008_library_favorites_playlist_query.py` (la más reciente): `revision:
-str = "0008"`, `down_revision` encadenado (0001…0008). Nueva tabla → también
+`0010_oauth_accounts_nullable_password.py` (la más reciente): `revision:
+str = "0010"`, `down_revision` encadenado (0001…0010). Nueva tabla → también
 hay que importar el modelo en `apps/api/tests/conftest.py` (los tests
 registran `Base.metadata` manualmente) y el `session` scope es único (config
 en `pyproject.toml`: `asyncio_default_*_loop_scope = "session"`).
@@ -202,9 +253,9 @@ crear entidades vía API, assert status + shape del JSON.
 
 ## 2. Frontend — `apps/web` (app) + `apps/panel` (admin) + `packages/*`
 
-**Split de Fase 1:** `apps/web` es la app de música (player, PWA, catálogo,
-biblioteca) y `apps/panel` el backoffice admin (`/panel/*`, login propio). Son
-dos apps Next independientes que comparten:
+**Split (Fases 1 y 4):** `apps/web` es la app de música (player, PWA, catálogo,
+biblioteca) y `apps/panel` el backoffice admin local (`/panel/*`, login propio
+email/password contra Python). Son dos apps Next independientes que comparten:
 
 - `packages/ui` — `components/ui/*` (Button, Badge, Card, Input, Textarea,
   Title, Select, Checkbox, FileInput, Modal, BottomSheet, Skeleton, Sonner),
@@ -218,6 +269,11 @@ dos apps Next independientes que comparten:
   `COVER_CACHE_CONTROL`.
 - `packages/shared` — `format*`, `friendlyError`, `CACHE_TAGS`, `Page<T>` y el
   orquestador de audio (TS puro; cada app tiene su instancia).
+- `packages/api-types` — tipos generados desde el OpenAPI de **Python**
+  (`pnpm gen:types`; panel).
+- `packages/app-api-types` — tipos generados desde el OpenAPI de **Hono**
+  (`pnpm gen:types:app`; app). Ambos solo se importan como `type` (no necesitan
+  `transpilePackages`).
 
 Cada app tiene su `proxy.ts`, su `app/api/logout/route.ts`, su `fonts.ts`
 (`next/font` se resuelve por app) y su `globals.css`:
@@ -231,24 +287,35 @@ Cada app tiene su `proxy.ts`, su `app/api/logout/route.ts`, su `fonts.ts`
 No crear paletas paralelas: los tokens viven SOLO en `packages/design`.
 `next.config.ts` de ambas apps declara `transpilePackages` con los 4 paquetes.
 
-**Cookies (Fase 1 → Fase 4):** la app usa `SESSION_COOKIE` (default `session`) y
-el panel `PANEL_SESSION_COOKIE` (default **`session`** en Fase 1 para no romper
-el Python actual; Fase 4 lo cambia a `panel_session` cuando Hono emita la cookie
-del panel). El api-client reenvía SOLO la cookie configurada, no todas. En local
-ambas apps comparten la cookie de Python; en prod, `COOKIE_DOMAIN` de cada app
-debe coincidir con el backend. Los links cruzados que quedan (panel → cuenta /
-playlist) usan `NEXT_PUBLIC_APP_URL` (default `http://localhost:3000`).
+**Cookies (Fase 4):** son **dos cookies separadas**. La app usa `SESSION_COOKIE`
+(default `session`), que emite Hono; el panel usa `PANEL_SESSION_COOKIE`
+(default **`panel_session`**), que emite Python con
+`SESSION_COOKIE_NAME=panel_session`. Eso evita que en localhost la app y el
+panel compartan sesión (mismo host, puertos distintos). El api-client reenvía
+SOLO la cookie configurada, no todas. En prod, `COOKIE_DOMAIN` del web debe
+coincidir con el del Worker (`luisrivas.site`). Los links cruzados que quedan
+(panel → cuenta / playlist) usan `NEXT_PUBLIC_APP_URL` (default
+`http://localhost:3000`).
 
-**Env por app (local):** web → `NEXT_PUBLIC_API_URL=http://localhost:8000`,
-`SESSION_COOKIE=session`, `ENV/COOKIE_DOMAIN/COOKIE_SAMESITE`; panel →
-`NEXT_PUBLIC_API_URL=http://localhost:8000`, `PANEL_SESSION_COOKIE=session`,
-`NEXT_PUBLIC_APP_URL=http://localhost:3000` y los mismos `ENV/COOKIE_*` para el
-borrado de cookie del logout.
+**Env por app (local):** web → `NEXT_PUBLIC_API_URL=http://localhost:8787`
+(Hono), `SESSION_COOKIE=session`, `ENV/COOKIE_DOMAIN/COOKIE_SAMESITE`; panel →
+`NEXT_PUBLIC_API_URL=http://localhost:8000` (Python),
+`PANEL_SESSION_COOKIE=panel_session`, `NEXT_PUBLIC_APP_URL=http://localhost:3000`
+y los mismos `ENV/COOKIE_*` para el borrado de cookie del logout. En prod el web
+usa `NEXT_PUBLIC_API_URL=https://api.luisrivas.site`. El Python local debe
+correr con `SESSION_COOKIE_NAME=panel_session` (`apps/api/.env`).
 
 ### `apps/web` — rutas
 - `(public)/` — home promocional, `/login`, `/register`. Sin sesión requerida;
   el home **redirige al dashboard si hay sesión**. Las páginas de detalle
   (artista/álbum/canción) NO viven acá: exigen sesión.
+  `/login` ofrece **Google** ("Continuar con Google" linkea a
+  `${NEXT_PUBLIC_API_URL}/auth/google?returnTo=…`) **y** un formulario de
+  email/usuario + contraseña (`POST /auth/login` de Hono, misma cookie
+  `session`); ambos conservan `next`. `/register` **redirige a `/login`**: la
+  cuenta nueva se crea con Google; el password es para cuentas existentes.
+  `/account` (protegida) muestra el email **read-only** y solo deja editar
+  `username` + cover (sin contraseña).
 - `(protected)/` — `/dashboard` (Inicio), `/account`, las páginas de catálogo
   `/artist/[id]`, `/album/[id]`, `/song/[id]` y las rutas top-level en inglés
   `/catalog`, `/catalog/songs`, `/songs`, `/search`, `/playlists[/[id]]`,
@@ -268,10 +335,11 @@ bottom nav ya no lo hace). Grupos y orden: **Principal** = Inicio · Buscar;
 **Biblioteca** = Mi catálogo (`/catalog`) · Canciones (`/songs` — explorar
 catálogo) · Playlists · Recientes;
 **Administración** = Configuración (`/settings`, **todos** los usuarios). El
-**Panel admin ya no vive en la app**: se accede a `apps/panel` (su propio
-deploy). El chip de usuario al pie del sidebar se eliminó (logout vive en
-Configuración). Bottom nav (`components/bottom-nav.tsx`):
-Catálogo · Buscar · Cuenta (`/account`, Link) · Crear+.
+**Panel admin ya no vive en la app**: se accede a `apps/panel` (app Next local
+contra Python; no se despliega). El chip de usuario al pie del sidebar se
+eliminó (logout vive en Configuración). Bottom nav
+(`components/bottom-nav.tsx`): Catálogo · Buscar · Cuenta (`/account`, Link) ·
+Crear+.
 
 - **Mi catálogo** (`/catalog`, `force-dynamic`): 3 secciones — Canciones en
   lista (`SongItem` con like/descargar/"+", SOLO las 10 más recientes + "Ver
@@ -313,11 +381,14 @@ Catálogo · Buscar · Cuenta (`/account`, Link) · Crear+.
   **Flujo de alta de canciones: artista → álbum → canción.** Los álbumes se
   crean desde la página del artista (no hay nav ni página propia de álbumes).
 - `app/login` — formulario email/password propio (sin register); `next` param.
+  La app también tiene login con password (Google + email/usuario), pero el
+  panel conserva su propio login contra Python. La cookie es `panel_session`
+  (Python `SESSION_COOKIE_NAME=panel_session`).
 - `app/api/logout/route.ts` — borra la cookie del panel (`PANEL_SESSION_COOKIE`)
   y redirige 303 a `/login`.
 - `proxy.ts` — matchea `/panel/:path*` y `/login`; chequea solo la presencia de
-  la cookie del panel. La validación real (sesión + rol) está en
-  `app/panel/layout.tsx` vía `getSession()`.
+  la cookie `panel_session`. La validación real (sesión + rol) está en
+  `app/panel/layout.tsx` vía `getSession()` (Python).
 - `components/` — `PanelShell`, `AudioPreviewPlayer`, `CoverUploader` (wrapper
   con el presign del panel) y `PanelCardSkeleton`.
 - `lib/services/` — admin: songs/albums/artists, genres, uploads (audio +
@@ -375,9 +446,10 @@ al área (post-login/hard load), no en cada navegación. El nav público
 **Cliente API** (`packages/api-client`): `createApiClient({baseURL, cookieName})`
 devuelve una instancia `ofetch` isomórfica. Cada app la crea en su
 `lib/api/client.ts`:
-- `apps/web` → `SESSION_COOKIE` (default `session`), exporta `api`.
-- `apps/panel` → `PANEL_SESSION_COOKIE` (default `session` en Fase 1), exporta
-  `panelApi`.
+- `apps/web` → `SESSION_COOKIE` (default `session`) + `NEXT_PUBLIC_API_URL` de
+  **Hono**, exporta `api`.
+- `apps/panel` → `PANEL_SESSION_COOKIE` (default `panel_session`) +
+  `NEXT_PUBLIC_API_URL` de **Python**, exporta `panelApi`.
 - Server (RSC/Server Action): reenvía SOLO la cookie configurada vía
   `next/headers` en `onRequest` (no todas las cookies).
 - Browser: `credentials: "include"`.
@@ -385,9 +457,13 @@ devuelve una instancia `ofetch` isomórfica. Cada app la crea en su
 
 **Servicios** (`lib/services/*.service.ts`): un archivo por dominio que wrappea
 el cliente de su app. Convenciones:
-- Tipos **generados** desde OpenAPI (`packages/api-types/src/generated.ts` vía
-  `pnpm gen:types`), re-exportados en `lib/services/types.ts` de cada app.
-  **Nunca declarar tipos a mano.**
+- Tipos **generados** desde OpenAPI, nunca a mano. La app usa
+  `@pulse-stream/app-api-types` (`packages/app-api-types/src/generated.ts` vía
+  `pnpm gen:types:app`, desde `apps/app-api/openapi.json`); el panel usa
+  `@pulse-stream/api-types` (`pnpm gen:types`, desde `:8000/openapi.json`).
+  Cada app los re-exporta en su `lib/services/types.ts`. Los schemas de Hono
+  espejan los nombres de Python (`UserRead`, `SongRead`, etc.), así que el
+  mapeo es 1:1.
 - `Page<T>` se importa de `@pulse-stream/shared` / `@pulse-stream/api-client`.
 - **Separación por audiencia**: `apps/web/lib/services` tiene lecturas de
   catálogo, favoritos, biblioteca, playlists de usuario, listens, auth, session
@@ -420,9 +496,10 @@ letra). Media Session API integrada. El provider **registra cada play** (`POST
 /me/listens`) cuando una canción empieza a reproducirse. El panel NO monta el
 player global.
 
-> ⚠️ La cookie de sesión es **HttpOnly** (`auth/backend.py`): NO se puede leer
-> con `document.cookie`. No gates de sesión basados en cookies client-side (el
-> `recordPlay` usa una marca en memoria y descarta el 401 de anónimos).
+> ⚠️ La cookie de sesión es **HttpOnly** (la emite Hono en
+> `apps/app-api/src/auth/cookies.ts`): NO se puede leer con `document.cookie`.
+> No gates de sesión basados en cookies client-side (el `recordPlay` usa una
+> marca en memoria y descarta el 401 de anónimos).
 
 **Audio único:** `packages/shared/src/audio-orchestrator.ts`
 (`claimAudio`/`releaseAudio`) garantiza que **solo suene una fuente a la vez**
@@ -462,8 +539,15 @@ horizontal vive solo en `body` (en `packages/design/tokens.css`).
 - No mezclar capas (backend) ni mezclar data-fetch de servidor con estado
   cliente sin razón: RSC lee con `force-dynamic` para datos por usuario y con
   `revalidate`/tags para catálogo.
-- Los tipos TS del frontend se generan desde OpenAPI, nunca a mano.
-- Cambios a enums de dominio (roles, géneros) → solo en `schemas.py`.
+- Los tipos TS del frontend se generan desde OpenAPI, nunca a mano:
+  `pnpm gen:types:app` (Hono → `packages/app-api-types`) para `apps/web` y
+  `pnpm gen:types` (Python → `packages/api-types`) para `apps/panel`.
+- **La app admite Google + email/usuario y contraseña** para cuentas existentes;
+  el alta nueva es por Google. No re-introducir registro con contraseña ni
+  `PATCH` de email/password en `apps/web`. Password auth requiere Workers Paid en
+  producción (argon2 > 10 ms CPU); el panel conserva email/password contra Python.
+- Cambios a enums de dominio (roles, géneros) → en Python solo `schemas.py` y en
+  Hono solo los schemas Zod; ambos contratos deben quedar espejados.
 - No inventar métricas/features: si un dato no existe en el backend, agregar el
   endpoint (no hardcodear en el front).
 - `README.md` y `tasks.md` se actualizan cuando se cierra una fase/tarea.

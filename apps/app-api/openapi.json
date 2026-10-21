@@ -122,6 +122,25 @@
           }
         }
       },
+      "LoginRequest": {
+        "type": "object",
+        "properties": {
+          "identifier": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 320
+          },
+          "password": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          }
+        },
+        "required": [
+          "identifier",
+          "password"
+        ]
+      },
       "SongPage": {
         "type": "object",
         "properties": {
@@ -1193,6 +1212,40 @@
           },
           "401": {
             "description": "Sin sesión válida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Login con email/usuario y contraseña",
+        "description": "Acepta email o username (case-insensitive) + password argon2id (hash de pwdlib). Setea la cookie `session` igual que Google. Los usuarios OAuth-only no tienen password. Requiere Workers Paid en producción (argon2 > 10 ms CPU).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Sesión iniciada"
+          },
+          "400": {
+            "description": "Credenciales inválidas",
             "content": {
               "application/json": {
                 "schema": {

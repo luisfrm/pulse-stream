@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-/** Cookie de sesión del panel. En Fase 4 pasa a `panel_session`. */
-const PANEL_COOKIE = process.env.PANEL_SESSION_COOKIE ?? "session";
+/** Cookie de sesión del panel (Fase 4: `panel_session`, la emite Python). */
+const PANEL_COOKIE = process.env.PANEL_SESSION_COOKIE ?? "panel_session";
 
 /**
  * Guard a nivel request: chequea SOLO la presencia de la cookie de sesión.

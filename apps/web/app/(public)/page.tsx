@@ -43,7 +43,8 @@ export default async function HomePage() {
   ]);
 
   const cookieStore = await cookies();
-  const hasSessionCookie = cookieStore.has("session");
+  const sessionCookie = process.env.SESSION_COOKIE ?? "session";
+  const hasSessionCookie = cookieStore.has(sessionCookie);
   const user = hasSessionCookie ? await getSession() : null;
   if (user) redirect("/dashboard");
 

@@ -4,6 +4,31 @@
 > resolución). Cuando aparece una idea de mejora, se agrega acá y se resuelve
 > en la misma pasada o en la siguiente.
 
+## ✅ Migración a Hono — Fase 4 (cutover de código; deploy pendiente)
+
+> Objetivo: `apps/web` deja de hablar con Python y pasa a la API Hono con
+> **Google OAuth + email/username/password**; el panel se queda con Python y una
+> cookie separada (`panel_session`). **No se deployó**: faltan credenciales de
+> Google/Cloudflare. El password auth requiere Workers Paid en prod.
+
+| # | Tarea | Resolución |
+|---|---|---|
+| 64 | **Tipos de la app desde Hono** | Nuevo `packages/app-api-types` generado con `openapi-typescript` desde `apps/app-api/openapi.json` (`pnpm gen:types:app`). `apps/web/lib/services/types.ts` lo usa; `apps/panel` conserva `@pulse-stream/api-types` (Python). Los schemas de Hono espejan los nombres de Python → mapeo 1:1 |
+| 65 | **App contra Hono** | `NEXT_PUBLIC_API_URL=http://localhost:8787` (local) / `https://api.luisrivas.site` (prod); `lib/api/client.ts` con fallback :8787 y cookie `session`; session-service/docs actualizados. Todos los servicios (songs/albums/artists/playlists/favorites/listens/uploads) heredan la URL |
+| 66 | **Login Google + password** | `auth-service`: `googleAuthUrl(returnTo)` + `login({identifier,password})`; `/login` es server component con "Continuar con Google" y formulario email/usuario + contraseña (conserva `next`); `/register` redirige a `/login` |
+| 67 | **/account sin password** | Email read-only (sin `onChange`); se quitó el campo contraseña y el estado asociado. `updateMe` solo manda `username`/`cover_key` (`null` borra el cover); el presign del cover es el de Hono |
+| 68 | **Cookie del panel separada** | `PANEL_SESSION_COOKIE=panel_session` (default en client/proxy/logout), `.env.local`/`.env.example` del panel; Python local con `SESSION_COOKIE_NAME=panel_session` documentado en `apps/api/.env.example` y aplicado en el `.env` local |
+| 69 | **Tipos/test fixes** | Fixtures de `playlist-picker`/`song-card` con `song_ids` (MyPlaylistRead de Hono lo exige). `home` chequea la cookie configurada (`SESSION_COOKIE`) en vez del literal |
+| 70 | **Verificación de código** | `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build` (ver `README.md`/`STATUS.md`). Sin deploy ni credenciales reales |
+| 71 | **Login email/username + password** | Hono `POST /auth/login` (`identifier` = email o username, case-insensitive) verifica argon2id de pwdlib con `@noble/hashes` (JS puro; `hash-wasm` no compila WASM en Workers) y setea la cookie `session`. `LoginForm` en `/login`, tests de API/form y Playwright con email y username. **Requiere Workers Paid en prod** (argon2 ~2 s CPU; Free 10 ms) |
+| 72 | **Fix loop de sesión inválida** | El proxy ya no redirige `/login` → `/dashboard` solo por presencia de cookie. Con una cookie vencida/inválida, `/dashboard` redirige a `/login` y queda ahí (sin parpadeo infinito); Playwright con `session=invalid` lo verifica |
+
+**Bloqueos externos:** crear el OAuth Client de Google (redirect URIs
+`https://api.luisrivas.site/auth/google/callback` y
+`http://localhost:8787/auth/google/callback`), Hyperdrive ID/credenciales de
+Cloudflare, migración `0010` en Neon `main` y deploy (Worker + Vercel). Detalle en
+[`docs/hono_migration/phase-4-cutover.md`](./docs/hono_migration/phase-4-cutover.md).
+
 ## ✅ Resueltas (Fase 3b — vida de usuario + reproductor + PWA)
 
 | # | Tarea | Resolución |

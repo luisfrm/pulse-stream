@@ -1,7 +1,8 @@
-import type { components } from "@pulse-stream/api-types";
+import type { components } from "@pulse-stream/app-api-types";
 import type { Page } from "@pulse-stream/shared";
 
-// Tipos generados desde el OpenAPI de apps/api (AGENTS.md: nunca a mano).
+// Tipos generados desde el OpenAPI de apps/app-api (Hono) — Fase 4 del cutover
+// (AGENTS.md: nunca a mano). El panel conserva @pulse-stream/api-types (Python).
 export type User = components["schemas"]["UserRead"];
 export type Artist = components["schemas"]["ArtistRead"];
 export type Song = components["schemas"]["SongRead"];

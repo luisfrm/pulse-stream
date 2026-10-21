@@ -4,9 +4,10 @@ import { api, type ApiFetchOptions } from "@/lib/api/client";
 import type { User } from "./types";
 
 /**
- * Sesión actual (GET /users/me). Nunca se cachea entre requests (datos por
- * usuario) pero React.cache deduplica la llamada DENTRO del mismo render:
- * layout + page llaman a getSession y solo sale UN /users/me por request.
+ * Sesión actual (GET /users/me contra la API Hono). Nunca se cachea entre
+ * requests (datos por usuario) pero React.cache deduplica la llamada DENTRO
+ * del mismo render: layout + page llaman a getSession y solo sale UN
+ * /users/me por request.
  */
 export const getSession = cache(async function getSession(
   options?: ApiFetchOptions

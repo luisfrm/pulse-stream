@@ -28,8 +28,8 @@ const PlayerContext = React.createContext<PlayerState | null>(null);
  * Marca en memoria de "ya sabemos que hay sesión": evita repetir 401 de
  * `POST /me/listens` por cada play de un usuario anónimo.
  *
- * NO se puede leer la cookie `session` desde JS (es HttpOnly — ver
- * `apps/api/app/features/auth/backend.py`), así que la detección no puede
+ * NO se puede leer la cookie `session` desde JS (es HttpOnly — la emite
+ * `apps/app-api/src/auth/cookies.ts`), así que la detección no puede
  * basarse en `document.cookie`.
  */
 let knownAuthenticated: boolean | null = null;

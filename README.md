@@ -1,6 +1,6 @@
 # Pulse Stream 🎧
 
-Spotify clone en monorepo. Stack: **pnpm workspaces · Next.js 16 · FastAPI (uv) · SQLAlchemy 2.0 async · Neon (Postgres serverless) · Cloudflare R2 · Tailwind v4 · PWA**.
+Spotify clone en monorepo. Stack: **pnpm workspaces · turbo · Next.js 16 · Hono en Cloudflare Workers · FastAPI (solo panel local) · SQLAlchemy 2.0 async · Neon (Postgres serverless) · Cloudflare R2 · Tailwind v4 · PWA · Google OAuth**.
 
 > 📋 El plan completo de implementación está en [`plan-implementacion.md`](./plan-implementacion.md) y las reglas de arquitectura del backend en [`AGENTS.md`](./AGENTS.md). Leelos antes de tocar código.
 
@@ -9,11 +9,14 @@ Spotify clone en monorepo. Stack: **pnpm workspaces · Next.js 16 · FastAPI (uv
 ```
 pulse-stream/
 ├── apps/
-│   ├── web/                      # Next.js 16 (App Router, Tailwind v4)
-│   └── api/                      # FastAPI + uv (capas por feature)
+│   ├── app-api/                  # Hono + Cloudflare Workers (API de la app, :8787)
+│   ├── web/                      # Next.js 16 (app de música, OAuth Google, :3000)
+│   ├── panel/                    # Next.js 16 (backoffice admin local, :3001)
+│   └── api/                      # FastAPI + uv (panel/admin, dueño del esquema, :8000)
 ├── packages/
-│   ├── api-types/                # Tipos TS generados desde el OpenAPI de FastAPI
-│   └── config/                   # tsconfigs compartidos
+│   ├── app-api-types/            # Tipos TS generados desde el OpenAPI de Hono (web)
+│   ├── api-types/                # Tipos TS generados desde el OpenAPI de Python (panel)
+│   ├── api-client/ · design/ · shared/ · ui/ · config/
 ├── pnpm-workspace.yaml
 ├── package.json                  # scripts turbo
 └── turbo.json
@@ -27,11 +30,28 @@ pulse-stream/
 
 ## Setup
 
-### 1. Backend (`apps/api`)
+### 1. API de la app — Hono (`apps/app-api`, :8787)
+
+```bash
+cd apps/app-api
+cp .dev.vars.example .dev.vars   # AUTH_SECRET, DATABASE_URL y Google (fake en local)
+cd ../..
+pnpm install
+pnpm --filter @pulse-stream/app-api dev   # wrangler dev → http://localhost:8787
+```
+
+- En local `ENV=local` + `DATABASE_URL` usan el driver HTTP de Neon (no hace
+  falta Hyperdrive; comentá el bloque `hyperdrive` de `wrangler.jsonc`).
+- **Sin credenciales reales de Google** el redirect a `accounts.google.com`
+  funciona (state + PKCE), pero el intercambio de `code` falla: alcanza para
+  probar `/login` y el link, no para un login real.
+- El contrato OpenAPI está versionado en `apps/app-api/openapi.json`.
+
+### 2. API del panel — FastAPI (`apps/api`, :8000)
 
 ```bash
 cd apps/api
-cp .env.example .env   # completá las variables (ver tabla abajo)
+cp .env.example .env   # completá DATABASE_URL/R2; SESSION_COOKIE_NAME=panel_session
 uv sync --all-groups
 uv run alembic upgrade head   # crea las tablas (usa la conexión directa)
 uv run uvicorn app.main:app --reload   # http://localhost:8000
@@ -39,32 +59,50 @@ uv run uvicorn app.main:app --reload   # http://localhost:8000
 
 Swagger (solo en `ENV=local`): http://localhost:8000/docs
 
-### 2. Frontend (`apps/web`)
+> Desde la Fase 4 esta API es **solo del panel local**: la app habla con Hono.
+> El nombre de cookie debe ser `panel_session`
+> (`SESSION_COOKIE_NAME=panel_session`) para no chocar con la `session` de Hono
+> en localhost.
+
+### 3. App (`apps/web`, :3000)
 
 ```bash
 cd apps/web
-cp .env.example .env.local
-pnpm install
-pnpm dev   # http://localhost:3000
+cp .env.example .env.local   # NEXT_PUBLIC_API_URL=http://localhost:8787
+pnpm dev                     # http://localhost:3000
 ```
 
-### 3. Tipos TS desde OpenAPI (regla de AGENTS.md)
+Login: **Google o email/usuario + contraseña** en `/login`. No hay registro con
+email/contraseña: `/register` redirige a `/login` y la cuenta nueva se crea con
+Google; el login con password es para cuentas existentes (admin/seed/legacy).
+`/account` solo edita username + foto (el email es read-only). En producción el
+login con password requiere Workers Paid (argon2 supera el CPU de Free).
+
+### 4. Panel (`apps/panel`, :3001)
+
+```bash
+cd apps/panel
+cp .env.example .env.local   # API Python :8000 + PANEL_SESSION_COOKIE=panel_session
+pnpm dev                     # http://localhost:3001
+```
+
+### 5. Tipos TS desde OpenAPI (regla de AGENTS.md)
 
 Los tipos del frontend se **generan**, nunca se declaran a mano:
 
 ```bash
-# con la API corriendo en :8000
-pnpm gen:types   # regenera packages/api-types/src/generated.ts
+pnpm gen:types:app   # Hono → packages/app-api-types (lo usa apps/web)
+pnpm gen:types       # Python → packages/api-types (lo usa apps/panel; API en :8000)
 ```
 
 ### Scripts raíz
 
 ```bash
-pnpm dev         # API + web (turbo)
+pnpm dev         # turbo dev: app-api (:8787) + web (:3000) + panel (:3001)
 pnpm build
 pnpm lint
 pnpm typecheck
-pnpm test        # tests de la API (requieren TEST_DATABASE_URL)
+pnpm test        # turbo test (web/panel/packages); API Python: cd apps/api && uv run pytest
 ```
 
 ## Variables de entorno
@@ -84,13 +122,35 @@ pnpm test        # tests de la API (requieren TEST_DATABASE_URL)
 | `R2_SECRET_ACCESS_KEY` | Fase 1 | Secret del API Token de R2 |
 | `R2_BUCKET_NAME` | Fase 1 | Nombre del bucket creado en R2 |
 | `R2_MAX_UPLOAD_BYTES` | no | Tamaño máximo de subida (default 50 MB) |
+| `SESSION_COOKIE_NAME` | no (default `session`) | Nombre de la cookie HttpOnly. **En local el panel usa `panel_session`** para no compartir sesión con la `session` de Hono |
 | `TEST_DATABASE_URL` | solo tests | Base de tests (ej. branch efímera de Neon). Sin ella, `pytest` se salta |
 
 ### `apps/web/.env.local`
 
 | Variable | Obligatoria | Descripción |
 |---|---|---|
-| `NEXT_PUBLIC_API_URL` | no (default `http://localhost:8000`) | URL base de la API FastAPI |
+| `NEXT_PUBLIC_API_URL` | no (default `http://localhost:8787`) | URL base de la **API Hono** (`https://api.luisrivas.site` en prod) |
+| `SESSION_COOKIE` | no (default `session`) | Cookie HttpOnly que emite Hono y reenvía el api-client |
+| `ENV` / `COOKIE_DOMAIN` / `COOKIE_SAMESITE` | no | Espejo del backend para el borrado de cookie del logout (`ENV=prod` + `COOKIE_DOMAIN=luisrivas.site` en prod) |
+
+### `apps/panel/.env.local`
+
+| Variable | Obligatoria | Descripción |
+|---|---|---|
+| `NEXT_PUBLIC_API_URL` | no (default `http://localhost:8000`) | URL base de la **API Python** (panel) |
+| `PANEL_SESSION_COOKIE` | no (default `panel_session`) | Debe coincidir con `SESSION_COOKIE_NAME` de Python |
+| `NEXT_PUBLIC_APP_URL` | no (default `http://localhost:3000`) | Links de "Mi cuenta" / "ver playlist" hacia la app |
+| `ENV` / `COOKIE_DOMAIN` / `COOKIE_SAMESITE` | no | Espejo de Python para el Set-Cookie del logout |
+
+### `apps/app-api/.dev.vars` (local)
+
+| Variable | Obligatoria | Descripción |
+|---|---|---|
+| `AUTH_SECRET` | **sí** | HS256 de `session` y `oauth_state` (≥ 32 chars) |
+| `DATABASE_URL` | **sí** (local) | Neon directo (driver HTTP); en prod se usa el binding `HYPERDRIVE` |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | para login real | OAuth client de Google Cloud |
+| `GOOGLE_REDIRECT_URI` | para login real | `http://localhost:8787/auth/google/callback` en local |
+| `ENV` / `APP_URL` / `COOKIE_DOMAIN` / `CORS_ORIGINS` | en `wrangler.jsonc` | `local`/`prod`, `http://localhost:3000` o `https://app.luisrivas.site`, etc. |
 
 ## Estado del proyecto
 
@@ -148,7 +208,7 @@ pnpm test        # tests de la API (requieren TEST_DATABASE_URL)
 
 ### Fase 4 — Perfil, plays, álbumes y colaboraciones ✅
 
-- [x] **Perfil de usuario**: `username` (único, en el registro con confirmación de contraseña) + foto de portada (JPG/WebP ≤ 512 KB vía presign-cover). Página `/account` (username/email/contraseña/cover). Nav pública: botón "Mi cuenta" con ícono User → `/account`, sin link a Panel
+- [x] **Perfil de usuario**: `username` (único) + foto de portada (WebP ≤ 256 KB vía presign-cover). Página `/account` (username + cover; el email es read-only; la contraseña no se edita desde la app: el login admite Google o email/usuario + password para cuentas existentes). Nav pública: botón "Mi cuenta" con ícono User → `/account`, sin link a Panel
 - [x] **Contadores de plays**: cada play suma +1 a `songs.play_count` y +1 a `users.total_plays` (incrementos atómicos, respetando el dedupe). La canción muestra sus reproducciones
 - [x] **Rankings en el dashboard**: "Más escuchadas esta semana" (`days=7`) y "Más escuchadas este mes" (`month=true`, mes calendario). Recientes con `user_play_count` por canción (badge N×) y sin llamadas API redundantes
 - [x] **Playlists del sistema**: `playlists.kind` ('user'|'system'), generadas desde el panel (`/panel/playlists`) como snapshot de queries (`top_week`/`top_month`/`new`); públicas y primeras en el feed
@@ -178,17 +238,55 @@ pnpm test        # tests de la API (requieren TEST_DATABASE_URL)
 - [x] **Buscador de `/songs` arreglado**: causa raíz era que los services mandaban `query` cuando la API espera `q` (afectaba también a `/search`); ahora explora el catálogo público con `GET /songs?q=`
 - [x] **95/95 tests** de integración + **37 unitarios** del web, typecheck, lint y build limpios
 
+### Migración a Hono (Fases 0-4) — app con Google + password
+
+> Plan y estado en [`docs/hono_migration/`](./docs/hono_migration/). El código
+> está listo para el cutover; el **deploy** queda bloqueado por credenciales
+> externas.
+
+- [x] **`apps/app-api`** (Hono + Cloudflare Workers): Google OAuth (`/auth/google`
+      + callback con state/PKCE/ID token), **login con email/username + password**
+      (`POST /auth/login`, argon2id de pwdlib verificado con `@noble/hashes`),
+      lecturas con paridad Python, escrituras de usuario (favoritos, playlists,
+      listens/contadores, perfil) y presign de covers a R2. Contrato en
+      `apps/app-api/openapi.json`.
+- [x] **`apps/web` contra Hono**: `NEXT_PUBLIC_API_URL=http://localhost:8787`
+      (prod `https://api.luisrivas.site`), cookie `session`, tipos generados en
+      `packages/app-api-types` (`pnpm gen:types:app`).
+- [x] **Login Google + email/usuario/password**: `/login` muestra "Continuar con
+      Google" y el formulario de credenciales; `/register` redirige a `/login`
+      (la cuenta nueva se crea con Google); `/account` = username + cover (email
+      read-only). Password auth requiere Workers Paid en producción (argon2 ~2 s
+      CPU; Free 10 ms).
+- [x] **Fix loop de sesión inválida**: el proxy ya no redirige `/login` →
+      `/dashboard` solo por presencia de cookie; una cookie vencida/inválida va a
+      `/login` y queda ahí (no parpadea).
+- [x] **Cookies separadas**: app `session` (Hono) y panel `panel_session`
+      (Python con `SESSION_COOKIE_NAME=panel_session`).
+- [x] **Panel local** contra Python/R2/Neon (`apps/panel`, :3001) con todo el CRUD
+      admin; no se despliega.
+- [ ] **Deploy (bloqueado)**: Worker `api.luisrivas.site` + Hyperdrive +
+      migración 0010 en `main`, app en Vercel y Google OAuth client real. Pasos en
+      [`docs/hono_migration/phase-4-cutover.md`](./docs/hono_migration/phase-4-cutover.md).
+
 ### Siguientes fases
 
-- [ ] Fase 6 — Deploy (Vercel + Railway/Fly/Render, dominio propio), CSRF, notificaciones push, perfiles públicos, letra sincronizada
+- [ ] Fase 6 — Deploy: app en **Vercel**, API de la app en **Cloudflare Workers**
+      (Custom Domain + Hyperdrive) y panel **local** contra la DB/R2 de prod.
+      CSRF, notificaciones push, perfiles públicos, letra sincronizada
 - [ ] Roadmap ampliado de features en [`tasks.md`](./tasks.md)
 
 ## Notas de seguridad pendientes antes de producción
 
-- [ ] CSRF (double-submit cookie / `fastapi-csrf-protect`) en endpoints mutantes — obligatorio con `SameSite=None` (ver `core/security.py`)
-- [ ] `slowapi` con storage Redis si hay más de un worker
+- [ ] CSRF (double-submit cookie) en endpoints mutantes de Hono y Python — obligatorio con `SameSite=None` (ver `apps/api/app/core/security.py`)
+- [ ] `slowapi` con storage Redis si el panel corre con más de un worker (local: no aplica)
 - [ ] Revisar checklist completa del plan (sección 13)
 
-cloudflared tunnel run pulse-stream-api
+## Acceso remoto opcional al panel (sin deploy)
 
-uv run uvicorn app.main:app --reload
+```bash
+cloudflared tunnel run pulse-stream-api          # expone :8000
+uv run uvicorn app.main:app --reload             # en apps/api
+```
+
+Proteger el túnel con **Cloudflare Access**. El panel no se publica.

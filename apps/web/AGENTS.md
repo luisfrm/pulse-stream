@@ -7,3 +7,20 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+# `apps/web` — app de música (Google + password)
+
+- **API**: Hono (`apps/app-api`). `NEXT_PUBLIC_API_URL` = `http://localhost:8787`
+  en local y `https://api.luisrivas.site` en prod; cookie `session`.
+- **Login**: `/login` muestra "Continuar con Google" (link a
+  `${NEXT_PUBLIC_API_URL}/auth/google?returnTo=…`) **y** un formulario de
+  email/usuario + contraseña (`POST /auth/login` de Hono). `/register` redirige
+  a `/login`: la cuenta nueva se crea con Google; el password es para cuentas
+  existentes. Password auth requiere Workers Paid en prod.
+- **`/account`**: email read-only; solo se editan `username` y cover
+  (`PATCH /users/me` de Hono acepta únicamente esos campos).
+- **Logout**: `<form method="POST" action="/api/logout">`; el route handler
+  same-origin borra la cookie `session` con `ENV`/`COOKIE_DOMAIN`/`COOKIE_SAMESITE`.
+- **Tipos**: `@pulse-stream/app-api-types` (generado desde
+  `apps/app-api/openapi.json` con `pnpm gen:types:app`). No declarar tipos a mano.
+- El panel admin **no** vive acá: es `apps/panel` (local, Python).

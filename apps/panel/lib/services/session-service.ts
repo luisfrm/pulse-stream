@@ -4,9 +4,10 @@ import { panelApi, type ApiFetchOptions } from "@/lib/api/client";
 import type { User } from "./types";
 
 /**
- * Sesión actual del panel (GET /users/me). Nunca se cachea entre requests
- * (datos por usuario) pero React.cache deduplica la llamada DENTRO del mismo
- * render: layout + page llaman a getSession y solo sale UN /users/me.
+ * Sesión actual del panel (GET /users/me contra la API Python). Nunca se
+ * cachea entre requests (datos por usuario) pero React.cache deduplica la
+ * llamada DENTRO del mismo render: layout + page llaman a getSession y solo
+ * sale UN /users/me.
  */
 export const getSession = cache(async function getSession(
   options?: ApiFetchOptions

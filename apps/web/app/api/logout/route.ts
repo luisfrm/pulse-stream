@@ -21,10 +21,10 @@ import type { NextRequest } from "next/server";
 export async function POST(request: NextRequest) {
   // Cookie de sesión de la app (mismo nombre que usa el api-client/proxy).
   const sessionCookie = process.env.SESSION_COOKIE ?? "session";
-  // Espejo del backend (apps/api/app/core/config.py): ENV es autoritativo.
-  // En local la cookie es host-only (sin Domain) y SameSite=lax, así que un
-  // COOKIE_DOMAIN / COOKIE_SAMESITE=none heredado del .env de prod debe
-  // ignorarse aquí también o el borrado no matchea.
+  // Espejo del backend Hono (`apps/app-api/src/auth/cookies.ts`): ENV es
+  // autoritativo. En local la cookie es host-only (sin Domain) y SameSite=lax,
+  // así que un COOKIE_DOMAIN / COOKIE_SAMESITE=none heredado del .env de prod
+  // debe ignorarse aquí también o el borrado no matchea.
   const isLocal = (process.env.ENV ?? "local") === "local";
   const rawSamesite = process.env.COOKIE_SAMESITE ?? "";
   const samesite = isLocal

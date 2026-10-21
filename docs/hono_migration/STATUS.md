@@ -63,7 +63,7 @@ client/secrets y deploy del Worker.
 - [ ] Fixtures dorados reproducibles en CI (seed fijo) — la paridad en vivo ya
       se corrió; falta empaquetarla para CI.
 - [ ] p99 de CPU < 8 ms medido en Workers
-- [ ] `packages/app-api-types` desde `/openapi.json`
+- [x] `packages/app-api-types` desde `apps/app-api/openapi.json` (Fase 4)
 - [x] Commit de fase
 
 ## Fase 3 — Escrituras
@@ -88,16 +88,61 @@ client/secrets y deploy del Worker.
 
 ## Fase 4 — Cutover
 
-- [ ] Migración en prod
-- [ ] Deploy Worker + Vercel
-- [ ] Google OAuth en prod
-- [ ] Panel local con `panel_session`
-- [ ] Playwright prod
-- [ ] Docs (`AGENTS.md`, `README.md`, `tasks.md`, plan)
-- [ ] Commit de fase
+**Código (completo, sin deploy):**
+
+- [x] `packages/app-api-types` generado con `openapi-typescript` desde
+      `apps/app-api/openapi.json`; `pnpm gen:types:app`; `apps/web` lo usa (el
+      panel conserva `@pulse-stream/api-types`). Los schemas de Hono espejan los
+      nombres de Python.
+- [x] `apps/web` contra Hono: `NEXT_PUBLIC_API_URL=http://localhost:8787` local /
+      `https://api.luisrivas.site` prod, cookie `session`, fallback :8787.
+- [x] `auth-service`: `googleAuthUrl(returnTo)` + `login({identifier,password})`;
+      se mantiene el logout same-origin. La app es Google + password (no
+      register con password).
+- [x] `/login` con "Continuar con Google" **y** formulario email/usuario +
+      contraseña (sin "Recordarme", conserva `next`); `/register` redirige a
+      `/login`. El alta nueva es Google; el password es para cuentas existentes.
+- [x] `POST /auth/login` en Hono: `identifier` email o username
+      (case-insensitive), argon2id de pwdlib verificado con `@noble/hashes` (JS
+      puro; `hash-wasm` no compila WASM en Workers) → cookie `session`.
+      **Requiere Workers Paid en prod** (argon2 ~2 s CPU; Free 10 ms).
+- [x] Fix loop de sesión inválida: el proxy ya no redirige `/login` →
+      `/dashboard` solo por presencia de cookie; una cookie vencida va a
+      `/login` y queda ahí (sin parpadeo infinito).
+- [x] `/account`: email read-only, sin contraseña; `updateMe` solo
+      `username`/`cover_key` (`null` borra el cover) + presign de Hono.
+- [x] Panel con `panel_session`: default en client/proxy/logout, `.env.local`,
+      `.env.example`; Python local con `SESSION_COOKIE_NAME=panel_session`
+      (`.env.example` + `.env` local). El panel sigue 100% contra Python.
+- [x] Home chequea `SESSION_COOKIE` configurada (no el literal `session`).
+- [x] Docs: `AGENTS.md`, `apps/{web,panel}/AGENTS.md`, `README.md`, `tasks.md`,
+      `plan-implementacion.md`, `docs/hono_migration/README.md`,
+      `apps/app-api/README.md`.
+- [x] Verificación: `pnpm typecheck` (8/8), `pnpm lint` (0 errores; 2 warnings
+      preexistentes en `recently-played/page.tsx`), `pnpm test` (app-api 156,
+      web 37, panel 15, api-client 6, shared 11), `pnpm build` (web + panel OK).
+- [x] Playwright local: login con **email + password** y con **username +
+      password** (admin), Google link/redirect 302 con state/PKCE, dashboard/
+      catálogo/canciones/account, like contra Hono, logout de la app, panel
+      sigue logueado con `panel_session`, y `session=invalid` ya no genera loop
+      (`/login` estable).
+
+**Bloqueado por credenciales/infra (no ejecutado):**
+
+- [ ] Crear el Google OAuth Client (redirect URIs
+      `https://api.luisrivas.site/auth/google/callback` y
+      `http://localhost:8787/auth/google/callback`) y cargar
+      `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`/`GOOGLE_REDIRECT_URI`.
+- [ ] Hyperdrive ID real (reemplazar `REPLACE_WITH_HYPERDRIVE_ID`) + secrets del
+      Worker (`AUTH_SECRET`, R2, vars de prod).
+- [ ] Migración `0010` en Neon `main` (aprobación explícita).
+- [ ] Deploy: Worker `api.luisrivas.site` + `apps/web` en Vercel.
+- [ ] Playwright/smoke contra producción (login Google real y password en Paid).
+- [x] Commit de fase
 
 ## Fase 5 — Paid
 
-- [ ] Upgrade
-- [ ] Password auth (opcional)
-- [ ] Monitoreo
+- [x] Password auth implementado en código (`POST /auth/login`, argon2 noble)
+- [ ] Upgrade a Workers Paid (necesario para password auth en prod; Free 10 ms)
+- [ ] Monitoreo de CPU/errores 1102 y Playwright contra prod
+- [ ] Rate limit Upstash en `/auth/*` y `/me/listens` (pendiente de Fase 3)

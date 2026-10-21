@@ -42,6 +42,8 @@ export interface LinkOAuthInput {
 export interface UserRepository {
   getById(id: string): Promise<UserRecord | null>;
   findByEmail(email: string): Promise<UserRecord | null>;
+  /** Login con email o username (case-insensitive). */
+  findByIdentifier(identifier: string): Promise<UserRecord | null>;
   findByOAuth(
     provider: string,
     providerAccountId: string,
@@ -140,6 +142,21 @@ export class PgUserRepository implements UserRepository {
         WHERE lower(u.email) = $1
         LIMIT 1`,
       [email],
+    );
+    return rows[0] ?? null;
+  }
+
+  async findByIdentifier(identifier: string): Promise<UserRecord | null> {
+    // Login con email o username. El ORDER BY prioriza el email exacto si
+    // ambos coinciden; `lower(NULL)` no matchea.
+    const rows = await this.rows<UserRecord>(
+      `SELECT ${USER_COLUMNS_QUALIFIED}
+         FROM users u
+        WHERE lower(u.email) = lower($1)
+           OR lower(u.username) = lower($1)
+        ORDER BY (lower(u.email) = lower($1)) DESC
+        LIMIT 1`,
+      [identifier],
     );
     return rows[0] ?? null;
   }

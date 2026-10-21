@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@pulse-stream/api-client": "workspace:*",
-    "@pulse-stream/api-types": "workspace:*",
+    "@pulse-stream/app-api-types": "workspace:*",
     "@pulse-stream/design": "workspace:*",
     "@pulse-stream/shared": "workspace:*",
     "@pulse-stream/ui": "workspace:*",

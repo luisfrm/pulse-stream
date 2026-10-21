@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { playlistsService } from "@/lib/services/playlists-service";
-import type { MyPlaylist, Playlist, Song } from "@/lib/services/types";
+import type { MyPlaylist, Song } from "@/lib/services/types";
 
 import { PlaylistPicker } from "./playlist-picker";
 
@@ -29,9 +29,9 @@ const song = {
 } as Song;
 
 const playlists = [
-  { id: "p1", name: "Favoritas", song_count: 3, kind: "user" },
-  { id: "p2", name: "Gimnasio", song_count: 12, kind: "user" },
-] as Playlist[];
+  { id: "p1", name: "Favoritas", song_count: 3, kind: "user", song_ids: [] },
+  { id: "p2", name: "Gimnasio", song_count: 12, kind: "user", song_ids: [] },
+] as unknown as MyPlaylist[];
 
 beforeEach(() => {
   // Desktop (matchMedia false → useIsMobile false): el picker abre un popover.

@@ -18,7 +18,8 @@ export interface ApiClientOptions {
 }
 
 /**
- * Crea un cliente isomórfico hacia una API (por ahora FastAPI).
+ * Crea un cliente isomórfico hacia una API (Hono para la app; FastAPI para el
+ * panel).
  *
  * - Servidor (RSC / Server Action): propaga SOLO la cookie indicada vía
  *   `next/headers`.

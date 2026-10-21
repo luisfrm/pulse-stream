@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { Playlist, Song } from "@/lib/services/types";
+import type { MyPlaylist, Song } from "@/lib/services/types";
 
 import { SongCard } from "./song-card";
 
@@ -33,8 +33,8 @@ const song = {
 } as Song;
 
 const playlists = [
-  { id: "p1", name: "Favoritas", song_count: 3, kind: "user" },
-] as Playlist[];
+  { id: "p1", name: "Favoritas", song_count: 3, kind: "user", song_ids: [] },
+] as unknown as MyPlaylist[];
 
 beforeEach(() => {
   // useIsMobile (del PlaylistPicker) usa matchMedia en el mount.

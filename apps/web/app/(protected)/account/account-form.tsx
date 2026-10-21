@@ -11,14 +11,10 @@ import { authService } from "@/lib/services/auth-service";
 import type { User } from "@/lib/services/types";
 import { friendlyError } from "@pulse-stream/shared";
 
-const MIN_PASSWORD = 3;
-
 export function AccountForm({ user }: { user: User }) {
   const router = useRouter();
 
   const [username, setUsername] = React.useState(user.username ?? "");
-  const [email, setEmail] = React.useState(user.email);
-  const [password, setPassword] = React.useState("");
   const [coverKey, setCoverKey] = React.useState<string | null>(user.cover_key ?? null);
   const [error, setError] = React.useState<string | null>(null);
   const [saved, setSaved] = React.useState(false);
@@ -36,7 +32,7 @@ export function AccountForm({ user }: { user: User }) {
     setSaved(false);
     setPending(true);
     try {
-      const updated = await authService.updateMe({ cover_key: key ?? undefined });
+      const updated = await authService.updateMe({ cover_key: key });
       setCoverKey(key);
       setPreviewUrl(updated.cover_url ?? null);
       setSaved(true);
@@ -53,19 +49,11 @@ export function AccountForm({ user }: { user: User }) {
     setError(null);
     setSaved(false);
 
-    if (password && password.length < MIN_PASSWORD) {
-      setError(`La contraseña debe tener al menos ${MIN_PASSWORD} caracteres.`);
-      return;
-    }
-
     setPending(true);
     try {
       await authService.updateMe({
         username: username.trim() || undefined,
-        email: email.trim() || undefined,
-        password: password || undefined,
       });
-      setPassword("");
       setSaved(true);
       router.refresh();
     } catch (err) {
@@ -97,6 +85,10 @@ export function AccountForm({ user }: { user: User }) {
         className="rounded-2xl border border-bg-highlight bg-bg-elevated/50 p-6"
       >
         <h2 className="font-display text-lg font-bold">Datos personales</h2>
+        <p className="mt-1 text-sm text-text-subdued">
+          Tu nombre de usuario es público. El email y la contraseña los gestiona
+          Google.
+        </p>
 
         <div className="mt-5 flex flex-col gap-5">
           <Input
@@ -114,21 +106,10 @@ export function AccountForm({ user }: { user: User }) {
           <Input
             label="Email"
             type="email"
-            required
             autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-
-          <Input
-            label="Contraseña"
-            type="password"
-            minLength={MIN_PASSWORD}
-            autoComplete="new-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Dejalo vacío para no cambiarla"
-            hint={`Mínimo ${MIN_PASSWORD} caracteres. Dejá vacío si no querés cambiarla.`}
+            value={user.email}
+            readOnly
+            hint="El email lo administra tu cuenta de Google."
           />
 
           {error && (

@@ -6,14 +6,16 @@ import {
 export type { ApiFetchOptions };
 
 /**
- * Cliente del panel hacia la API de administración.
+ * Cliente del panel hacia la API de administración (FastAPI, `apps/api`).
  *
- * En Fase 1 apunta a la misma API Python (`NEXT_PUBLIC_API_URL`) y usa la
- * cookie de sesión que esa API setea (`PANEL_SESSION_COOKIE`, default
- * `session` para no romper el backend actual). En Fase 4 el panel apunta a
- * Hono y la cookie pasa a `panel_session`.
+ * Desde la Fase 4 la app (`apps/web`) habla con Hono y el panel sigue 100%
+ * contra Python. La cookie del panel es `PANEL_SESSION_COOKIE` (default
+ * `panel_session`): en local no comparte sesión con la cookie `session` de
+ * Hono. El Python local debe correr con `SESSION_COOKIE_NAME=panel_session`.
  */
 export const panelApi = createApiClient({
-  baseURL: process.env.NEXT_PUBLIC_API_URL,
-  cookieName: process.env.PANEL_SESSION_COOKIE ?? "session",
+  baseURL:
+    process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "") ??
+    "http://localhost:8000",
+  cookieName: process.env.PANEL_SESSION_COOKIE ?? "panel_session",
 });

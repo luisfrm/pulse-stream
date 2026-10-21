@@ -18,7 +18,7 @@ type CoverUploaderProps = Omit<
 
 /**
  * CoverUploader de la app: el componente vive en `@pulse-stream/ui` y acá solo
- * se le inyecta el presign de la app (`/uploads/presign-cover` de Python) y el
+ * se le inyecta el presign de la app (`/uploads/presign-cover` de Hono) y el
  * PUT a R2 del api-client. El panel tiene su wrapper equivalente.
  */
 export function CoverUploader(props: CoverUploaderProps) {

@@ -32,6 +32,7 @@ describe("GET /health", () => {
       "/artists/{artist_id}",
       "/auth/google",
       "/auth/google/callback",
+      "/auth/login",
       "/auth/logout",
       "/genres",
       "/health",

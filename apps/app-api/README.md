@@ -1,10 +1,11 @@
 # `@pulse-stream/app-api` — Hono en Cloudflare Workers
 
 API de la app (`app.luisrivas.site`) según
-[`docs/hono_migration`](../../docs/hono_migration/README.md). **Fases 0-3**:
-Google OAuth, lecturas con paridad Python, escrituras de usuario (favoritos,
-playlists, listens/contadores, perfil) y presign de covers a R2. La app Next
-sigue apuntando a Python hasta el cutover de la Fase 4.
+[`docs/hono_migration`](../../docs/hono_migration/README.md). **Fases 0-4**:
+Google OAuth **+ login email/username/password**, lecturas con paridad Python,
+escrituras de usuario (favoritos, playlists, listens/contadores, perfil) y
+presign de covers a R2. Desde el cutover de la Fase 4, **`apps/web` apunta a esta
+API**; el panel sigue contra Python.
 
 El panel Python (`apps/api`) sigue siendo el dueño del esquema (Alembic) y de
 la administración; esta API no corre migraciones.
@@ -14,16 +15,17 @@ la administración; esta API no corre migraciones.
 ```
 src/
 ├── index.ts                 # wiring de producción (env → createApp)
-├── app.ts                   # createApp({ config, users, google })
+├── app.ts                   # createApp({ config, users, catalog, writes, google })
 ├── env.ts                   # Bindings/vars del Worker
 ├── config.ts                # parseo de env + cover_url
-├── types.ts                 # AppBindings (config/users/google en Context)
+├── types.ts                 # AppBindings (config/users/catalog/writes/google en Context)
 ├── auth/
 │   ├── session.ts           # JWT HS256 (aud/iss "pulse-app", 7 días)
 │   ├── cookies.ts           # `session` y `oauth_state` (atributos por ENV)
 │   ├── google.ts            # state firmado + PKCE + exchange + ID token
+│   ├── password.ts          # verificación argon2id (pwdlib) con @noble/hashes
 │   ├── guards.ts            # requireUser (cookie → JWT → repo)
-│   └── routes.ts            # /auth/google[/callback], /auth/logout
+│   └── routes.ts            # /auth/login, /auth/google[/callback], /auth/logout
 ├── features/users/
 │   ├── schema.ts            # Zod UserRead (contrato público)
 │   ├── repository.ts        # interfaz + PgUserRepository (SQL parametrizado)
@@ -79,11 +81,12 @@ local, comentar el bloque `hyperdrive` de `wrangler.jsonc` para que
 en Miniflare. En `dev`/`prod` usa `pg` + Hyperdrive (el camino de producción).
 El resto del código (repositorios, SQL) es idéntico.
 
-## Contrato (Fase 0)
+## Contrato (Fases 0-4)
 
 | Método | Path | Respuesta |
 |---|---|---|
 | `GET` | `/health` | `200 {"status":"ok"}` |
+| `POST` | `/auth/login` | `{identifier,password}` (email o username) → `204` + cookie `session`; `400` credenciales inválidas |
 | `GET` | `/auth/google?returnTo=/dashboard` | `302` a Google + cookie `oauth_state` (10 min) |
 | `GET` | `/auth/google/callback?code&state` | verifica state/PKCE/ID token, setea `session` y redirige a `APP_URL + returnTo` |
 | `POST` | `/auth/logout` | `204` + cookie `session` expirada |
@@ -113,6 +116,11 @@ Cookie `session`: `HttpOnly`, `Path=/`, `SameSite=Lax`, `Secure` si
   `username` ni `hashed_password` (una cuenta admin del panel conserva sus
   permisos). Usuarios nuevos: `hashed_password=NULL`, `is_verified=true`,
   `role=NULL`, username derivado del local-part.
+- **Login con password**: `POST /auth/login` busca por email o username
+  (case-insensitive) y verifica argon2id de `pwdlib` con `@noble/hashes` (JS
+  puro; `hash-wasm` falla en Workers: `WebAssembly.compile()` disallowed). Los
+  usuarios OAuth-only (`hashed_password=NULL`) no pueden usarlo. **Requiere
+  Workers Paid en prod** (~2 s CPU por login; Free 10 ms).
 - **Drizzle solo modela el esquema**; Alembic sigue siendo el dueño. Las queries
   de Fase 0 son SQL parametrizado con `pg` (menos superficie y sin depender de
   que `drizzle-kit pull` esté corriendo).
