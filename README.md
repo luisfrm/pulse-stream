@@ -1,6 +1,6 @@
 # Pulse Stream 🎧
 
-Spotify clone en monorepo. Stack: **pnpm workspaces · turbo · Next.js 16 · Hono en Cloudflare Workers · FastAPI (solo panel local) · SQLAlchemy 2.0 async · Neon (Postgres serverless) · Cloudflare R2 · Tailwind v4 · PWA · Google OAuth**.
+Spotify clone en monorepo. Stack: **pnpm workspaces · turbo · Next.js 16 · Hono en Cloudflare Workers · FastAPI (solo panel local) · SQLAlchemy 2.0 async · Neon (Postgres serverless) · Cloudflare R2 · Tailwind v4 · PWA · login con email/usuario + contraseña**.
 
 > 📋 El plan completo de implementación está en [`plan-implementacion.md`](./plan-implementacion.md) y las reglas de arquitectura del backend en [`AGENTS.md`](./AGENTS.md). Leelos antes de tocar código.
 
@@ -10,7 +10,7 @@ Spotify clone en monorepo. Stack: **pnpm workspaces · turbo · Next.js 16 · Ho
 pulse-stream/
 ├── apps/
 │   ├── app-api/                  # Hono + Cloudflare Workers (API de la app, :8787)
-│   ├── web/                      # Next.js 16 (app de música, OAuth Google, :3000)
+│   ├── web/                      # Next.js 16 (app de música, :3000)
 │   ├── panel/                    # Next.js 16 (backoffice admin local, :3001)
 │   └── api/                      # FastAPI + uv (panel/admin, dueño del esquema, :8000)
 ├── packages/
@@ -34,17 +34,16 @@ pulse-stream/
 
 ```bash
 cd apps/app-api
-cp .dev.vars.example .dev.vars   # AUTH_SECRET, DATABASE_URL y Google (fake en local)
+cp .dev.vars.example .dev.vars   # AUTH_SECRET + DATABASE_URL
 cd ../..
 pnpm install
 pnpm --filter @pulse-stream/app-api dev   # wrangler dev → http://localhost:8787
 ```
 
-- En local `ENV=local` + `DATABASE_URL` usan el driver HTTP de Neon (no hace
-  falta Hyperdrive; comentá el bloque `hyperdrive` de `wrangler.jsonc`).
-- **Sin credenciales reales de Google** el redirect a `accounts.google.com`
-  funciona (state + PKCE), pero el intercambio de `code` falla: alcanza para
-  probar `/login` y el link, no para un login real.
+- Local y producción usan el mismo driver HTTP de Neon
+  (`@neondatabase/serverless`) con `DATABASE_URL`; no hay Hyperdrive ni `pg`.
+- **No hay OAuth ni registro público**: las cuentas se crean con el seed del
+  panel. El login es email/usuario + contraseña.
 - El contrato OpenAPI está versionado en `apps/app-api/openapi.json`.
 
 ### 2. API del panel — FastAPI (`apps/api`, :8000)
@@ -73,11 +72,11 @@ cp .env.example .env.local   # NEXT_PUBLIC_API_URL=http://localhost:8787
 pnpm dev                     # http://localhost:3000
 ```
 
-Login: **Google o email/usuario + contraseña** en `/login`. No hay registro con
-email/contraseña: `/register` redirige a `/login` y la cuenta nueva se crea con
-Google; el login con password es para cuentas existentes (admin/seed/legacy).
-`/account` solo edita username + foto (el email es read-only). En producción el
-login con password requiere Workers Paid (argon2 supera el CPU de Free).
+Login: **email/usuario + contraseña** en `/login`. No hay OAuth ni registro
+público: `/register` redirige a `/login` y las cuentas se crean con el seed del
+panel (`apps/api/scripts/create_admin.py`). `/account` solo edita username +
+foto (el email es read-only). En producción el login con password requiere
+Workers Paid (argon2 supera el CPU de Free).
 
 ### 4. Panel (`apps/panel`, :3001)
 
@@ -149,11 +148,10 @@ pnpm db:current  # revisión Alembic aplicada
 
 | Variable | Obligatoria | Descripción |
 |---|---|---|
-| `AUTH_SECRET` | **sí** | HS256 de `session` y `oauth_state` (≥ 32 chars) |
-| `DATABASE_URL` | **sí** (local) | Neon directo (driver HTTP); en prod se usa el binding `HYPERDRIVE` |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | para login real | OAuth client de Google Cloud |
-| `GOOGLE_REDIRECT_URI` | para login real | `http://localhost:8787/auth/google/callback` en local |
-| `ENV` / `APP_URL` / `COOKIE_DOMAIN` / `CORS_ORIGINS` | en `wrangler.jsonc` | `local`/`prod`, `http://localhost:3000` o `https://app.luisrivas.site`, etc. |
+| `AUTH_SECRET` | **sí** | HS256 de `session` (≥ 32 chars) |
+| `DATABASE_URL` | **sí** | Neon directo (driver HTTP) en local y producción |
+| `R2_ACCOUNT_ID` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` / `R2_BUCKET_NAME` | para covers | Credenciales de firmado de R2 |
+| `ENV` / `APP_URL` / `COOKIE_DOMAIN` / `CORS_ORIGINS` | en `wrangler.jsonc` | `local`/`prod`, `http://localhost:3000` o `https://pulse-stream.luisrivas.site`, etc. |
 
 ## Estado del proyecto
 
@@ -211,7 +209,7 @@ pnpm db:current  # revisión Alembic aplicada
 
 ### Fase 4 — Perfil, plays, álbumes y colaboraciones ✅
 
-- [x] **Perfil de usuario**: `username` (único) + foto de portada (WebP ≤ 256 KB vía presign-cover). Página `/account` (username + cover; el email es read-only; la contraseña no se edita desde la app: el login admite Google o email/usuario + password para cuentas existentes). Nav pública: botón "Mi cuenta" con ícono User → `/account`, sin link a Panel
+- [x] **Perfil de usuario**: `username` (único) + foto de portada (WebP ≤ 256 KB vía presign-cover). Página `/account` (username + cover; el email es read-only; la contraseña no se edita desde la app: el login es email/usuario + password para cuentas existentes). Nav pública: botón "Mi cuenta" con ícono User → `/account`, sin link a Panel
 - [x] **Contadores de plays**: cada play suma +1 a `songs.play_count` y +1 a `users.total_plays` (incrementos atómicos, respetando el dedupe). La canción muestra sus reproducciones
 - [x] **Rankings en el dashboard**: "Más escuchadas esta semana" (`days=7`) y "Más escuchadas este mes" (`month=true`, mes calendario). Recientes con `user_play_count` por canción (badge N×) y sin llamadas API redundantes
 - [x] **Playlists del sistema**: `playlists.kind` ('user'|'system'), generadas desde el panel (`/panel/playlists`) como snapshot de queries (`top_week`/`top_month`/`new`); públicas y primeras en el feed
@@ -241,24 +239,26 @@ pnpm db:current  # revisión Alembic aplicada
 - [x] **Buscador de `/songs` arreglado**: causa raíz era que los services mandaban `query` cuando la API espera `q` (afectaba también a `/search`); ahora explora el catálogo público con `GET /songs?q=`
 - [x] **95/95 tests** de integración + **37 unitarios** del web, typecheck, lint y build limpios
 
-### Migración a Hono (Fases 0-4) — app con Google + password
+### Migración a Hono (Fases 0-4) — app con email/usuario + password
 
 > Plan y estado en [`docs/hono_migration/`](./docs/hono_migration/). El código
 > está listo para el cutover; el **deploy** queda bloqueado por credenciales
 > externas.
 
-- [x] **`apps/app-api`** (Hono + Cloudflare Workers): Google OAuth (`/auth/google`
-      + callback con state/PKCE/ID token), **login con email/username + password**
-      (`POST /auth/login`, argon2id de pwdlib verificado con `@noble/hashes`),
-      lecturas con paridad Python, escrituras de usuario (favoritos, playlists,
-      listens/contadores, perfil) y presign de covers a R2. Contrato en
-      `apps/app-api/openapi.json`.
+- [x] **`apps/app-api`** (Hono + Cloudflare Workers): **login con email/username
+      + password** (`POST /auth/login`, argon2id de pwdlib verificado con
+      `@noble/hashes`), lecturas con paridad Python, escrituras de usuario
+      (favoritos, playlists, listens/contadores, perfil) y presign de covers a
+      R2. Contrato en `apps/app-api/openapi.json`.
+- [x] **DB única local/prod**: Neon HTTP (`@neondatabase/serverless`); sin
+      Hyperdrive ni `pg` en el Worker.
+- [x] **Sin OAuth ni registro público**: las cuentas se crean con el seed del
+      panel. Se eliminaron `/auth/google`, `oauth_accounts` y el link de Google.
 - [x] **`apps/web` contra Hono**: `NEXT_PUBLIC_API_URL=http://localhost:8787`
       (prod `https://api.luisrivas.site`), cookie `session`, tipos generados en
       `packages/app-api-types` (`pnpm gen:types:app`).
-- [x] **Login Google + email/usuario/password**: `/login` muestra "Continuar con
-      Google" y el formulario de credenciales; `/register` redirige a `/login`
-      (la cuenta nueva se crea con Google); `/account` = username + cover (email
+- [x] **Login email/usuario/password**: `/login` muestra el formulario;
+      `/register` redirige a `/login`; `/account` = username + cover (email
       read-only). Password auth requiere Workers Paid en producción (argon2 ~2 s
       CPU; Free 10 ms).
 - [x] **Fix loop de sesión inválida**: el proxy ya no redirige `/login` →
@@ -268,14 +268,15 @@ pnpm db:current  # revisión Alembic aplicada
       (Python con `SESSION_COOKIE_NAME=panel_session`).
 - [x] **Panel local** contra Python/R2/Neon (`apps/panel`, :3001) con todo el CRUD
       admin; no se despliega.
-- [ ] **Deploy (bloqueado)**: Worker `api.luisrivas.site` + Hyperdrive +
-      migración 0010 en `main`, app en Vercel y Google OAuth client real. Pasos en
+- [ ] **Deploy (bloqueado)**: Worker `api.luisrivas.site`, migración `0011` en
+      `main`, app en Vercel y secrets de Cloudflare/Neon/R2. El workflow
+      `.github/workflows/ci.yml` deploya en push a `master`. Pasos en
       [`docs/hono_migration/phase-4-cutover.md`](./docs/hono_migration/phase-4-cutover.md).
 
 ### Siguientes fases
 
 - [ ] Fase 6 — Deploy: app en **Vercel**, API de la app en **Cloudflare Workers**
-      (Custom Domain + Hyperdrive) y panel **local** contra la DB/R2 de prod.
+      (Custom Domain, Neon HTTP) y panel **local** contra la DB/R2 de prod.
       CSRF, notificaciones push, perfiles públicos, letra sincronizada
 - [ ] Roadmap ampliado de features en [`tasks.md`](./tasks.md)
 

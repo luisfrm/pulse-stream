@@ -1,76 +1,20 @@
 import { neon } from "@neondatabase/serverless";
-import { Client, type QueryResult, type QueryResultRow } from "pg";
 
 import type { Env } from "../env";
 import { PgCatalogRepository, type CatalogRepository } from "../features/catalog/repository";
 import { PgUserRepository, type UserRepository } from "../features/users/repository";
 import { PgWritesRepository, type WritesRepository } from "../features/writes/repository";
-import type { Queryable } from "./types";
+import type { Queryable, QueryResult, QueryResultRow } from "./types";
 
 /**
- * Hyperdrive en producción; `DATABASE_URL` para `wrangler dev` sin binding y
- * tests locales.
- */
-export function databaseConnectionString(env: Env): string | undefined {
-  const hyperdrive = env.HYPERDRIVE?.connectionString?.trim();
-  if (hyperdrive) return hyperdrive;
-  return env.DATABASE_URL?.trim() || undefined;
-}
-
-/**
- * Un solo `pg.Client` por request, conectado perezosamente en la primera
- * query y compartido por `users` + `catalog` (Fase 2). `end()` es no-op si el
- * request nunca tocó la DB.
- */
-export class RequestDatabase implements Queryable {
-  private client: Client | null = null;
-
-  constructor(private readonly connectionString: string | null) {}
-
-  async query<T extends QueryResultRow = QueryResultRow>(
-    text: string,
-    values?: unknown[],
-  ): Promise<QueryResult<T>> {
-    return this.getClient().query<T>(text, values);
-  }
-
-  async end(): Promise<void> {
-    const client = this.client;
-    if (!client) return;
-    this.client = null;
-    await client.end();
-  }
-
-  private getClient(): Client {
-    if (!this.connectionString) {
-      throw new Error(
-        "Database is not configured: bind HYPERDRIVE or set DATABASE_URL",
-      );
-    }
-
-    this.client ??= new Client({
-      connectionString: this.connectionString,
-      connectionTimeoutMillis: 10_000,
-    });
-
-    return this.client;
-  }
-}
-
-export interface RequestRepositories {
-  users: UserRepository;
-  catalog: CatalogRepository;
-  writes: WritesRepository;
-  /** Cierra el `pg.Client` compartido del request (una sola vez). */
-  close(): Promise<void>;
-}
-
-/**
- * Driver HTTP de Neon para desarrollo local (`wrangler dev`).
+ * Driver HTTP de Neon para local y producción.
  *
- * `pg` sobre TCP no completa la conexión contra Neon en el runtime local de
- * Miniflare; el driver HTTP usa `fetch` y funciona igual en Workers. En
- * producción se sigue usando Hyperdrive + `pg` (`RequestDatabase`).
+ * `@neondatabase/serverless` usa `fetch` (sin TCP), así que el mismo camino
+ * funciona en `wrangler dev` y en el Worker desplegado. No hay Hyperdrive ni
+ * `pg.Client`: cada query es un request HTTP a Neon.
+ *
+ * El driver HTTP no soporta transacciones interactivas (`BEGIN`/`COMMIT`);
+ * las mutaciones multi-tabla se escriben como una sola sentencia con CTEs.
  */
 export class NeonHttpDatabase implements Queryable {
   private readonly sql: ReturnType<typeof neon>;
@@ -87,14 +31,7 @@ export class NeonHttpDatabase implements Queryable {
     // `neon()` puede devolver un array (default) o `FullQueryResults` según las
     // opciones; normalizamos a filas.
     const rows = (Array.isArray(result) ? result : result.rows) as T[];
-    // Los repositorios solo leen `.rows`; el resto del shape de `pg` no aplica.
-    return {
-      rows,
-      rowCount: rows.length,
-      command: "SELECT",
-      oid: 0,
-      fields: [],
-    } as QueryResult<T>;
+    return { rows, rowCount: rows.length };
   }
 
   async end(): Promise<void> {
@@ -102,12 +39,32 @@ export class NeonHttpDatabase implements Queryable {
   }
 }
 
-/** Wiring de producción: users + catalog + writes sobre una única conexión. */
+/**
+ * Placeholder para tests y `gen:openapi` (no hay `DATABASE_URL`).
+ * Los repositories existen, pero cualquier query falla con un mensaje claro.
+ */
+class UnconfiguredDatabase implements Queryable {
+  async query<T extends QueryResultRow = QueryResultRow>(): Promise<
+    QueryResult<T>
+  > {
+    throw new Error("Database is not configured: set DATABASE_URL");
+  }
+
+  async end(): Promise<void> {}
+}
+
+export interface RequestRepositories {
+  users: UserRepository;
+  catalog: CatalogRepository;
+  writes: WritesRepository;
+  /** No-op en HTTP; se mantiene para el ciclo de vida de `app.ts`. */
+  close(): Promise<void>;
+}
+
 export function createRequestRepositories(env: Env): RequestRepositories {
-  const useNeonHttp = env.ENV === "local" && Boolean(env.DATABASE_URL);
-  const database = useNeonHttp
-    ? new NeonHttpDatabase(env.DATABASE_URL as string)
-    : new RequestDatabase(databaseConnectionString(env) ?? null);
+  const database = env.DATABASE_URL?.trim()
+    ? new NeonHttpDatabase(env.DATABASE_URL.trim())
+    : new UnconfiguredDatabase();
 
   return {
     users: new PgUserRepository(database),

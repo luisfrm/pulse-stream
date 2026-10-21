@@ -1,9 +1,6 @@
-"""Fase 0 de la migración a Hono: usuarios OAuth + admin local del panel.
+"""Seed del admin local del panel y nombre configurable de la cookie.
 
 Cubre:
-- `users.hashed_password` nullable (un usuario creado por Google no tiene
-  password local) y que el login por password devuelva 400 (no 500).
-- Las dos unique constraints de `oauth_accounts`.
 - `upsert_admin` (crea y rota password) + login por API.
 - El nombre de la cookie de sesión configurable (`SESSION_COOKIE_NAME`).
 """
@@ -12,104 +9,17 @@ import uuid
 
 import pytest
 from pwdlib import PasswordHash
-from sqlalchemy.exc import IntegrityError
 
 from app.core.config import Settings, settings
 from app.features.auth.backend import cookie_transport
 from app.features.users.admin_seed import upsert_admin
-from app.features.users.models import OAuthAccount, User
 
 PASSWORD = "Str0ng-Pass!-42"
 NEW_PASSWORD = "An0ther-Pass!-77"
 
 
-def _email(prefix: str = "oauth") -> str:
+def _email(prefix: str = "admin") -> str:
     return f"{prefix}-{uuid.uuid4().hex[:10]}@example.com"
-
-
-async def _create_oauth_user(session, email_address: str | None = None) -> User:
-    """Inserta un usuario como lo haría el callback de Google: sin password."""
-    user = User(
-        email=email_address or _email(),
-        hashed_password=None,
-        is_verified=True,
-        role=None,
-    )
-    session.add(user)
-    await session.commit()
-    await session.refresh(user)
-    return user
-
-
-@pytest.mark.asyncio
-async def test_user_hashed_password_nullable_for_oauth(session):
-    user = await _create_oauth_user(session)
-    assert user.hashed_password is None
-
-
-@pytest.mark.asyncio
-async def test_login_oauth_user_returns_400(client, session):
-    user = await _create_oauth_user(session)
-
-    resp = await client.post(
-        "/auth/login", data={"username": user.email, "password": PASSWORD}
-    )
-
-    assert resp.status_code == 400, resp.text
-    assert "session" not in client.cookies
-
-
-@pytest.mark.asyncio
-async def test_oauth_account_unique_provider_account(session):
-    first_user = await _create_oauth_user(session)
-    second_user = await _create_oauth_user(session)
-
-    session.add(
-        OAuthAccount(
-            user_id=first_user.id,
-            provider="google",
-            provider_account_id="google-sub-123",
-        )
-    )
-    await session.commit()
-
-    # Otro usuario con la MISMA cuenta del proveedor -> viola la unique.
-    session.add(
-        OAuthAccount(
-            user_id=second_user.id,
-            provider="google",
-            provider_account_id="google-sub-123",
-        )
-    )
-    with pytest.raises(IntegrityError):
-        await session.commit()
-    await session.rollback()
-
-
-@pytest.mark.asyncio
-async def test_oauth_account_unique_user_provider(session):
-    user = await _create_oauth_user(session)
-
-    session.add(
-        OAuthAccount(
-            user_id=user.id,
-            provider="google",
-            provider_account_id="google-sub-aaa",
-        )
-    )
-    await session.commit()
-
-    # Mismo usuario + mismo proveedor, otra cuenta -> viola la unique.
-    session.add(
-        OAuthAccount(
-            user_id=user.id,
-            provider="google",
-            provider_account_id="google-sub-bbb",
-        )
-    )
-    with pytest.raises(IntegrityError):
-        await session.commit()
-    await session.rollback()
 
 
 @pytest.mark.asyncio

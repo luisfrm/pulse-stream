@@ -71,16 +71,16 @@ export default async function HomePage() {
 
         <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
           <Link
-            href="/register"
+            href="/login"
             className="inline-flex items-center gap-2 rounded-pill bg-brand-400 px-7 py-3.5 font-semibold text-bg-base transition-all hover:bg-brand-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-200"
           >
-            Crear cuenta gratis
+            Iniciar sesión
           </Link>
           <Link
-            href="/login"
+            href="#catalogo"
             className="inline-flex items-center gap-2 rounded-pill border border-bg-highlight bg-bg-elevated/60 px-7 py-3.5 font-semibold text-text-primary transition-colors hover:border-brand-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
           >
-            Iniciar sesión
+            Explorar catálogo
           </Link>
         </div>
 
@@ -112,10 +112,10 @@ export default async function HomePage() {
                 </p>
               </div>
               <Link
-                href="/register"
+                href="/login"
                 className="hidden shrink-0 text-sm font-medium text-brand-400 hover:underline sm:block"
               >
-                Guardarlas → registrate
+                Iniciá sesión para guardarlas
               </Link>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
@@ -179,7 +179,7 @@ export default async function HomePage() {
                 <PlaylistCard
                   key={playlist.id}
                   playlist={playlist}
-                  href="/register"
+                  href="/login"
                 />
               ))}
             </div>
@@ -199,10 +199,10 @@ export default async function HomePage() {
               reproducción. Gratis.
             </p>
             <Link
-              href="/register"
+              href="/login"
               className="mt-7 inline-block rounded-pill bg-brand-400 px-8 py-3.5 font-semibold text-bg-base transition-colors hover:bg-brand-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-200"
             >
-              Empezar gratis
+              Iniciar sesión
             </Link>
           </div>
         </div>

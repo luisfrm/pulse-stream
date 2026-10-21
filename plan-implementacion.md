@@ -1,10 +1,10 @@
 # Plan de Implementación — Spotify Clone (Monorepo)
 
-> Stack: pnpm workspaces · Next.js 16 · Hono en Cloudflare Workers (API de la app) · FastAPI (uv, solo panel local) · SQLAlchemy 2.0 async · Neon (Postgres serverless) · Cloudflare R2 · Tailwind v4 · PWA · Google OAuth
+> Stack: pnpm workspaces · Next.js 16 · Hono en Cloudflare Workers (API de la app) · FastAPI (uv, solo panel local) · SQLAlchemy 2.0 async · Neon (Postgres serverless) · Cloudflare R2 · Tailwind v4 · PWA · login email/usuario + contraseña
 >
 > **Actualización (Fase 4 del cutover a Hono):** este documento es el plan
 > original. El estado vigente es: `apps/app-api` (Hono + Workers) sirve la app
-> con **Google OAuth + login email/usuario/password**; `apps/web` (Vercel) lo consume;
+> con **login email/usuario/password** (sin OAuth); `apps/web` (Vercel) lo consume;
 > `apps/panel` + `apps/api` (FastAPI) quedan como **backoffice local** (dueño del
 > esquema/Alembic y del CRUD admin, no se despliegan). El deploy ya es
 > serverless: **Vercel + Cloudflare Workers**. Ver
@@ -28,7 +28,7 @@
 ```
 pulse-stream/
 ├── apps/
-│   ├── app-api/                  # Hono + Workers (API de la app, Google OAuth)
+│   ├── app-api/                  # Hono + Workers (API de la app, password)
 │   ├── web/                      # Next.js 16 (app, Vercel)
 │   ├── panel/                    # Next.js 16 (admin local)
 │   └── api/                      # FastAPI + uv (admin local, dueño del esquema)
@@ -73,8 +73,8 @@ packages:
 Neon expone dos connection strings: **pooled** (con `-pooler` en el host, pasa por PgBouncer) y **direct**. Regla práctica:
 
 - **Alembic (migraciones) usa la conexión *direct***, porque PgBouncer en modo *transaction pooling* rompe features de sesión que Alembic a veces necesita (`SET`, locks de sesión larga).
-- **La app usa Hono + Hyperdrive** (pool de conexiones administrado por
-  Cloudflare) y **el panel local FastAPI** usa el engine async normal con
+- **La app usa Hono + Neon HTTP** (`@neondatabase/serverless`, sin pool propio)
+  y **el panel local FastAPI** usa el engine async normal con
   `pool_pre_ping=True` contra la conexión *pooled* de Neon.
 - **No hay FastAPI en producción**: el Worker es serverless y no mantiene un
   pool propio; el panel corre local (o detrás de `cloudflared` + Access).
@@ -488,7 +488,7 @@ self.addEventListener("fetch", (event) => {
 3. **Fase 2 — Experiencia usuario**: home, búsqueda, página de artista/álbum, reproductor persistente con Media Session API, vista de letras estática.
 4. **Fase 3 — Gestión de usuarios + tests**: CRUD de usuarios (roles admin/user), suite de tests backend y frontend, cobertura mínima en CI.
 5. **Fase 4 — PWA + pulido móvil**: Serwist, manifest, bottom nav móvil, safe areas, performance (Lighthouse PWA + Core Web Vitals).
-6. **Fase 5 — Deploy**: `apps/web` en **Vercel**; API de la app en **Cloudflare Workers** (Custom Domain `api.luisrivas.site` + Hyperdrive, secrets con `wrangler secret put`); el panel (`apps/panel` + `apps/api`) corre **local** contra la DB/R2 de producción (acceso remoto opcional con `cloudflared` + Cloudflare Access). Dominio propio con subdominios `app.` / `api.` y cookies compartidas (`COOKIE_DOMAIN=luisrivas.site`). Ya no se usa Railway/Fly/Render ni un proceso FastAPI persistente en prod.
+6. **Fase 5 — Deploy**: `apps/web` en **Vercel**; API de la app en **Cloudflare Workers** (Custom Domain `api.luisrivas.site` + Neon HTTP, secrets con `wrangler secret put`); el panel (`apps/panel` + `apps/api`) corre **local** contra la DB/R2 de producción (acceso remoto opcional con `cloudflared` + Cloudflare Access). Dominio propio con subdominios `pulse-stream.` / `api.` y cookies compartidas (`COOKIE_DOMAIN=luisrivas.site`). Ya no se usa Railway/Fly/Render ni un proceso FastAPI persistente en prod.
 
 ---
 
@@ -497,7 +497,7 @@ self.addEventListener("fetch", (event) => {
 - [ ] Cookies: `HttpOnly`, `Secure` (prod), `SameSite=Lax`, dominio raíz compartido. Dos cookies: `session` (Hono/app) y `panel_session` (Python/panel local).
 - [ ] CSRF: double-submit token en todo endpoint mutante (Hono y Python).
 - [ ] Rate limiting en `/auth/*` (Hono: Upstash, pendiente) y en login/presign del panel (`slowapi`).
-- [ ] Passwords con Argon2 (vía `passlib`/`pwdlib`), nunca bcrypt-solo ni SHA plano. La app admite Google + email/usuario/password para cuentas existentes (Hono `POST /auth/login`, argon2 verificado con `@noble/hashes`); el alta nueva es Google. El panel/admin seed conserva su password. Password auth requiere Workers Paid en prod (CPU).
+- [ ] Passwords con Argon2 (vía `passlib`/`pwdlib`), nunca bcrypt-solo ni SHA plano. La app solo admite email/usuario/password (Hono `POST /auth/login`, argon2 verificado con `@noble/hashes`); no hay OAuth ni registro público, las cuentas se crean con el seed del panel. Password auth requiere Workers Paid en prod (CPU).
 - [ ] CORS restringido a los dominios exactos del frontend (nada de `*`).
 - [ ] Secrets vía `pydantic-settings` + variables de entorno, nunca hardcodeados.
 - [ ] Presigned URLs de subida con expiración corta (5-10 min) y `Content-Type`/tamaño validados en el backend antes de firmarlas.

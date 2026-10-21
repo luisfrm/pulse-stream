@@ -7,11 +7,6 @@
  */
 export type EnvironmentName = "local" | "dev" | "prod";
 
-/** Subconjunto estructural del binding Hyperdrive de Cloudflare. */
-export interface HyperdriveBinding {
-  connectionString: string;
-}
-
 export interface Env {
   // Vars públicas (`wrangler.jsonc`).
   ENV?: string;
@@ -22,9 +17,6 @@ export interface Env {
 
   // Secrets.
   AUTH_SECRET?: string;
-  GOOGLE_CLIENT_ID?: string;
-  GOOGLE_CLIENT_SECRET?: string;
-  GOOGLE_REDIRECT_URI?: string;
 
   // R2 (presign de covers). Sin las 4 credenciales el endpoint responde 503.
   R2_ACCOUNT_ID?: string;
@@ -32,7 +24,6 @@ export interface Env {
   R2_SECRET_ACCESS_KEY?: string;
   R2_BUCKET_NAME?: string;
 
-  // DB: en producción manda Hyperdrive; en local/tests cae a DATABASE_URL.
+  // Neon HTTP (local y producción): siempre el mismo driver.
   DATABASE_URL?: string;
-  HYPERDRIVE?: HyperdriveBinding;
 }

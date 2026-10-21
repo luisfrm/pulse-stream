@@ -1229,7 +1229,7 @@
           "auth"
         ],
         "summary": "Login con email/usuario y contraseña",
-        "description": "Acepta email o username (case-insensitive) + password argon2id (hash de pwdlib). Setea la cookie `session` igual que Google. Los usuarios OAuth-only no tienen password. Requiere Workers Paid en producción (argon2 > 10 ms CPU).",
+        "description": "Acepta email o username (case-insensitive) + password argon2id (hash de pwdlib) y setea la cookie `session`. No hay registro público: las cuentas existentes se crean con el seed del panel. Requiere Workers Paid en producción (argon2 > 10 ms CPU).",
         "requestBody": {
           "required": true,
           "content": {
@@ -1246,105 +1246,6 @@
           },
           "400": {
             "description": "Credenciales inválidas",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/auth/google": {
-      "get": {
-        "tags": [
-          "auth"
-        ],
-        "summary": "Inicia el login con Google",
-        "description": "Genera state + PKCE S256, firma la cookie `oauth_state` (10 min) y redirige a Google.",
-        "parameters": [
-          {
-            "schema": {
-              "type": "string",
-              "example": "/dashboard",
-              "description": "Path interno del frontend al que volver tras el login (default `/dashboard`)."
-            },
-            "required": false,
-            "description": "Path interno del frontend al que volver tras el login (default `/dashboard`).",
-            "name": "returnTo",
-            "in": "query"
-          }
-        ],
-        "responses": {
-          "302": {
-            "description": "Redirect a accounts.google.com"
-          },
-          "503": {
-            "description": "Google OAuth sin configurar",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/auth/google/callback": {
-      "get": {
-        "tags": [
-          "auth"
-        ],
-        "summary": "Callback de Google",
-        "description": "Valida state/PKCE, intercambia el code, verifica el id_token, resuelve el usuario y setea la cookie `session`.",
-        "parameters": [
-          {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
-            "name": "code",
-            "in": "query"
-          },
-          {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
-            "name": "state",
-            "in": "query"
-          }
-        ],
-        "responses": {
-          "302": {
-            "description": "Redirect a APP_URL + returnTo"
-          },
-          "400": {
-            "description": "State/code inválido",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "502": {
-            "description": "Fallo del token endpoint de Google",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Google OAuth sin configurar",
             "content": {
               "application/json": {
                 "schema": {

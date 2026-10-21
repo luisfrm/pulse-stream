@@ -19,6 +19,9 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 # Las env vars seteadas acá tienen prioridad sobre el .env (pydantic-settings:
 # env vars > dotenv) y `load_dotenv()` no pisa lo ya definido (override=False).
 os.environ.setdefault("ENV", "local")
+# El .env local del panel usa `panel_session`; los tests esperan `session`.
+# Se setea antes de load_dotenv() para que el .env no lo pise.
+os.environ.setdefault("SESSION_COOKIE_NAME", "session")
 os.environ["COOKIE_DOMAIN"] = ""
 
 # Los tests leen el .env de la app (TEST_DATABASE_URL vive ahí).
@@ -44,7 +47,7 @@ async def engine():
     import app.features.albums.models  # noqa: F401
     import app.features.artists.models  # noqa: F401
     import app.features.songs.models  # noqa: F401
-    import app.features.users.models  # noqa: F401  (User + OAuthAccount)
+    import app.features.users.models  # noqa: F401  (User)
     import app.features.playlists.models  # noqa: F401
     import app.features.favorites.models  # noqa: F401
     import app.features.listens.models  # noqa: F401

@@ -11,35 +11,35 @@ Plan de ejecución por fases para dividir Pulse Stream en:
 
 | Tema | Decisión |
 |---|---|
-| Plan Workers | Free para Google/lecturas; Paid ($5) **requerido para password auth en prod** (argon2 > 10 ms CPU) |
-| Auth app | Google OAuth + email/username/password (argon2id de pwdlib verificado con `@noble/hashes`), JWT HS256 en cookie `session` |
+| Plan Workers | Free para lecturas; Paid ($5) **requerido para password auth en prod** (argon2 > 10 ms CPU) |
+| Auth app | Solo email/username + password (argon2id de pwdlib verificado con `@noble/hashes`), JWT HS256 en cookie `session`. Sin OAuth ni registro público |
 | Auth panel | Email/password local (fastapi-users), admin separado por seed, cookie `panel_session` |
 | Frontend | Dos apps Next separadas, paquetes compartidos en `packages/*` |
-| API app | Hono + Zod OpenAPI + Drizzle + `pg` sobre Hyperdrive |
-| API panel | Python actual, sin cambios de contrato salvo los de la migración 0010 |
+| API app | Hono + Zod OpenAPI + Drizzle + **Neon HTTP** (`@neondatabase/serverless`) |
+| API panel | Python actual, sin cambios de contrato salvo los de la migración 0011 |
 | DB | Neon `main` (prod) + branches `dev`/`test`; Alembic sigue siendo el dueño del esquema |
-| Dominio | Cloudflare: `app.luisrivas.site` → Vercel, `api.luisrivas.site` → Worker Custom Domain |
+| Dominio | Cloudflare: `pulse-stream.luisrivas.site` → Vercel, `api.luisrivas.site` → Worker Custom Domain |
 | Cache | Lecturas públicas 60 s en el Worker; datos por usuario nunca se cachean |
 
 ## Arquitectura
 
 ```
-app.luisrivas.site   Next/Vercel ── cookie session (Domain=.luisrivas.site) ──┐
-api.luisrivas.site   Hono/Workers ── Hyperdrive ── Neon main                  │
-                            └── R2 (presign de covers; audio/covers directo)  │
-panel localhost:3001 Next/panel ── panel_session ── localhost:8000 Python ────┘
-                                                     └── Neon main + R2 (ZIP)
+pulse-stream.luisrivas.site  Next/Vercel ── cookie session (Domain=.luisrivas.site) ──┐
+api.luisrivas.site           Hono/Workers ── Neon HTTP ── Neon main                   │
+                                   └── R2 (presign de covers; audio/covers directo)  │
+panel localhost:3001         Next/panel ── panel_session ── localhost:8000 Python ───┘
+                                                           └── Neon main + R2 (ZIP)
 ```
 
 ## Fases
 
 | Fase | Doc | Estado |
 |---|---|---|
-| 0. Fundación: migración 0010, admin seed, esqueleto Hono + Google OAuth | [phase-0-foundation.md](phase-0-foundation.md) | Completada |
+| 0. Fundación: migración 0010, admin seed, esqueleto Hono | [phase-0-foundation.md](phase-0-foundation.md) | Completada (OAuth removido después) |
 | 1. Split del frontend en `apps/web` + `apps/panel` + packages | [phase-1-frontend-split.md](phase-1-frontend-split.md) | Completada |
 | 2. Lecturas de la app en Hono con paridad y caché | [phase-2-reads.md](phase-2-reads.md) | Completada (paridad 25/25) |
 | 3. Escrituras de usuario en Hono | [phase-3-writes.md](phase-3-writes.md) | Completada |
-| 4. Cutover de código, docs y deploy | [phase-4-cutover.md](phase-4-cutover.md) | Código completo (Google + password, panel_session, fix loop); deploy bloqueado por credenciales |
+| 4. Cutover de código, docs y deploy | [phase-4-cutover.md](phase-4-cutover.md) | Código completo (password, panel_session, Neon HTTP, CD en master); deploy bloqueado por credenciales |
 | 5. Upgrade a Workers Paid | [phase-5-paid.md](phase-5-paid.md) | Requerido para password auth en prod; upgrade pendiente |
 
 Estado detallado: [STATUS.md](STATUS.md).
@@ -47,13 +47,14 @@ Estado detallado: [STATUS.md](STATUS.md).
 ## Invariantes
 
 1. **La app nunca llama a Python; el panel nunca llama a Hono.** Cada frontend tiene su cliente API y su cookie.
-2. **Una sola DB, un solo dueño de esquema.** Alembic manda; el schema de Drizzle se genera con `drizzle-kit pull` y CI falla si difiere.
+2. **Una sola DB, un solo dueño de esquema.** Alembic manda; el schema de Drizzle se espeja a mano.
 3. **La app no es read-only.** Además de lecturas, Hono es dueño de favoritos, playlists de usuario, listens/contadores, perfil (username/cover) y presign de covers.
 4. **El panel es dueño del catálogo**: artists/albums/songs, ZIP, playlists system, uploads de audio, admin de usuarios.
 5. **Contratos idénticos**: `{detail}` para errores, `Page<T> = {items,total,offset,limit}`, mismos status codes y shapes que Python en todo endpoint compartido. Los tests de paridad son obligatorios.
 6. **Presupuesto Free**: ≤3 queries por request, sin N+1, respuestas ≤50 KB, lecturas públicas cacheadas, sin `@aws-sdk` (usar `aws4fetch`) y **sin password auth en prod** (argon2 > 10 ms CPU → Workers Paid).
 7. **Cookies**: `session` (app, `Domain=.luisrivas.site` en prod) y `panel_session` (panel local). `workers.dev` no se usa para la API: es public suffix.
 8. **SQLAlchemy `onupdate` no existe en la DB.** Todo UPDATE de Hono setea `updated_at = now()` explícitamente.
+9. **Sin OAuth**: no hay `/auth/google`, `oauth_accounts` ni alta pública. Las cuentas se crean con el seed del panel.
 
 ## Cómo correr
 
@@ -85,6 +86,6 @@ feat(hono): phase 0 - schema, admin seed and Workers auth skeleton
 refactor(web): phase 1 - split app and panel with shared packages
 feat(app-api): phase 2 - app read endpoints with parity tests
 feat(app-api): phase 3 - user writes, listens and cover presign
-chore(deploy): phase 4 - cutover, docs and infrastructure notes
+chore(deploy): phase 4 - cutover, Neon HTTP, password-only auth and CD
 feat(app-api): phase 5 - optional password auth (Workers Paid)
 ```

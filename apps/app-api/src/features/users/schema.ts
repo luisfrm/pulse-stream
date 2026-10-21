@@ -26,8 +26,8 @@ export type UserRead = z.infer<typeof UserReadSchema>;
 /**
  * `PATCH /users/me` (self-service). Solo username/cover: `role`, email,
  * password, `is_superuser` e `is_active` NO se aceptan (el objeto Zod los
- * descarta antes de llegar al repository). La app es OAuth-only, así que el
- * perfil local nunca cambia credenciales.
+ * descarta antes de llegar al repository). No hay registro público ni cambio
+ * de credenciales desde la app.
  *
  * `username`: `\w` de Python es Unicode → `\p{L}\p{N}_` + `.`, `-` y espacio.
  */

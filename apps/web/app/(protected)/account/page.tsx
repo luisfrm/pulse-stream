@@ -7,7 +7,7 @@ import { AccountForm } from "./account-form";
 export const metadata: Metadata = { title: "Mi cuenta" };
 export const dynamic = "force-dynamic";
 
-/** Página de perfil: username + foto de portada (email read-only de Google). */
+/** Página de perfil: username + foto de portada (email read-only). */
 export default async function AccountPage() {
   const user = await getSession();
   if (!user) return null; // el layout redirige a /login

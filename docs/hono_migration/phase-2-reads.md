@@ -1,5 +1,9 @@
 # Fase 2 — Lecturas de la app en Hono, con paridad y caché
 
+> **Actualización (Fase 4 final):** el driver local y el de producción se
+> unificaron en Neon HTTP (`@neondatabase/serverless`); no se usa `pg` ni
+> Hyperdrive. Ver `STATUS.md`.
+
 **Objetivo:** portar a `apps/app-api` todos los endpoints de lectura que consume
 `apps/web`, con respuestas idénticas a Python y presupuesto Free.
 
@@ -100,16 +104,17 @@ comparar JSON normalizado de cada endpoint (público y `/me/*`).
 
 ## Verificación
 
-### Driver de DB local (hallazgo real)
+### Driver de DB (decisión final)
 
-`pg` sobre TCP + Hyperdrive local se cuelga en `wrangler dev` contra Neon
-(Miniflare no completa el socket y el runtime cancela el request). La solución:
+La implementación final usa **Neon HTTP** (`@neondatabase/serverless`) en local
+y en producción:
 
-- `ENV=local` + `DATABASE_URL` → `NeonHttpDatabase`
-  (`@neondatabase/serverless`, HTTP). Misma SQL parametrizada, sin TCP.
-- `ENV=dev|prod` + `HYPERDRIVE` → `RequestDatabase` (`pg` + Hyperdrive), el
-  camino recomendado por Neon para Workers en producción.
+- `DATABASE_URL` → `NeonHttpDatabase`, misma SQL parametrizada, sin TCP.
+- No hay `RequestDatabase`, `pg` ni Hyperdrive.
 - Un solo `Queryable` por request compartido entre `users` y `catalog`.
+
+El hallazgo histórico fue que `pg` sobre TCP se colgaba en `wrangler dev` contra
+Neon; unificar todo en HTTP evita esa diferencia local/prod.
 
 ### Orden estable con timestamps iguales
 

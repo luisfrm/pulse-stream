@@ -1,4 +1,4 @@
-import type { QueryResult, QueryResultRow } from "pg";
+import type { QueryResult, QueryResultRow } from "../src/db/types";
 import { describe, expect, it } from "vitest";
 
 import type { Queryable } from "../src/db/types";
@@ -38,10 +38,7 @@ class FakeQueryable implements Queryable {
     const rows = this.responder(text, values ?? []);
 
     return {
-      command: "SELECT",
       rowCount: rows.length,
-      oid: 0,
-      fields: [],
       rows: rows as unknown as T[],
     };
   }

@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
-export const metadata: Metadata = { title: "Crear cuenta" };
+export const metadata: Metadata = { title: "Iniciar sesión" };
 
 /**
- * OAuth-only (Fase 4): no hay registro con email/contraseña. La cuenta se crea
- * con el primer login de Google, así que `/register` solo redirige a `/login`
- * conservando `next`.
+ * No hay registro público: las cuentas las crea el seed del panel. Se mantiene
+ * `/register` como redirect por compatibilidad con links viejos.
  */
 export default async function RegisterPage({
   searchParams,

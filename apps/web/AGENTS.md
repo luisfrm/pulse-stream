@@ -8,15 +8,14 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
-# `apps/web` — app de música (Google + password)
+# `apps/web` — app de música (password)
 
 - **API**: Hono (`apps/app-api`). `NEXT_PUBLIC_API_URL` = `http://localhost:8787`
   en local y `https://api.luisrivas.site` en prod; cookie `session`.
-- **Login**: `/login` muestra "Continuar con Google" (link a
-  `${NEXT_PUBLIC_API_URL}/auth/google?returnTo=…`) **y** un formulario de
-  email/usuario + contraseña (`POST /auth/login` de Hono). `/register` redirige
-  a `/login`: la cuenta nueva se crea con Google; el password es para cuentas
-  existentes. Password auth requiere Workers Paid en prod.
+- **Login**: `/login` muestra solo el formulario de email/usuario +
+  contraseña (`POST /auth/login` de Hono). No hay OAuth ni registro público:
+  las cuentas las crea el seed del panel. `/register` redirige a `/login` por
+  compatibilidad. Password auth requiere Workers Paid en prod.
 - **`/account`**: email read-only; solo se editan `username` y cover
   (`PATCH /users/me` de Hono acepta únicamente esos campos).
 - **Logout**: `<form method="POST" action="/api/logout">`; el route handler

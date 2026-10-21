@@ -4,21 +4,12 @@ import type { Env, EnvironmentName } from "./env";
  * Configuración de la app derivada de `env`.
  *
  * `ENV` es autoritativo: `local` (default) desactiva `Secure` en las cookies.
- * Los valores de Google pueden venir vacíos para que `/health` y
- * `/openapi.json` funcionen sin credenciales; las rutas de OAuth fallan con
- * 503 hasta configurarlas.
  */
 export class ConfigError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "ConfigError";
   }
-}
-
-export interface GoogleConfig {
-  clientId: string;
-  clientSecret: string;
-  redirectUri: string;
 }
 
 /**
@@ -43,7 +34,6 @@ export interface AppConfig {
   /** Allow-list exacta de orígenes con credenciales. */
   corsOrigins: string[];
   authSecret: string;
-  google: GoogleConfig;
   /** Sin slash final; vacío = covers sin URL pública. */
   r2PublicBaseUrl: string;
   /** Credenciales de firma (vacías = R2 no configurado). */
@@ -127,11 +117,6 @@ export function parseConfig(env: Env): AppConfig {
     cookieDomain: readString(env.COOKIE_DOMAIN) || null,
     corsOrigins: parseCorsOrigins(env.CORS_ORIGINS, appUrl),
     authSecret,
-    google: {
-      clientId: readString(env.GOOGLE_CLIENT_ID),
-      clientSecret: readString(env.GOOGLE_CLIENT_SECRET),
-      redirectUri: readString(env.GOOGLE_REDIRECT_URI),
-    },
     r2PublicBaseUrl: trimTrailingSlashes(readString(env.R2_PUBLIC_BASE_URL)),
     r2: {
       accountId: readString(env.R2_ACCOUNT_ID),

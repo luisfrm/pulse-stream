@@ -48,7 +48,7 @@ y el panel siguen apuntando a Python local; el cutover a Hono es la Fase 4.
 - Se queda con `(public)`, `(protected)`, player, PWA, dashboard shell, bottom nav,
   catálogo, favoritos, playlists de usuario, reciently-played, account, settings.
 - Se elimina `(panel)` y el link "Panel admin" de sidebar/bottom nav.
-- Login/register: por ahora los formularios actuales (el cambio a Google OAuth
+- Login/register: por ahora los formularios actuales (el cambio a password-only
   es Fase 4); `proxy.ts` deja de matchear `/panel`.
 - `lib/services`: lecturas de catálogo, favoritos, playlists, listens, auth,
   uploads (solo presign de cover).

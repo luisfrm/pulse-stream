@@ -86,8 +86,8 @@ export function AccountForm({ user }: { user: User }) {
       >
         <h2 className="font-display text-lg font-bold">Datos personales</h2>
         <p className="mt-1 text-sm text-text-subdued">
-          Tu nombre de usuario es público. El email y la contraseña los gestiona
-          Google.
+          Tu nombre de usuario es público. El email y la contraseña se
+          administran fuera de la app.
         </p>
 
         <div className="mt-5 flex flex-col gap-5">
@@ -109,7 +109,7 @@ export function AccountForm({ user }: { user: User }) {
             autoComplete="email"
             value={user.email}
             readOnly
-            hint="El email lo administra tu cuenta de Google."
+            hint="El email no se edita desde la app."
           />
 
           {error && (

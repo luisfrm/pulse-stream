@@ -3,15 +3,14 @@
   "name": "pulse-stream-app-api",
   "main": "src/index.ts",
   "compatibility_date": "2026-10-21",
-  "compatibility_flags": ["nodejs_compat"],
   "observability": {
     "enabled": true
   },
-  // Secrets (NO commitear): `wrangler secret put <NAME>`
-  //   AUTH_SECRET            HS256 para `session` y `oauth_state` (>= 32 chars)
-  //   GOOGLE_CLIENT_ID       OAuth client de Google Cloud Console
-  //   GOOGLE_CLIENT_SECRET   idem
-  //   GOOGLE_REDIRECT_URI    debe coincidir con el Authorized redirect URI
+  // Mismo driver de DB en local y producción: Neon HTTP (`DATABASE_URL`).
+  // Secrets (NO commitear): `wrangler secret put <NAME>`.
+  //   AUTH_SECRET       HS256 para `session` (>= 32 chars)
+  //   DATABASE_URL      conexión directa a Neon (sin -pooler)
+  //   R2_*              credenciales de firmado de covers
   // En local se cargan desde `.dev.vars` (ver `.dev.vars.example`).
   "vars": {
     "ENV": "local",
@@ -20,13 +19,23 @@
     "CORS_ORIGINS": "http://localhost:3000",
     "R2_PUBLIC_BASE_URL": ""
   },
-  // Reemplazar por el id real (`wrangler hyperdrive create ...`).
-  // Sin Hyperdrive local, `db/client.ts` cae a `DATABASE_URL` (solo si el
-  // binding no existe: para `wrangler dev` sin Hyperdrive, comentá este bloque).
-  "hyperdrive": [
-    {
-      "binding": "HYPERDRIVE",
-      "id": "REPLACE_WITH_HYPERDRIVE_ID"
+  "env": {
+    "prod": {
+      "vars": {
+        "ENV": "prod",
+        "APP_URL": "https://pulse-stream.luisrivas.site",
+        "COOKIE_DOMAIN": "luisrivas.site",
+        "CORS_ORIGINS": "https://pulse-stream.luisrivas.site",
+        // Reemplazar por el dominio público real del bucket R2.
+        "R2_PUBLIC_BASE_URL": "https://REPLACE_WITH_R2_PUBLIC_BASE_URL"
+      },
+      "routes": [
+        {
+          "pattern": "api.luisrivas.site",
+          "custom_domain": true
+        }
+      ],
+      "workers_dev": false
     }
-  ]
+  }
 }

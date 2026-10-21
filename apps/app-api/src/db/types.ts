@@ -1,12 +1,17 @@
-import type { QueryResult, QueryResultRow } from "pg";
-
 /**
- * Subconjunto estructural de `pg.Client` que usan los repositories.
+ * Contrato mínimo que usan los repositories.
  *
- * Permite compartir un único `pg.Client` por request entre `users` y
- * `catalog` (`db/client.ts`) y testear SQL con un fake en memoria, sin abrir
- * conexiones reales.
+ * El Worker habla con Neon por HTTP (`@neondatabase/serverless`) en local y en
+ * producción, así que solo necesitamos `rows`/`rowCount`. No hay `pg.Client`
+ * ni conexiones TCP que compartir entre requests.
  */
+export type QueryResultRow = Record<string, unknown>;
+
+export interface QueryResult<T extends QueryResultRow = QueryResultRow> {
+  rows: T[];
+  rowCount: number;
+}
+
 export interface Queryable {
   query<T extends QueryResultRow = QueryResultRow>(
     text: string,

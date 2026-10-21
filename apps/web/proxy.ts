@@ -36,7 +36,7 @@ export function proxy(request: NextRequest) {
   // cookie vencida/inválida hace que el layout protegido vuelva a /login y el
   // proxy a /dashboard (loop infinito). La sesión real se valida contra
   // `/users/me` en el layout; el home también redirige si hay sesión válida.
-  // Un usuario logueado que entra a /login simplemente ve el botón de Google.
+  // Un usuario logueado que entra a /login simplemente ve el formulario.
   return NextResponse.next();
 }
 

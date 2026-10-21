@@ -76,14 +76,9 @@ async function PublicNav() {
               </Button>
             </>
           ) : (
-            <>
-              <Button asChild size="sm" variant="ghost">
-                <Link href="/login">Iniciar sesión</Link>
-              </Button>
-              <Button asChild size="sm">
-                <Link href="/register">Crear cuenta</Link>
-              </Button>
-            </>
+            <Button asChild size="sm">
+              <Link href="/login">Iniciar sesión</Link>
+            </Button>
           )}
         </nav>
       </div>

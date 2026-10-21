@@ -1,6 +1,4 @@
-import type { QueryResultRow } from "pg";
-
-import type { Queryable } from "../../db/types";
+import type { QueryResultRow, Queryable } from "../../db/types";
 import { utcTimestamp } from "../catalog/queries";
 import type { PlaylistKind, PlaylistSystemQuery } from "../catalog/schema";
 import type { UserRecord } from "../users/repository";
@@ -12,8 +10,8 @@ import { UsernameTakenError } from "../users/repository";
  *
  * Reglas:
  * - SQL parametrizado, nunca interpolación de valores.
- * - Driver local Neon HTTP (`ENV=local`): NO hay transacciones interactivas →
- *   cada mutación multi-tabla es UNA sentencia con CTEs.
+ * - Driver Neon HTTP (local y prod): NO hay transacciones interactivas → cada
+ *   mutación multi-tabla es UNA sentencia con CTEs.
  * - Los `DELETE`/`UPDATE` usan `RETURNING` para detectar si tocaron una fila
  *   (el wrapper HTTP de Neon reporta `rowCount` como filas devueltas).
  * - `updated_at = now()` explícito en cada UPDATE (el `onupdate` de
@@ -110,7 +108,7 @@ export class PgWritesRepository implements WritesRepository {
   private get db(): Queryable {
     if (!this.client) {
       throw new Error(
-        "Database is not configured: bind HYPERDRIVE or set DATABASE_URL",
+        "Database is not configured: set DATABASE_URL",
       );
     }
     return this.client;

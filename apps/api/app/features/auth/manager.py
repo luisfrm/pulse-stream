@@ -70,12 +70,12 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
     async def authenticate(
         self, credentials: OAuth2PasswordRequestForm
     ) -> User | None:
-        """Login por email + password; los usuarios OAuth (sin hash) no entran.
+        """Login por email + password; los usuarios sin hash no entran.
 
         Copia el comportamiento de `BaseUserManager.authenticate` (incluido el
         dummy hash para mitigar timing attacks cuando el email no existe) con
         un corte extra: `pwdlib.verify_and_update` explota si el hash es None,
-        así que un usuario creado por Google se trata como credenciales
+        así que un usuario legacy sin password se trata como credenciales
         inválidas (400 en el router) en vez de 500.
         """
         try:
@@ -87,9 +87,8 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
             return None
 
         if user.hashed_password is None:
-            # Usuario OAuth (Google): sin password local. Mismo costo de
-            # hashing que un login real para no filtrar la existencia del email
-            # por timing.
+            # Usuario legacy sin password local. Mismo costo de hashing que un
+            # login real para no filtrar la existencia del email por timing.
             self.password_helper.hash(credentials.password)
             return None
 

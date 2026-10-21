@@ -144,7 +144,7 @@ export interface paths {
         put?: never;
         /**
          * Login con email/usuario y contraseña
-         * @description Acepta email o username (case-insensitive) + password argon2id (hash de pwdlib). Setea la cookie `session` igual que Google. Los usuarios OAuth-only no tienen password. Requiere Workers Paid en producción (argon2 > 10 ms CPU).
+         * @description Acepta email o username (case-insensitive) + password argon2id (hash de pwdlib) y setea la cookie `session`. No hay registro público: las cuentas existentes se crean con el seed del panel. Requiere Workers Paid en producción (argon2 > 10 ms CPU).
          */
         post: {
             parameters: {
@@ -177,122 +177,6 @@ export interface paths {
                 };
             };
         };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/google": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Inicia el login con Google
-         * @description Genera state + PKCE S256, firma la cookie `oauth_state` (10 min) y redirige a Google.
-         */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description Path interno del frontend al que volver tras el login (default `/dashboard`). */
-                    returnTo?: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Redirect a accounts.google.com */
-                302: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Google OAuth sin configurar */
-                503: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/google/callback": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Callback de Google
-         * @description Valida state/PKCE, intercambia el code, verifica el id_token, resuelve el usuario y setea la cookie `session`.
-         */
-        get: {
-            parameters: {
-                query?: {
-                    code?: string;
-                    state?: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Redirect a APP_URL + returnTo */
-                302: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description State/code inválido */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Fallo del token endpoint de Google */
-                502: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Google OAuth sin configurar */
-                503: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;

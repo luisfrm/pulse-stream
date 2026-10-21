@@ -1,5 +1,4 @@
 import { createApp } from "./app";
-import { createGoogleClient } from "./auth/google";
 import { parseConfig } from "./config";
 import { createRequestRepositories } from "./db/client";
 import type { Env } from "./env";
@@ -8,9 +7,8 @@ import type { Env } from "./env";
  * Wiring de producción.
  *
  * `createApp` se construye por request porque `parseConfig(env)` necesita los
- * bindings/secrets del runtime y el `pg.Client` es por request. El registro de
- * rutas es barato; la conexión a la DB se abre recién en la primera query y
- * `users` + `catalog` comparten esa única conexión.
+ * bindings/secrets del runtime. El driver de DB es Neon HTTP en local y en
+ * producción; la primera query abre el request HTTP a Neon.
  */
 export default {
   async fetch(
@@ -22,7 +20,6 @@ export default {
       const config = parseConfig(env);
       const app = createApp({
         config,
-        google: createGoogleClient(config.google),
         repositories: (requestEnv) => createRequestRepositories(requestEnv),
       });
 

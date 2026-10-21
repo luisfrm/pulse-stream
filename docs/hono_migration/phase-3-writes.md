@@ -1,5 +1,9 @@
 # Fase 3 — Escrituras de usuario en Hono
 
+> **Actualización (Fase 4 final):** el driver es Neon HTTP en local y prod; las
+> mutaciones multi-tabla son CTEs de una sentencia. No se usa `pg` ni Hyperdrive.
+> Ver `STATUS.md`.
+
 **Objetivo:** mover a Hono todo lo que la app escribe: favoritos, playlists de
 usuario, listens/contadores, perfil (username/cover) y presign de covers.
 
@@ -40,8 +44,8 @@ usuario, listens/contadores, perfil (username/cover) y presign de covers.
   - Crear: insert con `crypto.randomUUID()`, `kind='user'`, `owner_id`.
   - Agregar: `INSERT INTO playlist_songs (position) SELECT COALESCE(MAX(position)+1,0) ...`
     en una query; `ON CONFLICT` → mismo comportamiento que Python (definir 409/no-op).
-  - Quitar: transacción (Hyperdrive la soporta) delete + renumber; o CTE si es
-    posible. Setear `playlists.updated_at = now()`.
+  - Quitar: CTE de una sentencia (delete + renumber). Setear
+    `playlists.updated_at = now()`.
 - `PATCH /users/me`: update con `updated_at = now()`; validar username único
   case-insensitive y `cover_key`; no aceptar campos de auth.
 - `POST /uploads/presign-cover`: `aws4fetch` con las mismas credenciales y
@@ -77,9 +81,8 @@ usuario, listens/contadores, perfil (username/cover) y presign de covers.
   `Content-Type` y `Cache-Control` en la query; el browser debe reenviar ambos
   headers en el PUT. Verificado en el smoke: `X-Amz-SignedHeaders` incluye
   `content-type` y `cache-control`.
-- **Driver local**: Neon HTTP (`ENV=local`), sin transacciones interactivas; las
-  mutaciones multi-tabla son CTEs de una sentencia. En producción `pg` +
-  Hyperdrive.
+- **Driver**: Neon HTTP en local y producción, sin transacciones interactivas;
+  las mutaciones multi-tabla son CTEs de una sentencia.
 - **Smoke real** (DB de desarrollo): favoritos idempotentes, playlist con dos
   canciones → quitar la primera deja la segunda en posición 0, listen doble
   dentro de 30 s → 1 fila y +1 contador, perfil actualizado y presign R2

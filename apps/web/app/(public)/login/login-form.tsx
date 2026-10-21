@@ -9,11 +9,10 @@ import { friendlyError } from "@pulse-stream/shared";
 import { authService } from "@/lib/services/auth-service";
 
 /**
- * Login alternativo a Google: email o username + contraseña.
+ * Login con email o username + contraseña.
  *
- * El endpoint Hono verifica argon2id (hash de pwdlib) y setea la misma cookie
- * `session` que el flow de Google. Los usuarios creados solo con Google no
- * tienen password local; para esos casos el botón de Google es el camino.
+ * El endpoint Hono verifica argon2id (hash de pwdlib) y setea la cookie
+ * `session`. No hay registro público: las cuentas las crea el seed del panel.
  */
 export function LoginForm({ next = "/dashboard" }: { next?: string }) {
   const router = useRouter();

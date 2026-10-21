@@ -3,7 +3,6 @@ import { cors } from "hono/cors";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 
 import { SESSION_COOKIE } from "./auth/cookies";
-import type { GoogleClient } from "./auth/google";
 import { createAuthRoutes } from "./auth/routes";
 import type { AppConfig } from "./config";
 import type { RequestRepositories } from "./db/client";
@@ -31,14 +30,13 @@ export type WritesRepositoryFactory = (env: Env) => WritesRepository;
  *
  * - `users`/`catalog`/`writes`: una instancia (tests: repo fake en memoria) o
  *   una factory `(env) => repository`.
- * - `repositories` (producción): crea los 3 repos compartiendo un único
- *   `pg.Client` por request (`db/client.ts`).
+ * - `repositories` (producción): crea los 3 repos compartiendo el driver HTTP
+ *   de Neon por request (`db/client.ts`).
  * - `coverPresigner`: firmer de covers inyectable. `undefined` = derivarlo de
  *   `config.r2`; `null` = R2 no configurado (503).
  */
 export interface AppDependencies {
   config: AppConfig;
-  google: GoogleClient;
   users?: UserRepository | UserRepositoryFactory;
   catalog?: CatalogRepository | CatalogRepositoryFactory;
   writes?: WritesRepository | WritesRepositoryFactory;
@@ -116,7 +114,7 @@ function closeRepositories(c: AppContext, repositories: ResolvedRepositories): v
   }
 
   try {
-    // En Workers: no bloquear la respuesta esperando el cierre del socket.
+    // En Workers: no bloquear la respuesta; en HTTP el cierre es no-op.
     c.executionCtx.waitUntil(closing);
   } catch {
     // `app.request()` de los tests no tiene ExecutionContext.
@@ -182,7 +180,6 @@ export function createApp(deps: AppDependencies): OpenAPIHono<AppBindings> {
     c.set("users", repositories.users);
     c.set("catalog", repositories.catalog);
     c.set("writes", repositories.writes);
-    c.set("google", deps.google);
     c.set("coverPresigner", coverPresigner);
 
     try {

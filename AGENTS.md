@@ -3,7 +3,7 @@
 Spotify-clone en monorepo. Stack: **pnpm workspaces · turbo · Next.js 16 (App
 Router, Tailwind v4) · Hono en Cloudflare Workers (`apps/app-api`) · FastAPI (uv,
 solo panel local) · SQLAlchemy 2.0 async · Neon (Postgres serverless) · Cloudflare
-R2 · PWA · Google OAuth**.
+R2 · PWA · login con email/usuario + contraseña**.
 
 > Reglas de arquitectura del backend en la sección 1 (capas por feature) y del
 > frontend en la sección 2. El plan de fases vive en `plan-implementacion.md`
@@ -75,10 +75,13 @@ uv run pytest                          # integración; exige TEST_DATABASE_URL
 
 **Dos APIs desde la Fase 4:**
 
-- **`apps/app-api`** (Hono + Cloudflare Workers) — API de la app: Google OAuth,
-  lecturas del catálogo y escrituras de usuario (favoritos, playlists, listens,
-  perfil, presign de covers). La consume `apps/web`. Contrato versionado en
-  `apps/app-api/openapi.json`; espeja los schemas de Python (mismos nombres).
+- **`apps/app-api`** (Hono + Cloudflare Workers) — API de la app: login con
+  email/usuario + contraseña, lecturas del catálogo y escrituras de usuario
+  (favoritos, playlists, listens, perfil, presign de covers). La consume
+  `apps/web`. Contrato versionado en `apps/app-api/openapi.json`; espeja los
+  schemas de Python (mismos nombres). **DB: Neon HTTP (`@neondatabase/serverless`)
+  en local y prod; no Hyperdrive ni `pg`.** Las mutaciones multi-tabla son una
+  sola sentencia con CTEs (el driver HTTP no tiene transacciones interactivas).
 - **`apps/api`** (FastAPI + SQLAlchemy async) — **solo panel/admin local**: dueño
   del esquema (Alembic) y de las mutaciones admin (artists/albums/songs, ZIP,
   playlists system). La consume `apps/panel` y no se despliega.
@@ -136,21 +139,15 @@ la API y el guard del front (`proxy.ts`) nunca la ve → bucle en `/login?next=�
 (en local funciona porque el navegador comparte la cookie entre puertos de
 `localhost`).
 
-**Auth de la app (Hono, `apps/app-api`):** **Google OAuth + email/usuario y
-contraseña**.
-- **Google**: `/auth/google` → `/auth/google/callback`, JWT HS256 en la cookie
-  `session` (`HttpOnly`, `Path=/`, `SameSite=Lax`, `Secure` si `ENV !== local`,
-  `Domain=COOKIE_DOMAIN` en prod). El email es la identidad de vinculación: si ya
-  existe un usuario con ese email se linkea `oauth_accounts` sin tocar `role`,
-  `username` ni `hashed_password`; si es nuevo se crea con `hashed_password=NULL`
-  y `is_verified=true`.
-- **Password**: `POST /auth/login` acepta `{identifier, password}` donde
+**Auth de la app (Hono, `apps/app-api`):** **solo email/usuario + contraseña**.
+- **Login**: `POST /auth/login` acepta `{identifier, password}` donde
   `identifier` es email o username (case-insensitive). Verifica el hash argon2id
   de `pwdlib` con `@noble/hashes` (JS puro; `hash-wasm` no compila WASM en
-  Workers). Setea la misma cookie `session`. Los usuarios creados solo con Google
-  tienen `hashed_password=NULL` y no pueden usar password.
-- **No hay registro con email/contraseña**: el alta nueva es por Google; el login
-  con password es para cuentas existentes (admin/seed/legacy).
+  Workers). Setea la cookie `session` (`HttpOnly`, `Path=/`, `SameSite=Lax`,
+  `Secure` si `ENV !== local`, `Domain=COOKIE_DOMAIN` en prod).
+- **No hay OAuth ni registro público**: las cuentas se crean con el seed del
+  panel (`apps/api/scripts/create_admin.py`). No re-introducir `/auth/google`
+  ni `oauth_accounts`.
 - ⚠️ **Password auth requiere Workers Paid en producción**: argon2 (64 MB,
   3 pasadas) tarda ~2 s de CPU en JS puro y Free limita a 10 ms. En local
   (`wrangler dev`) funciona sin ese límite.
@@ -243,8 +240,8 @@ El panel (`apps/panel`) tiene su propio route handler que borra
   `download_url`/`presign_get_download`.
 
 **Migraciones Alembic:** se escriben **a mano** (no autogen), estilo
-`0010_oauth_accounts_nullable_password.py` (la más reciente): `revision:
-str = "0010"`, `down_revision` encadenado (0001…0010). Nueva tabla → también
+`0011_drop_oauth_accounts.py` (la más reciente): `revision: str = "0011"`,
+`down_revision` encadenado (0001…0011). Nueva tabla → también
 hay que importar el modelo en `apps/api/tests/conftest.py` (los tests
 registran `Base.metadata` manualmente) y el `session` scope es único (config
 en `pyproject.toml`: `asyncio_default_*_loop_scope = "session"`).
@@ -313,13 +310,11 @@ correr con `SESSION_COOKIE_NAME=panel_session` (`apps/api/.env`).
 - `(public)/` — home promocional, `/login`, `/register`. Sin sesión requerida;
   el home **redirige al dashboard si hay sesión**. Las páginas de detalle
   (artista/álbum/canción) NO viven acá: exigen sesión.
-  `/login` ofrece **Google** ("Continuar con Google" linkea a
-  `${NEXT_PUBLIC_API_URL}/auth/google?returnTo=…`) **y** un formulario de
-  email/usuario + contraseña (`POST /auth/login` de Hono, misma cookie
-  `session`); ambos conservan `next`. `/register` **redirige a `/login`**: la
-  cuenta nueva se crea con Google; el password es para cuentas existentes.
-  `/account` (protegida) muestra el email **read-only** y solo deja editar
-  `username` + cover (sin contraseña).
+  `/login` ofrece un formulario de email/usuario + contraseña
+  (`POST /auth/login` de Hono, cookie `session`) y conserva `next`.
+  `/register` **redirige a `/login`**: no hay registro público; las cuentas
+  las crea el seed del panel. `/account` (protegida) muestra el email
+  **read-only** y solo deja editar `username` + cover (sin contraseña).
 - `(protected)/` — `/dashboard` (Inicio), `/account`, las páginas de catálogo
   `/artist/[id]`, `/album/[id]`, `/song/[id]` y las rutas top-level en inglés
   `/catalog`, `/catalog/songs`, `/songs`, `/search`, `/playlists[/[id]]`,
@@ -385,8 +380,8 @@ Crear+.
   **Flujo de alta de canciones: artista → álbum → canción.** Los álbumes se
   crean desde la página del artista (no hay nav ni página propia de álbumes).
 - `app/login` — formulario email/password propio (sin register); `next` param.
-  La app también tiene login con password (Google + email/usuario), pero el
-  panel conserva su propio login contra Python. La cookie es `panel_session`
+  La app también tiene su propio login con password contra Hono, pero el panel
+  conserva su login contra Python. La cookie es `panel_session`
   (Python `SESSION_COOKIE_NAME=panel_session`).
 - `app/api/logout/route.ts` — borra la cookie del panel (`PANEL_SESSION_COOKIE`)
   y redirige 303 a `/login`.
@@ -546,10 +541,11 @@ horizontal vive solo en `body` (en `packages/design/tokens.css`).
 - Los tipos TS del frontend se generan desde OpenAPI, nunca a mano:
   `pnpm gen:types:app` (Hono → `packages/app-api-types`) para `apps/web` y
   `pnpm gen:types` (Python → `packages/api-types`) para `apps/panel`.
-- **La app admite Google + email/usuario y contraseña** para cuentas existentes;
-  el alta nueva es por Google. No re-introducir registro con contraseña ni
-  `PATCH` de email/password en `apps/web`. Password auth requiere Workers Paid en
-  producción (argon2 > 10 ms CPU); el panel conserva email/password contra Python.
+- **La app solo admite email/usuario + contraseña**; no hay OAuth ni registro
+  público. No re-introducir Google OAuth, registro con contraseña ni `PATCH` de
+  email/password en `apps/web`. Las cuentas se crean con el seed del panel.
+  Password auth requiere Workers Paid en producción (argon2 > 10 ms CPU); el
+  panel conserva email/password contra Python.
 - Cambios a enums de dominio (roles, géneros) → en Python solo `schemas.py` y en
   Hono solo los schemas Zod; ambos contratos deben quedar espejados.
 - No inventar métricas/features: si un dato no existe en el backend, agregar el

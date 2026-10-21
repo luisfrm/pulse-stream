@@ -92,7 +92,7 @@ describe("POST /auth/login (email/usuario + password)", () => {
     expect(response.status).toBe(400);
   });
 
-  it("usuario OAuth-only (hash NULL) → 400", async () => {
+  it("usuario sin password (hash NULL) → 400", async () => {
     const { app } = loginApp(
       fakeUser({ hashed_password: null, is_verified: true }),
     );

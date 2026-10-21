@@ -7,26 +7,27 @@
 ## ✅ Migración a Hono — Fase 4 (cutover de código; deploy pendiente)
 
 > Objetivo: `apps/web` deja de hablar con Python y pasa a la API Hono con
-> **Google OAuth + email/username/password**; el panel se queda con Python y una
-> cookie separada (`panel_session`). **No se deployó**: faltan credenciales de
-> Google/Cloudflare. El password auth requiere Workers Paid en prod.
+> **email/username + password**; el panel se queda con Python y una cookie
+> separada (`panel_session`). **No se deployó**: faltan credenciales de
+> Cloudflare/Neon/R2. El password auth requiere Workers Paid en prod.
 
 | # | Tarea | Resolución |
 |---|---|---|
 | 64 | **Tipos de la app desde Hono** | Nuevo `packages/app-api-types` generado con `openapi-typescript` desde `apps/app-api/openapi.json` (`pnpm gen:types:app`). `apps/web/lib/services/types.ts` lo usa; `apps/panel` conserva `@pulse-stream/api-types` (Python). Los schemas de Hono espejan los nombres de Python → mapeo 1:1 |
 | 65 | **App contra Hono** | `NEXT_PUBLIC_API_URL=http://localhost:8787` (local) / `https://api.luisrivas.site` (prod); `lib/api/client.ts` con fallback :8787 y cookie `session`; session-service/docs actualizados. Todos los servicios (songs/albums/artists/playlists/favorites/listens/uploads) heredan la URL |
-| 66 | **Login Google + password** | `auth-service`: `googleAuthUrl(returnTo)` + `login({identifier,password})`; `/login` es server component con "Continuar con Google" y formulario email/usuario + contraseña (conserva `next`); `/register` redirige a `/login` |
+| 66 | **Login password** | `auth-service.login({identifier,password})`; `/login` es server component con formulario email/usuario + contraseña (conserva `next`); `/register` redirige a `/login`. Sin OAuth ni registro público |
 | 67 | **/account sin password** | Email read-only (sin `onChange`); se quitó el campo contraseña y el estado asociado. `updateMe` solo manda `username`/`cover_key` (`null` borra el cover); el presign del cover es el de Hono |
 | 68 | **Cookie del panel separada** | `PANEL_SESSION_COOKIE=panel_session` (default en client/proxy/logout), `.env.local`/`.env.example` del panel; Python local con `SESSION_COOKIE_NAME=panel_session` documentado en `apps/api/.env.example` y aplicado en el `.env` local |
 | 69 | **Tipos/test fixes** | Fixtures de `playlist-picker`/`song-card` con `song_ids` (MyPlaylistRead de Hono lo exige). `home` chequea la cookie configurada (`SESSION_COOKIE`) en vez del literal |
 | 70 | **Verificación de código** | `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build` (ver `README.md`/`STATUS.md`). Sin deploy ni credenciales reales |
 | 71 | **Login email/username + password** | Hono `POST /auth/login` (`identifier` = email o username, case-insensitive) verifica argon2id de pwdlib con `@noble/hashes` (JS puro; `hash-wasm` no compila WASM en Workers) y setea la cookie `session`. `LoginForm` en `/login`, tests de API/form y Playwright con email y username. **Requiere Workers Paid en prod** (argon2 ~2 s CPU; Free 10 ms) |
 | 72 | **Fix loop de sesión inválida** | El proxy ya no redirige `/login` → `/dashboard` solo por presencia de cookie. Con una cookie vencida/inválida, `/dashboard` redirige a `/login` y queda ahí (sin parpadeo infinito); Playwright con `session=invalid` lo verifica |
+| 73 | **Un solo driver de DB** | `db/client.ts` usa Neon HTTP (`@neondatabase/serverless`) en local y prod. Se eliminaron `pg`, `Hyperdrive`, el binding `HYPERDRIVE` y la rama por `ENV`; las mutaciones multi-tabla siguen en CTEs |
+| 74 | **Sin Google OAuth** | Se eliminaron `/auth/google`, `auth/google.ts`, cookies `oauth_state`, `resolveGoogleUser`, `oauth_accounts` (modelo, tabla y migración `0011`) y el botón de Google del web. Las cuentas se crean con el seed del panel |
+| 75 | **CD en master** | `.github/workflows/ci.yml`: tests + `wrangler deploy --env prod` + migración Alembic + sync de secrets, solo en push a `master` y tras los tests. `DATABASE_URL` es la conexión directa de Neon (misma para Worker y Alembic) |
 
-**Bloqueos externos:** crear el OAuth Client de Google (redirect URIs
-`https://api.luisrivas.site/auth/google/callback` y
-`http://localhost:8787/auth/google/callback`), Hyperdrive ID/credenciales de
-Cloudflare, migración `0010` en Neon `main` y deploy (Worker + Vercel). Detalle en
+**Bloqueos externos:** credenciales de Cloudflare/Neon/R2, migración `0011` en
+Neon `main`, seed del admin y deploy (Worker + Vercel). Detalle en
 [`docs/hono_migration/phase-4-cutover.md`](./docs/hono_migration/phase-4-cutover.md).
 
 ## ✅ Resueltas (Fase 3b — vida de usuario + reproductor + PWA)

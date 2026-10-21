@@ -2,7 +2,6 @@ import { writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
 import { createApp } from "../src/app";
-import { createGoogleClient } from "../src/auth/google";
 import type { AppConfig } from "../src/config";
 import { createRequestRepositories } from "../src/db/client";
 
@@ -16,11 +15,6 @@ const config: AppConfig = {
   cookieDomain: null,
   corsOrigins: ["http://localhost:3000"],
   authSecret: "openapi-generation-placeholder-secret",
-  google: {
-    clientId: "openapi-placeholder.apps.googleusercontent.com",
-    clientSecret: "openapi-placeholder-secret",
-    redirectUri: "http://localhost:8787/auth/google/callback",
-  },
   r2PublicBaseUrl: "",
   r2: {
     accountId: "",
@@ -32,7 +26,6 @@ const config: AppConfig = {
 
 const app = createApp({
   config,
-  google: createGoogleClient(config.google),
   // Sin `DATABASE_URL`: los repositories existen pero nunca se conectan
   // (generar el documento no ejecuta queries).
   repositories: () => createRequestRepositories({}),

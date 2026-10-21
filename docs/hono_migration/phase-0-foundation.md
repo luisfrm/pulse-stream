@@ -1,5 +1,10 @@
 # Fase 0 — Fundación: DB, admin del panel y esqueleto Hono + Google OAuth
 
+> **Actualización (Fase 4 final):** este documento describe el plan original.
+> El OAuth de Google y Hyperdrive se eliminaron; la implementación actual usa
+> solo password y Neon HTTP en local/prod. Ver `STATUS.md` y
+> `phase-4-cutover.md`. `oauth_accounts` se dropea en la migración `0011`.
+
 **Objetivo:** dejar la base de datos lista para usuarios OAuth, el panel con un
 admin local separado y una API Hono mínima en Workers que pueda autenticar con
 Google y responder `GET /users/me`.

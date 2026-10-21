@@ -1,6 +1,4 @@
-import type { QueryResultRow } from "pg";
-
-import type { Queryable } from "../../db/types";
+import type { QueryResultRow, Queryable } from "../../db/types";
 import {
   ALBUM_ARTIST_JOIN,
   ALBUM_SELECT,
@@ -243,7 +241,7 @@ export class PgCatalogRepository implements CatalogRepository {
   private get db(): Queryable {
     if (!this.client) {
       throw new Error(
-        "Database is not configured: bind HYPERDRIVE or set DATABASE_URL",
+        "Database is not configured: set DATABASE_URL",
       );
     }
     return this.client;

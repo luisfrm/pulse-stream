@@ -30,8 +30,6 @@ describe("GET /health", () => {
       "/albums/{album_id}",
       "/artists",
       "/artists/{artist_id}",
-      "/auth/google",
-      "/auth/google/callback",
       "/auth/login",
       "/auth/logout",
       "/genres",
@@ -73,5 +71,14 @@ describe("GET /health", () => {
 
     expect(response.status).toBe(404);
     await expect(response.json()).resolves.toEqual({ detail: "Not Found" });
+  });
+
+  it("las rutas viejas de Google OAuth ya no existen", async () => {
+    const { app } = buildTestApp();
+
+    for (const path of ["/auth/google", "/auth/google/callback"]) {
+      const response = await app.request(path);
+      expect(response.status).toBe(404);
+    }
   });
 });
