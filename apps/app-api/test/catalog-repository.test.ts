@@ -241,6 +241,9 @@ describe("PgCatalogRepository — álbumes, artistas y playlists", () => {
     const sql = db.calls[0]!.text;
     expect(sql).toContain("WHERE p.is_public");
     expect(sql).toContain("ORDER BY (p.kind <> 'system') ASC");
+    // El email del usuario de sistema no se expone en playlists system.
+    expect(sql).toContain("WHEN p.kind = 'system' THEN NULL");
+    expect(sql).not.toContain("playlist_owner.email AS owner_email");
     expect(db.calls[0]!.values).toEqual([10, 0]);
   });
 });

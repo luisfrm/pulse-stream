@@ -98,8 +98,10 @@ apps/api/app/
 ├── db/                      # session.py (get_session), base.py (Base declarativa)
 ├── features/
 │   ├── auth/                # fastapi-users: backend cookie JWT, manager, require_admin
-│   ├── users/ · artists/ · albums/ · songs/ · genres/ · playlists/ · favorites/
-│   └── uploads/ · listens/  # uploads: presign R2; listens: historial + contadores
+│   ├── users/               # users (app) + panel_users (auth del panel) + /init
+│   ├── artists/ · albums/ · songs/ · genres/ · playlists/
+│   └── uploads/ · listens/  # uploads: presign R2; listens: modelos/ranking
+│                            # (los endpoints /me/* viven en Hono)
 └── shared/                  # pagination.py, exceptions.py
 ```
 
@@ -124,30 +126,43 @@ apps/api/app/
 - Los `repository` se inyectan por constructor con `Depends()` (DI ligero de
   FastAPI, sin contenedor externo). Patrón: `get_x_repository()` como factory.
 
-**Auth (Python, panel):** cookie HttpOnly + JWT. El nombre por defecto es
-`session`, pero **en local el panel usa `panel_session`**
-(`SESSION_COOKIE_NAME=panel_session`) para no chocar con la cookie `session` que
-emite Hono en localhost. `current_user` exige sesión activa; `require_admin`
-exige `role=admin` o `is_superuser` (endpoints mutantes de
-artists/albums/songs/users). SameSite de la cookie: default `lax` (cubre
-localhost y subdominios del mismo dominio registrable); `COOKIE_SAMESITE=none`
-solo si front y API viven en dominios distintos. **CSRF sigue pendiente** antes
-de producción (double-submit); con `lax` el vector cross-site queda mitigado,
-con `none` es obligatorio. Si front y API son subdominios distintos (prod),
-seteá `COOKIE_DOMAIN` al dominio registrable: sin eso la cookie es host-only de
-la API y el guard del front (`proxy.ts`) nunca la ve → bucle en `/login?next=…`
-(en local funciona porque el navegador comparte la cookie entre puertos de
+**Auth (Python, panel):** fastapi-users autentica **solo contra `panel_users`**
+(no contra `users`). Esas cuentas son administradores del panel local y no
+poseen playlists/favoritos/listens. No hay registro público:
+`/auth/register`, reset-password y verificación de email fueron removidos. El
+bootstrap es `GET /init/status` + `POST /init` (crea el primer admin solo si
+`panel_users` está vacío; 409 si ya existe). El seed/CLI
+(`scripts/create_admin.py`) también escribe en `panel_users`.
+
+La cookie es HttpOnly + JWT; el nombre por defecto es `session`, pero **en local
+el panel usa `panel_session`** (`SESSION_COOKIE_NAME=panel_session`) para no
+chocar con la cookie `session` que emite Hono en localhost. `current_user` exige
+sesión activa; **`require_admin` exige `role="admin"` y nada más**
+(`is_superuser` existe porque fastapi-users lo exige, pero siempre es False y NO
+autoriza). SameSite de la cookie: default `lax` (cubre localhost y subdominios
+del mismo dominio registrable); `COOKIE_SAMESITE=none` solo si front y API viven
+en dominios distintos. **CSRF sigue pendiente** antes de producción
+(double-submit); con `lax` el vector cross-site queda mitigado, con `none` es
+obligatorio. Si front y API son subdominios distintos (prod), seteá
+`COOKIE_DOMAIN` al dominio registrable: sin eso la cookie es host-only de la API
+y el guard del front (`proxy.ts`) nunca la ve → bucle en `/login?next=…` (en
+local funciona porque el navegador comparte la cookie entre puertos de
 `localhost`).
 
-**Auth de la app (Hono, `apps/app-api`):** **solo email/usuario + contraseña**.
+**Auth de la app (Hono, `apps/app-api`):** **solo email/usuario + contraseña**,
+todavía con el auth custom (JWT + argon2) sobre `users.hashed_password`.
 - **Login**: `POST /auth/login` acepta `{identifier, password}` donde
   `identifier` es email o username (case-insensitive). Verifica el hash argon2id
   de `pwdlib` con `@noble/hashes` (JS puro; `hash-wasm` no compila WASM en
   Workers). Setea la cookie `session` (`HttpOnly`, `Path=/`, `SameSite=Lax`,
   `Secure` si `ENV !== local`, `Domain=COOKIE_DOMAIN` en prod).
-- **No hay OAuth ni registro público**: las cuentas se crean con el seed del
-  panel (`apps/api/scripts/create_admin.py`). No re-introducir `/auth/google`
-  ni `oauth_accounts`.
+- **Split de usuarios (migración 0012)**: `panel_users` es del panel/admin;
+  `users` es la tabla pública de la app y el target de playlists/favoritos/
+  listens. Las cuentas nuevas del panel viven solo en `panel_users` (no son
+  usuarios de la app); los admins copiados por 0012 conservan además su fila
+  legacy en `users`. No hay OAuth ni registro público; las cuentas de la app son
+  las filas existentes en `users` (el alta nueva llega con Better Auth).
+  No re-introducir `/auth/google` ni `oauth_accounts`.
 - ⚠️ **Password auth requiere Workers Paid en producción**: argon2 (64 MB,
   3 pasadas) tarda ~2 s de CPU en JS puro y Free limita a 10 ms. En local
   (`wrangler dev`) funciona sin ese límite.
@@ -170,10 +185,16 @@ El panel (`apps/panel`) tiene su propio route handler que borra
 
 **Datos de Fase 4 (columnas y relaciones no obvias):**
 - `playlists.kind` es VARCHAR `'user' | 'system'`. Las `system` son snapshots
-  de queries (`top_week`/`top_month`/`new`) generadas por admin; **solo un admin
-  las muta** (`service._get_mutable`) y el feed público las ordena primero.
-- `songs.play_count` y `users.total_plays` se incrementan con UPDATEs atómicos
-  en `listens.service.record_play` (respetando el dedupe de 30 s).
+  de queries (`top_week`/`top_month`/`new`) generadas por admin y **pertenecen
+  al usuario fijo del sistema** (`00000000-0000-4000-8000-000000000001`,
+  `system@pulse-stream.app`, sin password e inactivo), no al admin que las crea.
+  `owner_email` es NULL para `kind='system'` en Python y Hono. El panel las
+  muta con `role=admin` (no por ownership); los usuarios de la app NO pueden
+  mutarlas (ni un admin legacy de Hono). El feed público las ordena primero.
+- `songs.play_count` y `users.total_plays` se incrementan en Hono
+  (`writes/repository`) con CTEs atómicas, respetando el dedupe de 30 s. Python
+  conserva los modelos/repos de listens para los snapshots, pero ya no expone
+  `/me/listens` (es API de la app).
 - `song_collaborators` (N:M canción↔artista): el filtro `collaborator_id` en
   `GET /songs` excluye al artista principal. `song_collaborators` **no usa
   `distinct()`** (PK compuesta no duplica; `distinct()` sobre `songs.*` rompe en
@@ -215,33 +236,30 @@ El panel (`apps/panel`) tiene su propio route handler que borra
   listado es por fecha de like, no por título). `GET /me/library/ids` devuelve
   los 3 sets (`{song_ids, album_ids, playlist_ids}`) en UNA llamada para pintar
   corazones sin traer listas.
-- Endpoints: `GET/PUT/DELETE /me/favorites/{albums,playlists}[/{id}]` (+
-  `/ids`). El like a una playlist **system no la muta**: la tabla es solo el
-  marcador del usuario (el contenido solo lo cambia un admin).
+- Endpoints (Hono, app): `GET/PUT/DELETE /me/favorites/{albums,playlists}[/{id}]`
+  (+ `/ids`). El like a una playlist **system no la muta**: la tabla es solo el
+  marcador del usuario (el contenido solo lo cambia el panel admin por Python).
 - `playlists.query` (VARCHAR, Fase 5): la query de snapshot que generó una
   playlist `system` (`top_week`/`top_month`/`new`). `create_system_playlist`
-  guarda la query y `POST /playlists/system/{id}/refresh` la regenera **sin
-  duplicar** (`replace_songs`: delete + insert con posiciones 0..n-1). Si la
-  query es NULL (playlist creada antes de la 0008) o inválida → 400
-  `PlaylistNotRefreshableError`. Algoritmo en `service._snapshot_song_ids`:
+  guarda la query y `POST /playlists/system/{id}/refresh` (panel admin) la
+  regenera **sin duplicar** (`replace_songs`: delete + insert con posiciones
+  0..n-1). Si la query es NULL (playlist creada antes de la 0008) o inválida →
+  400 `PlaylistNotRefreshableError`. Algoritmo en `service._snapshot_song_ids`:
   top_week = últimos 7 días, top_month = mes calendario, new = `created_at`
   desc; unicidad de song_ids garantizada por el group by.
 - **`PlaylistDetail`/`PlaylistRead` con `songs` exigen eager-load de
   `Song.album`** (`playlists/repository._with_songs`): `SongRead.album` se
   valida en la response y sin `selectinload(Song.album)` se rompe con
-  `MissingGreenlet` en async (bug real ya corregido). OJO: la regla aplica a
-  **cualquier query que devuelva `Song`** — también `favorites/repository.
-  list_songs` (`GET /me/favorites`) que cargaba `Song.artist` pero no
-  `Song.album` (se rompía solo cuando la canción favorita tenía álbum; los
-  tests no lo cazaban porque creaban canciones sin álbum — ver el test de
-  regresión `test_favorite_song_with_album_lists_album`).
+  `MissingGreenlet` en async (bug real ya corregido). La regla aplica a
+  **cualquier query Python que devuelva `Song`**; el bug original se cazó en el
+  extinto `GET /me/favorites` (hoy ese endpoint es de Hono).
 - **No hay endpoint de descarga** (`Content-Disposition`) — decisión de
   producto: el web descarga con la Cache API (`lib/offline.ts`). No re-introducir
   `download_url`/`presign_get_download`.
 
 **Migraciones Alembic:** se escriben **a mano** (no autogen), estilo
-`0011_drop_oauth_accounts.py` (la más reciente): `revision: str = "0011"`,
-`down_revision` encadenado (0001…0011). Nueva tabla → también
+`0012_panel_users_and_system_user.py` (la más reciente): `revision: str = "0012"`,
+`down_revision` encadenado (0001…0012). Nueva tabla → también
 hay que importar el modelo en `apps/api/tests/conftest.py` (los tests
 registran `Base.metadata` manualmente) y el `session` scope es único (config
 en `pyproject.toml`: `asyncio_default_*_loop_scope = "session"`).
@@ -312,9 +330,11 @@ correr con `SESSION_COOKIE_NAME=panel_session` (`apps/api/.env`).
   (artista/álbum/canción) NO viven acá: exigen sesión.
   `/login` ofrece un formulario de email/usuario + contraseña
   (`POST /auth/login` de Hono, cookie `session`) y conserva `next`.
-  `/register` **redirige a `/login`**: no hay registro público; las cuentas
-  las crea el seed del panel. `/account` (protegida) muestra el email
-  **read-only** y solo deja editar `username` + cover (sin contraseña).
+  `/register` **redirige a `/login`**: no hay registro público; las cuentas de
+  la app son las filas existentes en `users` (el alta nueva llega con Better
+  Auth; el seed del panel crea `panel_users`, no cuentas de la app). `/account`
+  (protegida) muestra el email **read-only** y solo deja editar `username` +
+  cover (sin contraseña).
 - `(protected)/` — `/dashboard` (Inicio), `/account`, las páginas de catálogo
   `/artist/[id]`, `/album/[id]`, `/song/[id]` y las rutas top-level en inglés
   `/catalog`, `/catalog/songs`, `/songs`, `/search`, `/playlists[/[id]]`,
@@ -401,8 +421,8 @@ Crear+.
 su cookie (`SESSION_COOKIE` en web, `PANEL_SESSION_COOKIE` en panel). La
 validación REAL ocurre en los layouts vía `getSession()` (`GET /users/me`, nunca
 cacheado entre requests — `cache: "no-store"`; deduplicada con `React.cache`
-dentro del mismo request). En el panel el layout exige además `role=admin` o
-`is_superuser`.
+dentro del mismo request). En el panel el layout exige además `role="admin"`
+(`is_superuser` no autoriza) y redirige a `/init` si `panel_users` está vacío.
 
 **Carga y navegación (page transitions):** los layouts de las áreas protegidas
 (`apps/web/app/(protected)/layout.tsx` y `apps/panel/app/panel/layout.tsx`) **NO
@@ -543,9 +563,11 @@ horizontal vive solo en `body` (en `packages/design/tokens.css`).
   `pnpm gen:types` (Python → `packages/api-types`) para `apps/panel`.
 - **La app solo admite email/usuario + contraseña**; no hay OAuth ni registro
   público. No re-introducir Google OAuth, registro con contraseña ni `PATCH` de
-  email/password en `apps/web`. Las cuentas se crean con el seed del panel.
-  Password auth requiere Workers Paid en producción (argon2 > 10 ms CPU); el
-  panel conserva email/password contra Python.
+  email/password en `apps/web`. Las cuentas de la app viven en `users` (el seed
+  `create_admin.py` crea admins en `panel_users`, no usuarios de la app). El
+  alta/normalización de usuarios de la app se define con Better Auth en la fase
+  siguiente. Password auth requiere Workers Paid en producción (argon2 > 10 ms
+  CPU); el panel conserva email/password contra Python.
 - Cambios a enums de dominio (roles, géneros) → en Python solo `schemas.py` y en
   Hono solo los schemas Zod; ambos contratos deben quedar espejados.
 - No inventar métricas/features: si un dato no existe en el backend, agregar el

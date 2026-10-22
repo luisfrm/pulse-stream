@@ -7,7 +7,7 @@ from fastapi_users.authentication import (
 )
 
 from app.core.config import settings
-from app.features.users.models import User
+from app.features.users.panel_models import PanelUser
 
 # Cookie HttpOnly: el token JWT nunca es accesible desde JS ni viaja en el body.
 # `cookie_domain` (opcional) comparte la cookie entre subdominios del mismo
@@ -23,7 +23,7 @@ cookie_transport = CookieTransport(
 )
 
 
-def get_jwt_strategy() -> JWTStrategy[User, uuid.UUID]:
+def get_jwt_strategy() -> JWTStrategy[PanelUser, uuid.UUID]:
     return JWTStrategy(
         secret=settings.auth_secret,
         lifetime_seconds=60 * 60 * 24 * 7,

@@ -12,8 +12,8 @@ async def test_presign_requires_auth(client):
     assert resp.status_code == 401
 
 
-async def test_presign_invalid_content_type(client):
-    await register_and_login(client)
+async def test_presign_invalid_content_type(client, session):
+    await register_and_login(client, session=session)
     resp = await client.post(
         "/uploads/presign",
         json={**VALID, "content_type": "video/mp4", "filename": "clip.mp4"},
@@ -22,8 +22,8 @@ async def test_presign_invalid_content_type(client):
     assert "audio/mpeg" in resp.json()["detail"]
 
 
-async def test_presign_too_large(client):
-    await register_and_login(client)
+async def test_presign_too_large(client, session):
+    await register_and_login(client, session=session)
     resp = await client.post(
         "/uploads/presign", json={**VALID, "size": 200 * 1024 * 1024}
     )
@@ -31,9 +31,9 @@ async def test_presign_too_large(client):
     assert "tamaño máximo" in resp.json()["detail"]
 
 
-async def test_presign_aac(client):
+async def test_presign_aac(client, session):
     """AAC (audio/aac) es válido y firma un object_key .aac."""
-    await register_and_login(client)
+    await register_and_login(client, session=session)
     resp = await client.post(
         "/uploads/presign",
         json={"filename": "tema.aac", "content_type": "audio/aac", "size": 1024 * 1024},
@@ -47,9 +47,9 @@ async def test_presign_aac(client):
     assert resp.json()["object_key"].endswith(".aac")
 
 
-async def test_presign_aac_dlna(client):
+async def test_presign_aac_dlna(client, session):
     """AAC reportado como ADTS/DLNA (lo que mandan los navegadores para .aac)."""
-    await register_and_login(client)
+    await register_and_login(client, session=session)
     resp = await client.post(
         "/uploads/presign",
         json={
@@ -67,9 +67,9 @@ async def test_presign_aac_dlna(client):
     assert resp.json()["object_key"].endswith(".aac")
 
 
-async def test_presign_behavior(client):
+async def test_presign_behavior(client, session):
     """Sin R2 configurado -> 503 con mensaje claro; con R2 -> URL firmada válida."""
-    await register_and_login(client)
+    await register_and_login(client, session=session)
     resp = await client.post("/uploads/presign", json=VALID)
 
     if resp.status_code == 503:

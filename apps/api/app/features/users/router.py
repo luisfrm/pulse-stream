@@ -3,7 +3,7 @@ import uuid
 from fastapi import APIRouter, Depends, Query, status
 
 from app.features.auth.manager import require_admin
-from app.features.users.models import User
+from app.features.users.panel_models import PanelUser
 from app.features.users.schemas import UserRead, UserRoleUpdate
 from app.features.users.service import UserService
 
@@ -15,9 +15,9 @@ async def list_users(
     offset: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
     service: UserService = Depends(),
-    _: User = Depends(require_admin),
-) -> list[User]:
-    """Listado de usuarios — solo admin (role=admin)."""
+    _: PanelUser = Depends(require_admin),
+) -> list[PanelUser]:
+    """Listado de cuentas del panel — solo admin (role=admin)."""
     return await service.list_users(offset=offset, limit=limit)
 
 
@@ -25,9 +25,9 @@ async def list_users(
 async def delete_user(
     user_id: uuid.UUID,
     service: UserService = Depends(),
-    actor: User = Depends(require_admin),
+    actor: PanelUser = Depends(require_admin),
 ) -> None:
-    """Borra un usuario — solo admin, y no puede borrarse a sí mismo."""
+    """Borra una cuenta del panel — solo admin, y no la propia."""
     await service.delete_user(actor, user_id)
 
 
@@ -36,9 +36,9 @@ async def set_user_role(
     user_id: uuid.UUID,
     payload: UserRoleUpdate,
     service: UserService = Depends(),
-    actor: User = Depends(require_admin),
-) -> User:
-    """Asigna/revoca el rol de un usuario — solo admin.
+    actor: PanelUser = Depends(require_admin),
+) -> PanelUser:
+    """Asigna/revoca el rol de una cuenta del panel — solo admin.
 
     `role: "admin"` otorga acceso al panel; `role: null` lo revoca.
     Un admin no puede quitarse su propio rol.

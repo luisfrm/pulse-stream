@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { FullScreenLoader } from "@pulse-stream/ui";
 import { PanelShell } from "@/components/panel-shell";
+import { getInitStatus } from "@/lib/services/init-service";
 import { getSession } from "@/lib/services/session-service";
 
 /** La app es otro deploy en Fase 1: el no-admin vuelve al home de la app. */
@@ -12,8 +13,12 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
  * Panel de administración — SOLO role="admin".
  *
  * Guards (en orden):
- * 1. Sin sesión          -> /login (recordando a dónde iba)
- * 2. Logueado sin rol    -> / (home público; el usuario normal no ve el panel)
+ * 1. Panel sin cuentas  -> /init (bootstrap del primer admin)
+ * 2. Sin sesión         -> /login (recordando a dónde iba)
+ * 3. Logueado sin rol   -> / (home público; el usuario normal no ve el panel)
+ *
+ * Permisos: SOLO `role="admin"`. `is_superuser` existe porque fastapi-users lo
+ * exige, pero no autoriza.
  *
  * El shell (sidebar + drawer móvil) vive en `PanelShell` para no duplicar el
  * patrón del dashboard. Igual que el layout protegido: la sesión se resuelve
@@ -33,11 +38,13 @@ export default function PanelLayout({
 }
 
 async function PanelGate({ children }: { children: React.ReactNode }) {
+  const { needs_init } = await getInitStatus();
+  if (needs_init) redirect("/init");
+
   const user = await getSession();
   if (!user) redirect("/login?next=/panel");
 
-  const isAdmin = user.role === "admin" || user.is_superuser;
-  if (!isAdmin) redirect(APP_URL);
+  if (user.role !== "admin") redirect(APP_URL);
 
   return <PanelShell user={user}>{children}</PanelShell>;
 }

@@ -7,18 +7,16 @@ from app.features.listens.repository import ListenRepository, get_listen_reposit
 from app.features.playlists.models import Playlist
 from app.features.playlists.repository import PlaylistRepository, get_playlist_repository
 from app.features.playlists.schemas import (
-    PlaylistCreate,
     PlaylistSystemCreate,
     PlaylistSystemQuery,
-    PlaylistUpdate,
 )
 from app.features.songs.repository import SongRepository, get_song_repository
-from app.features.users.models import User
+from app.features.users.models import SYSTEM_USER_ID
+from app.features.users.panel_models import PanelUser
 from app.shared.exceptions import (
     PlaylistForbiddenError,
     PlaylistNotRefreshableError,
     PlaylistNotFoundError,
-    SongNotFoundError,
 )
 
 # Tamaño de los snapshots de playlists del sistema (top_week/top_month/new).
@@ -26,7 +24,7 @@ _SYSTEM_SNAPSHOT_LIMIT = 30
 
 
 class PlaylistService:
-    """Reglas de negocio de playlists. Nada de HTTP ni SQL directo."""
+    """Reglas de negocio de playlists del panel. Nada de HTTP ni SQL directo."""
 
     def __init__(
         self,
@@ -39,26 +37,9 @@ class PlaylistService:
         self._listens = listen_repository
 
     @staticmethod
-    def _is_admin(user: User) -> bool:
-        return user.role == "admin" or user.is_superuser
-
-    async def list_for_user(self, user: User, *, public_only: bool = False) -> list[Playlist]:
-        """Playlists del usuario; si `public_only`, solo las públicas (perfil)."""
-        if public_only:
-            all_public = await self._repository.list_public(limit=100)
-            return [p for p in all_public if p.owner_id == user.id]
-        return await self._repository.list_by_owner(user.id)
-
-    async def list_for_user_paginated(
-        self, user: User, offset: int = 0, limit: int = 20
-    ) -> tuple[list[Playlist], int]:
-        """Versión paginada de `list_for_user` para el listado de playlists
-        en la app (no rompe la firma del picker que sigue trayendo todas)."""
-        playlists = await self._repository.list_by_owner(
-            user.id, offset=offset, limit=limit
-        )
-        total = await self._repository.count_by_owner(user.id)
-        return playlists, total
+    def _is_admin(user: PanelUser) -> bool:
+        # `is_superuser` no autoriza: solo `role="admin"` (ver require_admin).
+        return user.role == "admin"
 
     async def list_public_community(
         self, offset: int = 0, limit: int = 50
@@ -68,27 +49,8 @@ class PlaylistService:
         total = await self._repository.count_public()
         return playlists, total
 
-    async def get_playlist(self, playlist_id: uuid.UUID, user: User) -> Playlist:
-        playlist = await self._repository.get(playlist_id)
-        if playlist is None:
-            raise PlaylistNotFoundError(playlist_id)
-        # Regla: solo el dueño ve las privadas (las system siempre son públicas)
-        if not playlist.is_public and playlist.owner_id != user.id:
-            raise PlaylistForbiddenError()
-        return playlist
-
-    async def create_playlist(self, user: User, payload: PlaylistCreate) -> Playlist:
-        playlist = await self._repository.create(
-            owner_id=user.id,
-            name=payload.name,
-            description=payload.description,
-            is_public=payload.is_public,
-        )
-        # Re-fetch con relaciones cargadas (items/songs) para el schema
-        return await self._repository.get(playlist.id)  # type: ignore[return-value]
-
     async def create_system_playlist(
-        self, admin: User, payload: PlaylistSystemCreate
+        self, admin: PanelUser, payload: PlaylistSystemCreate
     ) -> Playlist:
         """Genera una playlist del sistema como snapshot de una query.
 
@@ -96,12 +58,13 @@ class PlaylistService:
         - top_month: más reproducidas en el mes calendario actual (UTC).
         - new: canciones recién agregadas (created_at desc).
 
-        La playlist guarda su `query` para poder REGENERARSE después con
-        `refresh_system_playlist` (POST /playlists/system/{id}/refresh).
+        La playlist pertenece al usuario fijo del sistema (NO al admin que la
+        crea): así el admin no es dueño de datos de la app y el feed no expone
+        un email personal. Guarda su `query` para poder regenerarse después.
         """
         song_ids = await self._snapshot_song_ids(payload.query)
         playlist = await self._repository.create(
-            owner_id=admin.id,
+            owner_id=SYSTEM_USER_ID,
             name=payload.name,
             description=payload.description,
             is_public=True,
@@ -112,7 +75,7 @@ class PlaylistService:
         return await self._repository.get(playlist.id)  # type: ignore[return-value]
 
     async def refresh_system_playlist(
-        self, admin: User, playlist_id: uuid.UUID
+        self, admin: PanelUser, playlist_id: uuid.UUID
     ) -> Playlist:
         """Regenera el snapshot de una playlist del sistema (admin only).
 
@@ -142,6 +105,19 @@ class PlaylistService:
         await self._repository.replace_songs(playlist, song_ids)
         return await self._repository.get(playlist.id)  # type: ignore[return-value]
 
+    async def delete_system_playlist(
+        self, admin: PanelUser, playlist_id: uuid.UUID
+    ) -> None:
+        """Borra una playlist del sistema (admin only).
+
+        El endpoint de panel solo permite borrar `kind='system'`: las playlists
+        de usuario pertenecen a la app y no se gestionan desde acá.
+        """
+        playlist = await self._get_mutable(playlist_id, admin)
+        if playlist.kind != "system":
+            raise PlaylistForbiddenError()
+        await self._repository.delete(playlist)
+
     async def _snapshot_song_ids(
         self, query: PlaylistSystemQuery
     ) -> list[uuid.UUID]:
@@ -168,49 +144,25 @@ class PlaylistService:
         latest = await self._songs.list(offset=0, limit=_SYSTEM_SNAPSHOT_LIMIT)
         return [song.id for song in latest]
 
-    async def update_playlist(
-        self, playlist_id: uuid.UUID, user: User, payload: PlaylistUpdate
+    async def _get_mutable(
+        self, playlist_id: uuid.UUID, user: PanelUser
     ) -> Playlist:
-        playlist = await self._get_mutable(playlist_id, user)
-        updates = payload.model_dump(exclude_unset=True)
-        return await self._repository.update(playlist, **updates)
+        """Control de mutación de una playlist desde el panel.
 
-    async def delete_playlist(self, playlist_id: uuid.UUID, user: User) -> None:
-        playlist = await self._get_mutable(playlist_id, user)
-        await self._repository.delete(playlist)
-
-    async def add_song(
-        self, playlist_id: uuid.UUID, user: User, song_id: uuid.UUID
-    ) -> Playlist:
-        playlist = await self._get_mutable(playlist_id, user)
-        song = await self._songs.get(song_id)
-        if song is None:
-            raise SongNotFoundError(song_id)
-        await self._repository.add_song(playlist, song_id)
-        # Re-fetch con las relaciones cargadas para la respuesta
-        return await self._repository.get(playlist.id)  # type: ignore[return-value]
-
-    async def remove_song(
-        self, playlist_id: uuid.UUID, user: User, song_id: uuid.UUID
-    ) -> Playlist:
-        playlist = await self._get_mutable(playlist_id, user)
-        removed = await self._repository.remove_song(playlist, song_id)
-        if not removed:
-            raise SongNotFoundError(song_id)
-        return await self._repository.get(playlist.id)  # type: ignore[return-value]
-
-    async def _get_owned(self, playlist_id: uuid.UUID, user: User) -> Playlist:
+        - `system`: solo un admin (sin importar quién la creó; el dueño es el
+          usuario fijo del sistema, no el admin).
+        - `user`: solo el dueño. La app no muta playlists de usuario por acá.
+        """
         playlist = await self._repository.get(playlist_id)
         if playlist is None:
             raise PlaylistNotFoundError(playlist_id)
-        if playlist.owner_id != user.id:
-            raise PlaylistForbiddenError()
-        return playlist
 
-    async def _get_mutable(self, playlist_id: uuid.UUID, user: User) -> Playlist:
-        """Solo el dueño muta su playlist; las del sistema, solo un admin."""
-        playlist = await self._get_owned(playlist_id, user)
-        if playlist.kind == "system" and not self._is_admin(user):
+        if playlist.kind == "system":
+            if not self._is_admin(user):
+                raise PlaylistForbiddenError()
+            return playlist
+
+        if playlist.owner_id != user.id:
             raise PlaylistForbiddenError()
         return playlist
 

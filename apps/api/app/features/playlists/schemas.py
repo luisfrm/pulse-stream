@@ -22,12 +22,6 @@ class PlaylistSystemQuery(str, Enum):
     NEW = "new"
 
 
-class PlaylistCreate(BaseModel):
-    name: str = Field(min_length=1, max_length=255)
-    description: str | None = None
-    is_public: bool = False
-
-
 class PlaylistSystemCreate(BaseModel):
     """Creación de una playlist del sistema (admin only).
 
@@ -38,22 +32,6 @@ class PlaylistSystemCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     description: str | None = None
     query: PlaylistSystemQuery
-
-
-class PlaylistUpdate(BaseModel):
-    name: str | None = Field(default=None, min_length=1, max_length=255)
-    description: str | None = None
-    is_public: bool | None = None
-    # Solo keys del presign (`covers/{uuid}.webp`): rechaza el bypass por
-    # PATCH directo con una key arbitraria (mismo patrón que albums/artists —
-    # duplicado a propósito, sin import cruzado entre features).
-    cover_key: str | None = Field(
-        default=None, pattern=r"^covers/[0-9a-f-]+\.webp$"
-    )
-
-
-class PlaylistAddSong(BaseModel):
-    song_id: uuid.UUID
 
 
 class PlaylistRead(BaseModel):
@@ -70,7 +48,7 @@ class PlaylistRead(BaseModel):
     # Query de snapshot (solo system): "top_week" | "top_month" | "new".
     # NULL en playlists de usuario o system creadas antes de la migración 0008.
     query: PlaylistSystemQuery | None = None
-    # Autor (email del dueño) — se lee desde `Playlist.owner_email`.
+    # Autor (email del dueño) — NULL en las playlists del sistema.
     owner_email: str | None = None
     created_at: datetime
 
@@ -79,14 +57,3 @@ class PlaylistDetail(PlaylistRead):
     """Playlist con sus canciones (estilo Spotify: lista ordenada)."""
 
     songs: list[SongRead] = Field(default_factory=list)
-
-
-class MyPlaylistRead(PlaylistRead):
-    """Playlist del usuario para el PlaylistPicker (GET /me/playlists).
-
-    Expone `song_ids` —ordenados por posición— para que el frontend muestre
-    "Ya está en esta playlist" sin traer las canciones completas. Schema
-    exclusivo de /me/playlists: NO reemplaza a `PlaylistRead`.
-    """
-
-    song_ids: list[uuid.UUID] = Field(default_factory=list)

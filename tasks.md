@@ -4,6 +4,20 @@
 > resolución). Cuando aparece una idea de mejora, se agrega acá y se resuelve
 > en la misma pasada o en la siguiente.
 
+## ✅ Auth — Split panel/app (Fase 1)
+
+> Objetivo: separar el auth del panel (`panel_users`, FastAPI) del de la app
+> (`users`, Hono custom). Better Auth queda para la fase siguiente.
+
+| # | Tarea | Resolución |
+|---|---|---|
+| 76 | **Migración 0012** | `panel_users` (UUID, email/hash/username únicos, role, timestamps) + copia de `users` con `role='admin' OR is_superuser`; usuario fijo `system@pulse-stream.app`; reasignación de `playlists.kind='system'`. Downgrade reasigna al primer panel user o aborta si no hay |
+| 77 | **Panel auth** | fastapi-users (`UserManager`, `SQLAlchemyUserDatabase`, JWT/cookie) contra `PanelUser`; `require_admin` exige solo `role="admin"`; `/users/me` propio. Sin register/reset/verify |
+| 78 | **Init** | `GET /init/status` + `POST /init` (advisory lock, 409 si ya hay cuentas, argon2, `is_superuser=false`); página `/init` y guards de login/panel |
+| 79 | **API Python del panel** | Removidos favoritos, listens y playlists de usuario (`/me/*`, CRUD `/playlists`); se mantienen catálogo/admin/uploads/system-playlists/public. `/admin/users` ahora opera sobre `panel_users` |
+| 80 | **System playlists** | Dueño = usuario fijo; `owner_email` NULL en Python y Hono; panel muta por `role=admin` (no ownership); usuarios de la app no mutan system (se quitó la rama admin de Hono) |
+| 81 | **Tests** | Suite Python adaptada (helpers crean `panel_users`, listens/playlists de app se siembran por DB) y tests Hono de owner_email/permisos. Better Auth pendiente |
+
 ## ✅ Migración a Hono — Fase 4 (cutover de código; deploy pendiente)
 
 > Objetivo: `apps/web` deja de hablar con Python y pasa a la API Hono con

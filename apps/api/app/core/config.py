@@ -88,7 +88,7 @@ class Settings(BaseSettings):
 
     # --- Rate limiting (slowapi) ---
     rate_limit_login: str = "5/minute"
-    rate_limit_register: str = "3/hour"
+    rate_limit_init: str = "5/hour"
     rate_limit_presign: str = "10/minute"
 
     # --- Cloudflare R2 (Fase 1: subida de canciones con presigned URLs) ---

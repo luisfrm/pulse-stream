@@ -242,7 +242,7 @@ describe("playlists de usuario (escrituras)", () => {
     expect(foreignResponse.status).toBe(403);
   });
 
-  it("system: usuario normal 403; admin 200", async () => {
+  it("system: ningún usuario de la app la muta (ni siquiera admin legacy)", async () => {
     const systemCatalog = () =>
       baseCatalog({
         getPlaylistWithSongs: async () => ({
@@ -256,7 +256,11 @@ describe("playlists de usuario (escrituras)", () => {
       });
 
     const normal = await authedApp({ catalog: systemCatalog() });
-    const admin = await authedApp({ catalog: systemCatalog(), role: "admin" });
+    const admin = await authedApp({
+      catalog: systemCatalog(),
+      role: "admin",
+      isSuperuser: true,
+    });
 
     const normalResponse = await normal.app.request(
       `/playlists/${PLAYLIST_ID}`,
@@ -268,7 +272,7 @@ describe("playlists de usuario (escrituras)", () => {
     );
 
     expect(normalResponse.status).toBe(403);
-    expect(adminResponse.status).toBe(200);
+    expect(adminResponse.status).toBe(403);
   });
 
   it("DELETE /playlists/{id} → 204", async () => {

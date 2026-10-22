@@ -17,9 +17,10 @@ import { loadPlaylistDetail, requireMutablePlaylist } from "./service";
 /**
  * Playlists de usuario (la app no crea/muta `system`: eso es del panel).
  *
- * Reglas (espejo de `PlaylistService` de Python):
+ * Reglas (espejo de la API del panel):
  * - solo el dueño muta (403; 404 si no existe);
- * - una playlist `system` solo la muta un admin (role=admin o superuser);
+ * - las playlists `system` NO las muta ningún usuario de la app (las gestiona
+ *   el panel contra Python), ni siquiera un admin legacy;
  * - agregar una canción ya presente es no-op; quitar una ausente es 404;
  * - las mutaciones devuelven el `PlaylistDetail` completo (orden `position`).
  */

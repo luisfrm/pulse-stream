@@ -126,13 +126,6 @@ async def test_cover_key_strict_pattern_rejected_on_write(client, session):
     )
     assert resp.status_code == 422, resp.text
 
-    # PATCH playlist con key arbitraria → 422
-    pl = (await client.post("/playlists", json={"name": "Pl"})).json()
-    resp = await client.patch(
-        f"/playlists/{pl['id']}", json={"cover_key": "covers/x.jpg"}
-    )
-    assert resp.status_code == 422, resp.text
-
     # PATCH perfil con .jpg → 422
     resp = await client.patch("/users/me", json={"cover_key": "covers/p.jpg"})
     assert resp.status_code == 422, resp.text

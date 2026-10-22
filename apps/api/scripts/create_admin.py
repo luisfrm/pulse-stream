@@ -1,4 +1,4 @@
-"""Crea o rota el admin local del panel (Fase 0 de la migración a Hono).
+"""Crea o rota el admin del panel (`panel_users`, API FastAPI local).
 
 Uso (desde `apps/api`):
 
@@ -19,14 +19,15 @@ sys.path.insert(0, ".")
 from app.db.session import async_session_factory, engine
 
 # El script corre fuera de FastAPI (que importa todos los routers): hay que
-# registrar los modelos para que SQLAlchemy resuelva las relaciones del mapper
-# de `User` (Playlist, Listen, Favorites, etc.) antes de consultar.
+# registrar TODOS los modelos para que SQLAlchemy resuelva los mappers del
+# metadata (relationships de User/Playlist/Listen/Favorites, etc.).
 import app.features.albums.models  # noqa: E402, F401
 import app.features.artists.models  # noqa: E402, F401
 import app.features.favorites.models  # noqa: E402, F401
 import app.features.listens.models  # noqa: E402, F401
 import app.features.playlists.models  # noqa: E402, F401
 import app.features.songs.models  # noqa: E402, F401
+import app.features.users.panel_models  # noqa: E402, F401
 
 from app.features.users.admin_seed import upsert_admin
 

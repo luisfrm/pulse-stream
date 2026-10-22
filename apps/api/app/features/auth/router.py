@@ -8,20 +8,26 @@ from fastapi import (
     status,
 )
 from fastapi.security import OAuth2PasswordRequestForm
-from fastapi_users import BaseUserManager
+from fastapi_users import BaseUserManager, exceptions
 from fastapi_users.authentication import Strategy
 from fastapi_users.router.common import ErrorCode
 
 from app.core.config import settings
 from app.core.security import apply_rate_limits
 from app.features.auth.backend import auth_backend, cookie_transport
-from app.features.auth.manager import fastapi_users
-from app.features.users.models import User
-from app.features.users.schemas import UserCreate, UserRead, UserUpdate
+from app.features.auth.manager import current_user, fastapi_users
+from app.features.users.panel_models import PanelUser
+from app.features.users.schemas import UserRead, UserUpdate
 
 router = APIRouter()
 
-# --- Auth (login custom + logout, el resto de fastapi-users) ---
+_USER_ALREADY_EXISTS = HTTPException(
+    status_code=status.HTTP_400_BAD_REQUEST,
+    detail=ErrorCode.REGISTER_USER_ALREADY_EXISTS,
+)
+
+
+# --- Auth del panel (login custom + logout) ---
 # Login escrito a mano en vez de get_auth_router para soportar "remember me":
 #   remember=True  -> cookie persistente (7 días, igual que la vida del JWT)
 #   remember=False -> cookie de sesión (expira al cerrar el navegador)
@@ -62,7 +68,7 @@ async def login(
 
 @router.post("/auth/logout", name="auth:cookie.logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(
-    user_token: tuple[User, str] = Depends(
+    user_token: tuple[PanelUser, str] = Depends(
         fastapi_users.authenticator.current_user_token(active=True)
     ),
     strategy: Strategy = Depends(auth_backend.get_strategy),
@@ -73,22 +79,38 @@ async def logout(
 
 apply_rate_limits(router, {"/auth/login": settings.rate_limit_login})
 
-register_router = fastapi_users.get_register_router(UserRead, UserCreate)
-apply_rate_limits(register_router, {"/register": settings.rate_limit_register})
-router.include_router(register_router, prefix="/auth", tags=["auth"])
 
-# Reset de password y verificación de email (los hooks on_after_* se implementan
-# en Fase 1/3; los endpoints quedan listos).
-router.include_router(
-    fastapi_users.get_reset_password_router(), prefix="/auth", tags=["auth"]
-)
-router.include_router(
-    fastapi_users.get_verify_router(UserRead), prefix="/auth", tags=["auth"]
-)
+# --- Perfil de la propia cuenta del panel (sin self-service de /users/{id}) ---
+@router.get("/users/me", response_model=UserRead, tags=["users"])
+async def get_me(user: PanelUser = Depends(current_user)) -> PanelUser:
+    """Cuenta autenticada del panel."""
+    return user
 
-# Self-service del usuario: GET/PATCH/DELETE /users/me (y /users/{id} admin).
-router.include_router(
-    fastapi_users.get_users_router(UserRead, UserUpdate),
-    prefix="/users",
-    tags=["users"],
-)
+
+@router.patch("/users/me", response_model=UserRead, tags=["users"])
+async def update_me(
+    payload: UserUpdate,
+    user: PanelUser = Depends(current_user),
+    user_manager: BaseUserManager = Depends(fastapi_users.get_user_manager),
+) -> PanelUser:
+    """Actualiza username/cover (y email/password propios) de la cuenta.
+
+    `safe=True` descarta campos privilegiados (`is_superuser`, `is_active`,
+    `is_verified`); el rol ni siquiera existe en `UserUpdate`.
+    """
+    try:
+        return await user_manager.update(payload, user, safe=True)
+    except exceptions.UserAlreadyExists:
+        raise _USER_ALREADY_EXISTS from None
+    except exceptions.InvalidPasswordException as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": ErrorCode.UPDATE_USER_INVALID_PASSWORD,
+                "reason": exc.reason,
+            },
+        ) from None
+
+
+# El endpoint de init se registra aparte (`init_router.py`): no requiere auth y
+# solo funciona cuando `panel_users` está vacío.

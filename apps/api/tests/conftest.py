@@ -11,6 +11,7 @@ import pytest
 import pytest_asyncio
 from dotenv import load_dotenv
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 # Entorno de tests SIEMPRE local, sin importar el .env de desarrollo:
@@ -28,8 +29,33 @@ os.environ["COOKIE_DOMAIN"] = ""
 load_dotenv()
 
 from app.core.config import _async_url  # noqa: E402
+from app.features.users.models import (  # noqa: E402
+    SYSTEM_USER_EMAIL,
+    SYSTEM_USER_ID,
+)
 
 TEST_DATABASE_URL = _async_url(os.getenv("TEST_DATABASE_URL", ""))
+
+
+async def _seed_system_user(engine) -> None:
+    """El usuario fijo que posee las playlists system (como en 0012)."""
+    async with engine.begin() as conn:
+        await conn.execute(
+            text(
+                """
+                INSERT INTO users (
+                    id, email, hashed_password, is_active, is_superuser,
+                    is_verified, role, username, cover_key, total_plays
+                )
+                VALUES (
+                    :id, :email, NULL, false, false, true,
+                    NULL, NULL, NULL, 0
+                )
+                ON CONFLICT (id) DO NOTHING
+                """
+            ),
+            {"id": SYSTEM_USER_ID, "email": SYSTEM_USER_EMAIL},
+        )
 
 
 @pytest_asyncio.fixture(scope="session")
@@ -48,6 +74,7 @@ async def engine():
     import app.features.artists.models  # noqa: F401
     import app.features.songs.models  # noqa: F401
     import app.features.users.models  # noqa: F401  (User)
+    import app.features.users.panel_models  # noqa: F401  (PanelUser)
     import app.features.playlists.models  # noqa: F401
     import app.features.favorites.models  # noqa: F401
     import app.features.listens.models  # noqa: F401
@@ -55,6 +82,8 @@ async def engine():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
+
+    await _seed_system_user(engine)
 
     yield engine
 
@@ -81,7 +110,7 @@ async def client(session):
 
     app.dependency_overrides[get_session] = override_get_session
 
-    # Deshabilita el rate limiting para no romper tests que registran varios users
+    # Deshabilita el rate limiting para no romper tests que crean varios users
     app.state.limiter.enabled = False
 
     transport = ASGITransport(app=app)

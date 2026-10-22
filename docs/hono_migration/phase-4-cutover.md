@@ -67,6 +67,14 @@ en push a `master`; Python queda solo para el panel local.
 El seed del admin **no** corre en cada push (rota la password): se ejecuta una
 vez a mano.
 
+## Nota posterior — split panel/app (0012)
+
+La migración `0012` separa el auth: el panel usa `panel_users` y `users` queda
+como tabla pública de la app. El seed/`/init` crean **admins del panel**, no
+usuarios de la app. Las playlists `system` pasan a ser del usuario fijo
+`system@pulse-stream.app` (sin password, inactivo) y `owner_email` se expone
+NULL. La app sigue con el auth custom de Hono hasta la fase de Better Auth.
+
 ## Variables
 
 | Servicio | Variables |

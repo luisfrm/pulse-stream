@@ -19,7 +19,7 @@ const loginRoute = createRoute({
   tags: ["auth"],
   summary: "Login con email/usuario y contraseña",
   description:
-    "Acepta email o username (case-insensitive) + password argon2id (hash de pwdlib) y setea la cookie `session`. No hay registro público: las cuentas existentes se crean con el seed del panel. Requiere Workers Paid en producción (argon2 > 10 ms CPU).",
+    "Acepta email o username (case-insensitive) + password argon2id (hash de pwdlib) y setea la cookie `session`. No hay registro público: las cuentas de la app son filas existentes en `users` (el alta nueva llega con Better Auth). Requiere Workers Paid en producción (argon2 > 10 ms CPU).",
   request: {
     body: {
       required: true,

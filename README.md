@@ -42,8 +42,9 @@ pnpm --filter @pulse-stream/app-api dev   # wrangler dev → http://localhost:87
 
 - Local y producción usan el mismo driver HTTP de Neon
   (`@neondatabase/serverless`) con `DATABASE_URL`; no hay Hyperdrive ni `pg`.
-- **No hay OAuth ni registro público**: las cuentas se crean con el seed del
-  panel. El login es email/usuario + contraseña.
+- **No hay OAuth ni registro público**: el login es email/usuario + contraseña.
+  El auth custom de Hono sigue vigente sobre `users.hashed_password`; el alta
+  de usuarios nuevos de la app llega con Better Auth (fase siguiente).
 - El contrato OpenAPI está versionado en `apps/app-api/openapi.json`.
 
 ### 2. API del panel — FastAPI (`apps/api`, :8000)
@@ -63,6 +64,13 @@ Swagger (solo en `ENV=local`): http://localhost:8000/docs
 > El nombre de cookie debe ser `panel_session`
 > (`SESSION_COOKIE_NAME=panel_session`) para no chocar con la `session` de Hono
 > en localhost.
+>
+> El panel autentica contra **`panel_users`** (no contra `users`, que es la tabla
+> pública de la app). La primera vez, abrí `http://localhost:3001` → `/init`
+> para crear el primer admin, o usá
+> `uv run python scripts/create_admin.py --email ... --password ...`.
+> `GET /init/status` / `POST /init` solo funcionan con `panel_users` vacío; el
+> registro/reset/verificación públicos fueron removidos.
 
 ### 3. App (`apps/web`, :3000)
 
@@ -73,10 +81,11 @@ pnpm dev                     # http://localhost:3000
 ```
 
 Login: **email/usuario + contraseña** en `/login`. No hay OAuth ni registro
-público: `/register` redirige a `/login` y las cuentas se crean con el seed del
-panel (`apps/api/scripts/create_admin.py`). `/account` solo edita username +
-foto (el email es read-only). En producción el login con password requiere
-Workers Paid (argon2 supera el CPU de Free).
+público: `/register` redirige a `/login` y las cuentas de la app son las filas
+existentes en `users` (el seed del panel crea `panel_users`, no cuentas de la
+app). `/account` solo edita username + foto (el email es read-only). En
+producción el login con password requiere Workers Paid (argon2 supera el CPU de
+Free).
 
 ### 4. Panel (`apps/panel`, :3001)
 

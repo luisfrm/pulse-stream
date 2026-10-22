@@ -1,6 +1,6 @@
 # Estado de la migración
 
-Actualizado: 2026-10-21
+Actualizado: 2026-10-22
 
 ## Fase 0 — Fundación
 
@@ -94,6 +94,20 @@ Actualizado: 2026-10-21
 - [ ] Seed del admin en la DB de prod.
 - [ ] Playwright/smoke contra producción.
 - [ ] Rate limit en `/auth/*`.
+
+## Fase 4.1 — Split panel/app (auth)
+
+- [x] Migración `0012`: `panel_users` (auth del panel) + copia de admins;
+      `users` queda como tabla pública de la app.
+- [x] Usuario fijo de sistema (`system@pulse-stream.app`, sin password) dueño
+      de las playlists `kind='system'`; `owner_email` NULL en el feed.
+- [x] fastapi-users/`require_admin` contra `panel_users`, solo `role=admin`.
+- [x] `/init/status` + `/init` (primer admin, 409 si ya inicializado) y pantalla
+      `/init` en el panel.
+- [x] Removidos de Python: `/auth/register`, reset/verify, favoritos, listens y
+      playlists de usuario (viven en Hono).
+- [x] Hono: los usuarios de la app no mutan playlists `system` (ni admin legacy).
+- [ ] Better Auth para usuarios de la app (fase siguiente; no implementado acá).
 
 ## Fase 5 — Paid
 

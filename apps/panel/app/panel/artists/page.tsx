@@ -34,9 +34,7 @@ export default async function ArtistsPage({
       { next: { revalidate: 300, tags: [CACHE_TAGS.artists] } },
     ),
   ]);
-  const isAdmin = Boolean(
-    user && (user.is_superuser || user.role === "admin")
-  );
+  const isAdmin = user?.role === "admin";
 
   // Server Action: purga el tag bajo demanda (después de mutar)
   const refreshArtists = async () => {

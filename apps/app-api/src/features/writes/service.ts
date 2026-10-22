@@ -23,15 +23,11 @@ import type {
 export const PLAYLIST_FORBIDDEN_DETAIL = "No tenés acceso a esta playlist";
 export const USERNAME_TAKEN_DETAIL = "El nombre de usuario ya está en uso";
 
-/** `role === "admin"` o `is_superuser` (mismos permisos que Python). */
-export function isAdmin(user: UserRecord): boolean {
-  return user.role === "admin" || user.is_superuser;
-}
-
 /**
- * Playlist mutable por el usuario: existe (404), es suya (403) y, si es del
- * sistema, solo un admin puede tocarla (403). Espejo de
- * `PlaylistService._get_owned` + `_get_mutable`.
+ * Playlist mutable por un usuario de la app: existe (404), es suya (403) y es
+ * de tipo `user`. Las playlists `system` (curadas desde el panel) NO son
+ * mutables por usuarios de la app, ni siquiera por un admin legacy: el panel
+ * las gestiona contra Python.
  */
 export async function requireMutablePlaylist(
   catalog: CatalogRepository,
@@ -40,10 +36,10 @@ export async function requireMutablePlaylist(
 ): Promise<PlaylistRecord> {
   const detail = await catalog.getPlaylistWithSongs(playlistId);
   if (!detail) throw new NotFoundError(`Playlist ${playlistId} no existe`);
-  if (detail.playlist.owner_id !== user.id) {
-    throw new ForbiddenError(PLAYLIST_FORBIDDEN_DETAIL);
-  }
-  if (detail.playlist.kind === "system" && !isAdmin(user)) {
+  if (
+    detail.playlist.kind === "system" ||
+    detail.playlist.owner_id !== user.id
+  ) {
     throw new ForbiddenError(PLAYLIST_FORBIDDEN_DETAIL);
   }
   return detail.playlist;

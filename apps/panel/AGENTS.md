@@ -18,7 +18,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   `session` que emite Hono para `apps/web` en localhost.
 - **Login**: email/password propio (`app/login`) contra Python. Sin register.
 - **Guards**: `proxy.ts` chequea solo la presencia de `panel_session`; el layout
-  valida sesión + `role=admin`/`is_superuser` con `GET /users/me`.
+  valida sesión + `role=admin` con `GET /users/me` (`is_superuser` no autoriza).
 - **Tipos**: `@pulse-stream/api-types` (generado desde el OpenAPI de Python con
   `pnpm gen:types`). No declarar tipos a mano.
 - Todo el CRUD admin vive acá: artists/albums/songs, ZIP, playlists system,

@@ -111,7 +111,10 @@ export const PLAYLIST_SELECT = `
     p.query,
     p.owner_id,
     to_json(${utcTimestamp("p.created_at")}) AS created_at,
-    playlist_owner.email AS owner_email,
+    CASE
+      WHEN p.kind = 'system' THEN NULL
+      ELSE playlist_owner.email
+    END AS owner_email,
     (SELECT count(*)::int
        FROM playlist_songs playlist_song
       WHERE playlist_song.playlist_id = p.id) AS song_count`;

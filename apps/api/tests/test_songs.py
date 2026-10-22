@@ -2,7 +2,12 @@ import uuid
 
 import pytest
 
-from tests.helpers import register_and_login
+from app.features.playlists.models import PlaylistSong
+from tests.helpers import (
+    create_app_user,
+    create_user_playlist,
+    register_and_login,
+)
 
 pytestmark = pytest.mark.asyncio
 
@@ -180,8 +185,8 @@ async def test_song_cover_inherits_album(client, session):
     assert song["cover_url"].endswith(f"/{album_key}")
 
 
-async def test_normal_user_cannot_create_song(client):
-    await register_and_login(client)
+async def test_normal_user_cannot_create_song(client, session):
+    await register_and_login(client, session=session)
     resp = await client.post(
         "/songs",
         json={"title": "X", "artist_name": "A", "object_key": "songs/x.mp3"},
@@ -266,12 +271,10 @@ async def test_list_songs_filter_by_playlist_id(client, session):
     await register_and_login(client, admin=True, session=session)
     artist = await _create_artist(client, "Filter Playlist Artist")
     album = await _create_album(client, artist["id"], "Filter Album")
-    playlist = (
-        await client.post(
-            "/playlists",
-            json={"name": "Mi playlist", "is_public": False},
-        )
-    ).json()
+    owner = await create_app_user(session)
+    playlist = await create_user_playlist(
+        session, owner_id=owner.id, name="Mi playlist", is_public=False
+    )
 
     s1 = (
         await client.post(
@@ -297,13 +300,17 @@ async def test_list_songs_filter_by_playlist_id(client, session):
         json={"title": "Fuera", "artist_id": artist["id"], "album_id": album["id"], "object_key": "songs/p4.mp3"},
     )
 
-    for song_id in (s1["id"], s2["id"], s3["id"]):
-        resp = await client.post(
-            f"/playlists/{playlist['id']}/songs", json={"song_id": song_id}
+    for position, song_id in enumerate((s1["id"], s2["id"], s3["id"])):
+        session.add(
+            PlaylistSong(
+                playlist_id=playlist.id,
+                song_id=uuid.UUID(song_id),
+                position=position,
+            )
         )
-        assert resp.status_code == 200
+    await session.commit()
 
-    resp = await client.get("/songs", params={"playlist_id": playlist["id"]})
+    resp = await client.get("/songs", params={"playlist_id": str(playlist.id)})
     assert resp.status_code == 200
     data = resp.json()
     assert data["total"] == 3

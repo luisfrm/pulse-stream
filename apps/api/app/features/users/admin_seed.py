@@ -1,9 +1,9 @@
-"""Alta / rotación del admin local del panel (Fase 0 de la migración a Hono).
+"""Alta / rotación del admin del panel (`panel_users`).
 
-El panel nuevo (Worker Hono) no comparte usuarios con la API FastAPI todavía:
-el admin del panel se crea con este helper (y el CLI `scripts/create_admin.py`).
-Es idempotente por email (case-insensitive): si el usuario ya existe, rota el
-password y reafirma el rol — nunca duplica la cuenta.
+El panel es una app local que autentica contra `panel_users` (no contra los
+usuarios públicos de la app). Este helper y el CLI `scripts/create_admin.py`
+crean/rotan esa cuenta. Es idempotente por email (case-insensitive): si la
+cuenta ya existe, rota el password y reafirma el rol — nunca la duplica.
 """
 
 from pydantic import EmailStr, TypeAdapter
@@ -11,7 +11,7 @@ from pwdlib import PasswordHash
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.features.users.models import User
+from app.features.users.panel_models import PanelUser
 
 MIN_PASSWORD_LENGTH = 8
 
@@ -29,13 +29,14 @@ async def upsert_admin(
     email: str,
     password: str,
     username: str | None = None,
-) -> User:
+) -> PanelUser:
     """Crea el admin del panel o actualiza su password/rol si ya existe.
 
     - Email normalizado a lowercase (el login de fastapi-users compara
       case-insensitive, pero la columna guarda el valor canónico).
     - Password mínima de 8 caracteres (ValueError si no).
-    - Siempre deja `role="admin"`, `is_active` y `is_verified` en True.
+    - Siempre deja `role="admin"`, `is_active` y `is_verified` en True y
+      `is_superuser=False` (fastapi-users lo exige, pero no autoriza).
     - `username` solo se toca si viene (una rotación de password no lo borra).
     """
     normalized_email = str(
@@ -50,17 +51,20 @@ async def upsert_admin(
 
     user = (
         await session.execute(
-            select(User).where(func.lower(User.email) == normalized_email)
+            select(PanelUser).where(
+                func.lower(PanelUser.email) == normalized_email
+            )
         )
     ).scalar_one_or_none()
 
     if user is None:
-        user = User(
+        user = PanelUser(
             email=normalized_email,
             hashed_password=hashed_password,
             role="admin",
             is_active=True,
             is_verified=True,
+            is_superuser=False,
         )
         if username:
             user.username = username.strip()
@@ -70,6 +74,7 @@ async def upsert_admin(
         user.role = "admin"
         user.is_active = True
         user.is_verified = True
+        user.is_superuser = False
         if username:
             user.username = username.strip()
 

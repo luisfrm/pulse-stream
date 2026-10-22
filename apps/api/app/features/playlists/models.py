@@ -83,7 +83,13 @@ class Playlist(Base):
 
     @property
     def owner_email(self) -> str | None:
-        """Email del dueño (para mostrar el autor en el feed público)."""
+        """Email del dueño para el feed público.
+
+        Las playlists `system` pertenecen al usuario fijo del sistema: su email
+        es interno y NUNCA se expone (se muestra como autor vacío).
+        """
+        if self.kind == "system":
+            return None
         return self.owner.email if self.owner else None
 
     @property

@@ -38,91 +38,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/auth/register": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Register:Register */
-        post: operations["register_register_auth_register_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/forgot-password": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Reset:Forgot Password */
-        post: operations["reset_forgot_password_auth_forgot_password_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/reset-password": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Reset:Reset Password */
-        post: operations["reset_reset_password_auth_reset_password_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/request-verify-token": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Verify:Request-Token */
-        post: operations["verify_request_token_auth_request_verify_token_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/verify": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Verify:Verify */
-        post: operations["verify_verify_auth_verify_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/users/me": {
         parameters: {
             query?: never;
@@ -130,34 +45,64 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Users:Current User */
-        get: operations["users_current_user_users_me_get"];
+        /**
+         * Get Me
+         * @description Cuenta autenticada del panel.
+         */
+        get: operations["get_me_users_me_get"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        /** Users:Patch Current User */
-        patch: operations["users_patch_current_user_users_me_patch"];
+        /**
+         * Update Me
+         * @description Actualiza username/cover (y email/password propios) de la cuenta.
+         *
+         *     `safe=True` descarta campos privilegiados (`is_superuser`, `is_active`,
+         *     `is_verified`); el rol ni siquiera existe en `UserUpdate`.
+         */
+        patch: operations["update_me_users_me_patch"];
         trace?: never;
     };
-    "/users/{id}": {
+    "/init/status": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Users:User */
-        get: operations["users_user_users__id__get"];
+        /**
+         * Init Status
+         * @description Indica si el panel necesita crear su primera cuenta administradora.
+         */
+        get: operations["init_status_init_status_get"];
         put?: never;
         post?: never;
-        /** Users:Delete User */
-        delete: operations["users_delete_user_users__id__delete"];
+        delete?: never;
         options?: never;
         head?: never;
-        /** Users:Patch User */
-        patch: operations["users_patch_user_users__id__patch"];
+        patch?: never;
+        trace?: never;
+    };
+    "/init": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Init Panel
+         * @description Crea el primer admin del panel. Sin auth, solo si `panel_users` vacío.
+         */
+        post: operations["init_panel_init_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/admin/users": {
@@ -169,7 +114,7 @@ export interface paths {
         };
         /**
          * List Users
-         * @description Listado de usuarios — solo admin (role=admin).
+         * @description Listado de cuentas del panel — solo admin (role=admin).
          */
         get: operations["list_users_admin_users_get"];
         put?: never;
@@ -192,7 +137,7 @@ export interface paths {
         post?: never;
         /**
          * Delete User
-         * @description Borra un usuario — solo admin, y no puede borrarse a sí mismo.
+         * @description Borra una cuenta del panel — solo admin, y no la propia.
          */
         delete: operations["delete_user_admin_users__user_id__delete"];
         options?: never;
@@ -215,7 +160,7 @@ export interface paths {
         head?: never;
         /**
          * Set User Role
-         * @description Asigna/revoca el rol de un usuario — solo admin.
+         * @description Asigna/revoca el rol de una cuenta del panel — solo admin.
          *
          *     `role: "admin"` otorga acceso al panel; `role: null` lo revoca.
          *     Un admin no puede quitarse su propio rol.
@@ -492,34 +437,14 @@ export interface paths {
         };
         /**
          * List Public Playlists
-         * @description Feed público: playlists públicas de toda la comunidad (nuevas primero).
+         * @description Feed público: playlists públicas de toda la comunidad (system primero).
          *
          *     Público (sin sesión): son contenido visible para cualquiera por diseño.
+         *     `owner_email` es NULL para las playlists del sistema.
          */
         get: operations["list_public_playlists_playlists_public_get"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/playlists": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Playlists
-         * @description Playlists del usuario actual (o las públicas del mismo perfil).
-         */
-        get: operations["list_playlists_playlists_get"];
-        put?: never;
-        /** Create Playlist */
-        post: operations["create_playlist_playlists_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -533,344 +458,17 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Get Playlist
-         * @description Detalle con canciones ordenadas (solo dueño o playlist pública).
-         */
-        get: operations["get_playlist_playlists__playlist_id__get"];
-        put?: never;
-        post?: never;
-        /** Delete Playlist */
-        delete: operations["delete_playlist_playlists__playlist_id__delete"];
-        options?: never;
-        head?: never;
-        /** Update Playlist */
-        patch: operations["update_playlist_playlists__playlist_id__patch"];
-        trace?: never;
-    };
-    "/playlists/{playlist_id}/songs": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Add Song To Playlist */
-        post: operations["add_song_to_playlist_playlists__playlist_id__songs_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/playlists/{playlist_id}/songs/{song_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
         get?: never;
         put?: never;
         post?: never;
-        /** Remove Song From Playlist */
-        delete: operations["remove_song_from_playlist_playlists__playlist_id__songs__song_id__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/me/playlists": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
         /**
-         * List My Playlists
-         * @description Playlists del usuario actual (para el menú "agregar a playlist").
+         * Delete System Playlist
+         * @description Borra una playlist del sistema — admin only.
          *
-         *     Incluye `song_ids` por playlist (orden por posición) para que el picker
-         *     muestre "Ya está en esta playlist" sin traer las canciones completas.
+         *     Solo `kind='system'`: las playlists de usuario pertenecen a la app. El
+         *     panel conserva esta ruta (`DELETE /playlists/{id}`) para su botón de borrar.
          */
-        get: operations["list_my_playlists_me_playlists_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/me/playlists/page": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List My Playlists Paginated
-         * @description Versión paginada para el listado /playlists de la app (Ver más).
-         *
-         *     `GET /me/playlists` (sin paginar) sigue trayendo TODAS las playlists del
-         *     usuario porque el PlaylistPicker las necesita enteras (suele ser < 50);
-         *     este endpoint solo lo usa el listado para acotar el primer render.
-         */
-        get: operations["list_my_playlists_paginated_me_playlists_page_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/me/favorites": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Favorites
-         * @description Canciones favoritas del usuario (más recientes primero).
-         */
-        get: operations["list_favorites_me_favorites_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/me/favorites/ids": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Favorite Ids
-         * @description IDs de canciones favoritas (para pintar corazones sin traer todo).
-         */
-        get: operations["favorite_ids_me_favorites_ids_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/me/favorites/{song_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Add Favorite */
-        put: operations["add_favorite_me_favorites__song_id__put"];
-        post?: never;
-        /** Remove Favorite */
-        delete: operations["remove_favorite_me_favorites__song_id__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/me/favorites/playlists": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Favorite Playlists
-         * @description Playlists favoritas del usuario (de usuario y del sistema), más recientes primero.
-         */
-        get: operations["list_favorite_playlists_me_favorites_playlists_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/me/favorites/playlists/ids": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Favorite Playlist Ids
-         * @description IDs de playlists favoritas (para pintar corazones sin traer todo).
-         */
-        get: operations["favorite_playlist_ids_me_favorites_playlists_ids_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/me/favorites/playlists/{playlist_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Add Favorite Playlist
-         * @description Like a una playlist (de usuario o del sistema).
-         *
-         *     Acción de usuario normal: NO muta el contenido de la playlist (las
-         *     `system` solo las muta un admin), solo la marca como favorita.
-         */
-        put: operations["add_favorite_playlist_me_favorites_playlists__playlist_id__put"];
-        post?: never;
-        /** Remove Favorite Playlist */
-        delete: operations["remove_favorite_playlist_me_favorites_playlists__playlist_id__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/me/favorites/albums": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Favorite Albums
-         * @description Álbumes favoritos del usuario (más recientes primero).
-         */
-        get: operations["list_favorite_albums_me_favorites_albums_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/me/favorites/albums/ids": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Favorite Album Ids
-         * @description IDs de álbumes favoritos (para pintar corazones sin traer todo).
-         */
-        get: operations["favorite_album_ids_me_favorites_albums_ids_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/me/favorites/albums/{album_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Add Favorite Album */
-        put: operations["add_favorite_album_me_favorites_albums__album_id__put"];
-        post?: never;
-        /** Remove Favorite Album */
-        delete: operations["remove_favorite_album_me_favorites_albums__album_id__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/me/library/ids": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Library Ids
-         * @description Los 3 sets de likes del usuario en una sola llamada.
-         *
-         *     `{"song_ids": [...], "album_ids": [...], "playlist_ids": [...]}` — para
-         *     pintar corazones en la biblioteca sin traer las listas completas.
-         */
-        get: operations["library_ids_me_library_ids_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/me/listens": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Record Play
-         * @description Registra una reproducción (play). Idempotente dentro de ~30 s por canción.
-         *
-         *     Cada play suma +1 a `songs.play_count` y a `users.total_plays`.
-         */
-        post: operations["record_play_me_listens_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/me/recently-played": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Recently Played
-         * @description Canciones reproducidas por el usuario (sin duplicar), último play primero.
-         *
-         *     Cada item incluye `user_play_count`: cuántas veces la tocó el usuario.
-         */
-        get: operations["recently_played_me_recently_played_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
+        delete: operations["delete_system_playlist_playlists__playlist_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1049,119 +647,33 @@ export interface components {
             /** File */
             file: string;
         };
-        /** Body_reset_forgot_password_auth_forgot_password_post */
-        Body_reset_forgot_password_auth_forgot_password_post: {
-            /**
-             * Email
-             * Format: email
-             */
-            email: string;
-        };
-        /** Body_reset_reset_password_auth_reset_password_post */
-        Body_reset_reset_password_auth_reset_password_post: {
-            /** Token */
-            token: string;
-            /** Password */
-            password: string;
-        };
-        /** Body_verify_request_token_auth_request_verify_token_post */
-        Body_verify_request_token_auth_request_verify_token_post: {
-            /**
-             * Email
-             * Format: email
-             */
-            email: string;
-        };
-        /** Body_verify_verify_auth_verify_post */
-        Body_verify_verify_auth_verify_post: {
-            /** Token */
-            token: string;
-        };
-        /** ErrorModel */
-        ErrorModel: {
-            /** Detail */
-            detail: string | {
-                [key: string]: string;
-            };
-        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
         /**
-         * ListenCreate
-         * @description Registro de una reproducción. El `user_id` lo da la sesión, no el body.
+         * InitCreate
+         * @description Primer (y único) admin creado por `/init` cuando no hay cuentas.
          */
-        ListenCreate: {
+        InitCreate: {
             /**
-             * Song Id
-             * Format: uuid
+             * Email
+             * Format: email
              */
-            song_id: string;
-        };
-        /** ListenRead */
-        ListenRead: {
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /**
-             * Song Id
-             * Format: uuid
-             */
-            song_id: string;
-            /**
-             * Played At
-             * Format: date-time
-             */
-            played_at: string;
+            email: string;
+            /** Password */
+            password: string;
+            /** Username */
+            username?: string | null;
         };
         /**
-         * MyPlaylistRead
-         * @description Playlist del usuario para el PlaylistPicker (GET /me/playlists).
-         *
-         *     Expone `song_ids` —ordenados por posición— para que el frontend muestre
-         *     "Ya está en esta playlist" sin traer las canciones completas. Schema
-         *     exclusivo de /me/playlists: NO reemplaza a `PlaylistRead`.
+         * InitStatusRead
+         * @description Estado del bootstrap del panel (`GET /init/status`).
          */
-        MyPlaylistRead: {
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** @default user */
-            kind: components["schemas"]["PlaylistKind"];
-            /** Name */
-            name: string;
-            /** Description */
-            description?: string | null;
-            /**
-             * Is Public
-             * @default false
-             */
-            is_public: boolean;
-            /** Cover Key */
-            cover_key?: string | null;
-            /** Cover Url */
-            cover_url?: string | null;
-            /**
-             * Song Count
-             * @default 0
-             */
-            song_count: number;
-            query?: components["schemas"]["PlaylistSystemQuery"] | null;
-            /** Owner Email */
-            owner_email?: string | null;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /** Song Ids */
-            song_ids?: string[];
+        InitStatusRead: {
+            /** Needs Init */
+            needs_init: boolean;
         };
         /** Page[AlbumRead] */
         Page_AlbumRead_: {
@@ -1185,32 +697,10 @@ export interface components {
             /** Limit */
             limit: number;
         };
-        /** Page[MyPlaylistRead] */
-        Page_MyPlaylistRead_: {
-            /** Items */
-            items: components["schemas"]["MyPlaylistRead"][];
-            /** Total */
-            total: number;
-            /** Offset */
-            offset: number;
-            /** Limit */
-            limit: number;
-        };
         /** Page[PlaylistRead] */
         Page_PlaylistRead_: {
             /** Items */
             items: components["schemas"]["PlaylistRead"][];
-            /** Total */
-            total: number;
-            /** Offset */
-            offset: number;
-            /** Limit */
-            limit: number;
-        };
-        /** Page[RecentlyPlayedSong] */
-        Page_RecentlyPlayedSong_: {
-            /** Items */
-            items: components["schemas"]["RecentlyPlayedSong"][];
             /** Total */
             total: number;
             /** Offset */
@@ -1228,26 +718,6 @@ export interface components {
             offset: number;
             /** Limit */
             limit: number;
-        };
-        /** PlaylistAddSong */
-        PlaylistAddSong: {
-            /**
-             * Song Id
-             * Format: uuid
-             */
-            song_id: string;
-        };
-        /** PlaylistCreate */
-        PlaylistCreate: {
-            /** Name */
-            name: string;
-            /** Description */
-            description?: string | null;
-            /**
-             * Is Public
-             * @default false
-             */
-            is_public: boolean;
         };
         /**
          * PlaylistDetail
@@ -1352,17 +822,6 @@ export interface components {
          * @enum {string}
          */
         PlaylistSystemQuery: "top_week" | "top_month" | "new";
-        /** PlaylistUpdate */
-        PlaylistUpdate: {
-            /** Name */
-            name?: string | null;
-            /** Description */
-            description?: string | null;
-            /** Is Public */
-            is_public?: boolean | null;
-            /** Cover Key */
-            cover_key?: string | null;
-        };
         /** PresignRequest */
         PresignRequest: {
             /** Filename */
@@ -1382,50 +841,6 @@ export interface components {
             content_type: string;
             /** Expires In */
             expires_in: number;
-        };
-        /**
-         * RecentlyPlayedSong
-         * @description Canción del historial + cuántas veces la reprodujo el usuario.
-         */
-        RecentlyPlayedSong: {
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Title */
-            title: string;
-            artist: components["schemas"]["ArtistRead"];
-            album?: components["schemas"]["AlbumRead"] | null;
-            /** Genres */
-            genres?: components["schemas"]["SongGenre"][];
-            /** Lyrics */
-            lyrics?: string | null;
-            /** Object Key */
-            object_key: string;
-            /** Duration Seconds */
-            duration_seconds?: number | null;
-            /**
-             * Play Count
-             * @default 0
-             */
-            play_count: number;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /** Stream Url */
-            stream_url?: string | null;
-            /** Cover Url */
-            cover_url?: string | null;
-            /** Collaborators */
-            collaborators?: components["schemas"]["ArtistRead"][];
-            /**
-             * User Play Count
-             * @default 0
-             */
-            user_play_count: number;
         };
         /** SongCreate */
         SongCreate: {
@@ -1554,41 +969,8 @@ export interface components {
             collaborators?: components["schemas"]["ArtistRead"][];
         };
         /**
-         * UserCreate
-         * @description Registro público: email + password (+ username opcional).
-         *
-         *     El rol NO se acepta acá: un usuario no puede auto-asignarse admin.
-         *     El rol se gestiona solo por un admin (PATCH /admin/users/{id}/role).
-         */
-        UserCreate: {
-            /**
-             * Email
-             * Format: email
-             */
-            email: string;
-            /** Password */
-            password: string;
-            /**
-             * Is Active
-             * @default true
-             */
-            is_active: boolean | null;
-            /**
-             * Is Superuser
-             * @default false
-             */
-            is_superuser: boolean | null;
-            /**
-             * Is Verified
-             * @default false
-             */
-            is_verified: boolean | null;
-            /** Username */
-            username?: string | null;
-        };
-        /**
          * UserRead
-         * @description Respuesta pública de un usuario. `role` se coerce desde el VARCHAR.
+         * @description Respuesta pública de una cuenta del panel. `role` se coerce del VARCHAR.
          */
         UserRead: {
             /**
@@ -1631,12 +1013,13 @@ export interface components {
         };
         /**
          * UserRole
-         * @description Roles de usuario.
+         * @description Roles del panel.
          *
          *     Enums viven SOLO en Pydantic (AGENTS.md) — en la DB la columna es VARCHAR.
          *
-         *     Semántica (Fase 2): `role` es **null** para un usuario normal (sin permisos
-         *     especiales) o el string `"admin"` para acceso al panel. No hay más valores.
+         *     Semántica: `role` es **null** para una cuenta sin acceso al panel o el
+         *     string `"admin"` para acceso completo. No hay más valores. `is_superuser`
+         *     existe porque fastapi-users lo exige, pero no se usa para autorizar.
          * @enum {string}
          */
         UserRole: "admin";
@@ -1644,7 +1027,7 @@ export interface components {
          * UserRoleUpdate
          * @description Asignación explícita de rol (admin only).
          *
-         *     `role: null` revoca el admin (usuario normal); `role: "admin"` lo otorga.
+         *     `role: null` revoca el acceso al panel; `role: "admin"` lo otorga.
          *     Campo requerido — distingue "no enviado" (422) de "revocar" (null).
          */
         UserRoleUpdate: {
@@ -1652,7 +1035,10 @@ export interface components {
         };
         /**
          * UserUpdate
-         * @description Actualización de un usuario (self o admin).
+         * @description Actualización de la propia cuenta del panel.
+         *
+         *     El rol NO se acepta acá: se gestiona solo con
+         *     `PATCH /admin/users/{id}/role` (un admin no puede autoasignarse permisos).
          */
         UserUpdate: {
             /** Password */
@@ -1665,7 +1051,6 @@ export interface components {
             is_superuser?: boolean | null;
             /** Is Verified */
             is_verified?: boolean | null;
-            role?: components["schemas"]["UserRole"] | null;
             /** Username */
             username?: string | null;
             /** Cover Key */
@@ -1764,7 +1149,27 @@ export interface operations {
             };
         };
     };
-    register_register_auth_register_post: {
+    get_me_users_me_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserRead"];
+                };
+            };
+        };
+    };
+    update_me_users_me_patch: {
         parameters: {
             query?: never;
             header?: never;
@@ -1773,7 +1178,60 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UserCreate"];
+                "application/json": components["schemas"]["UserUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    init_status_init_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InitStatusRead"];
+                };
+            };
+        };
+    };
+    init_panel_init_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InitCreate"];
             };
         };
         responses: {
@@ -1785,408 +1243,6 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["UserRead"];
                 };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    reset_forgot_password_auth_forgot_password_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["Body_reset_forgot_password_auth_forgot_password_post"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    reset_reset_password_auth_reset_password_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["Body_reset_reset_password_auth_reset_password_post"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    verify_request_token_auth_request_verify_token_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["Body_verify_request_token_auth_request_verify_token_post"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    verify_verify_auth_verify_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["Body_verify_verify_auth_verify_post"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserRead"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    users_current_user_users_me_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserRead"];
-                };
-            };
-            /** @description Missing token or inactive user. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    users_patch_current_user_users_me_patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UserUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserRead"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Missing token or inactive user. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    users_user_users__id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserRead"];
-                };
-            };
-            /** @description Missing token or inactive user. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Not a superuser. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description The user does not exist. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    users_delete_user_users__id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Missing token or inactive user. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Not a superuser. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description The user does not exist. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    users_patch_user_users__id__patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UserUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserRead"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Missing token or inactive user. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Not a superuser. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description The user does not exist. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -3043,102 +2099,7 @@ export interface operations {
             };
         };
     };
-    list_playlists_playlists_get: {
-        parameters: {
-            query?: {
-                mine?: boolean;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PlaylistRead"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_playlist_playlists_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PlaylistCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PlaylistDetail"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_playlist_playlists__playlist_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                playlist_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PlaylistDetail"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_playlist_playlists__playlist_id__delete: {
+    delete_system_playlist_playlists__playlist_id__delete: {
         parameters: {
             query?: never;
             header?: never;
@@ -3155,577 +2116,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_playlist_playlists__playlist_id__patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                playlist_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PlaylistUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PlaylistDetail"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    add_song_to_playlist_playlists__playlist_id__songs_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                playlist_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PlaylistAddSong"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PlaylistDetail"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    remove_song_from_playlist_playlists__playlist_id__songs__song_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                playlist_id: string;
-                song_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PlaylistDetail"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_my_playlists_me_playlists_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MyPlaylistRead"][];
-                };
-            };
-        };
-    };
-    list_my_playlists_paginated_me_playlists_page_get: {
-        parameters: {
-            query?: {
-                offset?: number;
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Page_MyPlaylistRead_"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_favorites_me_favorites_get: {
-        parameters: {
-            query?: {
-                offset?: number;
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Page_SongRead_"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    favorite_ids_me_favorites_ids_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": string[];
-                };
-            };
-        };
-    };
-    add_favorite_me_favorites__song_id__put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                song_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    remove_favorite_me_favorites__song_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                song_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_favorite_playlists_me_favorites_playlists_get: {
-        parameters: {
-            query?: {
-                offset?: number;
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Page_PlaylistRead_"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    favorite_playlist_ids_me_favorites_playlists_ids_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": string[];
-                };
-            };
-        };
-    };
-    add_favorite_playlist_me_favorites_playlists__playlist_id__put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                playlist_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    remove_favorite_playlist_me_favorites_playlists__playlist_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                playlist_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_favorite_albums_me_favorites_albums_get: {
-        parameters: {
-            query?: {
-                offset?: number;
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Page_AlbumRead_"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    favorite_album_ids_me_favorites_albums_ids_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": string[];
-                };
-            };
-        };
-    };
-    add_favorite_album_me_favorites_albums__album_id__put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                album_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    remove_favorite_album_me_favorites_albums__album_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                album_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    library_ids_me_library_ids_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: string[];
-                    };
-                };
-            };
-        };
-    };
-    record_play_me_listens_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ListenCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ListenRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    recently_played_me_recently_played_get: {
-        parameters: {
-            query?: {
-                offset?: number;
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Page_RecentlyPlayedSong_"];
-                };
             };
             /** @description Validation Error */
             422: {

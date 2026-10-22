@@ -29,6 +29,13 @@ class UserNotFoundError(NotFoundError):
         super().__init__(f"Usuario {user_id} no existe")
 
 
+class PanelAlreadyInitializedError(AppError):
+    """`/init` solo puede crear el primer admin cuando `panel_users` está vacío."""
+
+    status_code = 409
+    detail = "El panel ya está inicializado"
+
+
 class UserCannotDeleteSelfError(AppError):
     status_code = 400
     detail = "Un admin no puede borrar su propia cuenta"

@@ -199,7 +199,7 @@ async def test_import_zip_requires_admin(import_client, session):
     # (fastapi-users commitea interno): el artista/álbum quedan en la DB.
     # Se limpian en finally para no contaminar otros tests.
     try:
-        await register_and_login(client, admin=False)
+        await register_and_login(client, admin=False, session=session)
         resp = await client.post(
             f"/albums/{album['id']}/import-zip",
             files={"file": ("album.zip", _zip_bytes({}), "application/zip")},

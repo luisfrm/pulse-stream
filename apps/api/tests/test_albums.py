@@ -39,7 +39,7 @@ async def test_create_album_requires_admin(client, session):
     )
     assert resp.status_code == 401
 
-    await register_and_login(client)  # usuario normal
+    await register_and_login(client, session=session)  # usuario normal
     resp = await client.post(
         "/albums", json={"title": "X", "artist_id": str(uuid.uuid4())}
     )

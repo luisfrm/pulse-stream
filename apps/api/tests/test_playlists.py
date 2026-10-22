@@ -1,180 +1,64 @@
+"""Feed público de playlists (el panel ya no expone CRUD de playlists de usuario)."""
+
 import uuid
 
 import pytest
 
-from tests.helpers import register_and_login
+from app.features.users.models import SYSTEM_USER_ID
+from tests.helpers import create_app_user, create_user_playlist, register_and_login
 
 pytestmark = pytest.mark.asyncio
 
 
-async def _create_artist(client, name: str) -> dict:
-    resp = await client.post("/artists", json={"name": name})
-    assert resp.status_code == 201, resp.text
-    return resp.json()
-
-
-async def _create_album(client, artist_id: str, title: str = "Álbum") -> dict:
+async def _create_system_playlist(client, name: str, query: str = "new") -> dict:
     resp = await client.post(
-        "/albums", json={"title": title, "artist_id": artist_id}
+        "/playlists/system", json={"name": name, "query": query}
     )
     assert resp.status_code == 201, resp.text
     return resp.json()
-
-
-async def _create_song(client, title: str, artist: dict, key: str) -> dict:
-    # Toda canción requiere álbum: uno por defecto si no se indica.
-    album = await _create_album(client, artist["id"], f"Álbum de {title}")
-    resp = await client.post(
-        "/songs",
-        json={"title": title, "artist_id": artist["id"], "album_id": album["id"], "object_key": key},
-    )
-    assert resp.status_code == 201, resp.text
-    return resp.json()
-
-
-async def _create_playlist(client, name: str = "Mi playlist", **extra) -> dict:
-    resp = await client.post("/playlists", json={"name": name, **extra})
-    assert resp.status_code == 201, resp.text
-    return resp.json()
-
-
-async def test_create_and_list_playlists(client, session):
-    user = await register_and_login(client)
-    pl = await _create_playlist(client, "Gimnasio")
-    assert pl["name"] == "Gimnasio"
-    assert pl["is_public"] is False
-    assert pl["song_count"] == 0
-    assert "owner" not in pl  # no exponemos al owner
-
-    resp = await client.get("/playlists")
-    assert resp.status_code == 200
-    items = resp.json()
-    assert any(p["id"] == pl["id"] for p in items)
-    assert user["id"]  # el owner es el usuario autenticado
-
-
-async def test_add_and_remove_songs_with_order(client, session):
-    await register_and_login(client, admin=True, session=session)
-    artist = await _create_artist(client, f"Cerati {uuid.uuid4().hex[:6]}")
-    s1 = await _create_song(client, "Crimen", artist, "songs/c1.mp3")
-    s2 = await _create_song(client, "Adiós", artist, "songs/c2.mp3")
-
-    # usuario normal crea la playlist
-    await register_and_login(client)
-    pl = await _create_playlist(client, f"Favoritas de {artist['name']}")
-
-    # agregar canciones en orden
-    resp = await client.post(f"/playlists/{pl['id']}/songs", json={"song_id": s1["id"]})
-    assert resp.status_code == 200, resp.text
-    assert resp.json()["song_count"] == 1
-    assert [s["title"] for s in resp.json()["songs"]] == ["Crimen"]
-
-    resp = await client.post(f"/playlists/{pl['id']}/songs", json={"song_id": s2["id"]})
-    assert resp.json()["song_count"] == 2
-    assert [s["title"] for s in resp.json()["songs"]] == ["Crimen", "Adiós"]
-
-    # no-op si ya está
-    resp = await client.post(f"/playlists/{pl['id']}/songs", json={"song_id": s1["id"]})
-    assert resp.json()["song_count"] == 2
-
-    # get detalle con canciones ordenadas
-    resp = await client.get(f"/playlists/{pl['id']}")
-    assert resp.status_code == 200
-    assert [s["title"] for s in resp.json()["songs"]] == ["Crimen", "Adiós"]
-
-    # quitar la primera -> la segunda queda en posición 0
-    resp = await client.delete(f"/playlists/{pl['id']}/songs/{s1['id']}")
-    assert resp.status_code == 200
-    assert [s["title"] for s in resp.json()["songs"]] == ["Adiós"]
-
-
-async def test_add_nonexistent_song_404(client, session):
-    await register_and_login(client)
-    pl = await _create_playlist(client)
-    resp = await client.post(
-        f"/playlists/{pl['id']}/songs", json={"song_id": str(uuid.uuid4())}
-    )
-    assert resp.status_code == 404
-
-
-async def test_playlist_access_rules(client, session):
-    """Privada: solo el dueño. Pública: visible para otros."""
-    await register_and_login(client)
-    private = await _create_playlist(client, "Privada", is_public=False)
-    public = await _create_playlist(client, "Pública", is_public=True)
-
-    # otro usuario no ve la privada del primero
-    await register_and_login(client)
-    resp = await client.get(f"/playlists/{private['id']}")
-    assert resp.status_code == 403
-
-    resp = await client.get(f"/playlists/{public['id']}")
-    assert resp.status_code == 200
-
-    # otro usuario no puede modificar la ajena
-    resp = await client.patch(f"/playlists/{public['id']}", json={"name": "Hackeada"})
-    assert resp.status_code == 403
-    resp = await client.delete(f"/playlists/{public['id']}")
-    assert resp.status_code == 403
-
-
-async def test_update_and_delete_playlist(client, session):
-    await register_and_login(client)
-    pl = await _create_playlist(client, "Viejo nombre")
-
-    # Key con formato del presign (`covers/{uuid}.webp`): el schema exige el
-    # patrón estricto en escritura.
-    cover_key = "covers/55555555-5555-4555-8555-555555555555.webp"
-    resp = await client.patch(
-        f"/playlists/{pl['id']}",
-        json={"name": "Nuevo nombre", "is_public": True, "cover_key": cover_key},
-    )
-    assert resp.status_code == 200
-    body = resp.json()
-    assert body["name"] == "Nuevo nombre"
-    assert body["is_public"] is True
-    assert body["cover_key"] == cover_key
-    assert body["cover_url"] is None or body["cover_url"].endswith(f"/{cover_key}")
-
-    resp = await client.delete(f"/playlists/{pl['id']}")
-    assert resp.status_code == 204
-    resp = await client.get(f"/playlists/{pl['id']}")
-    assert resp.status_code == 404
-
-
-async def test_playlist_requires_auth(client):
-    resp = await client.get("/playlists")
-    assert resp.status_code == 401
-    resp = await client.post("/playlists", json={"name": "X"})
-    assert resp.status_code == 401
 
 
 async def test_public_feed_lists_all_community_playlists(client, session):
-    """GET /playlists/public: públicas de TODOS los usuarios, con autor."""
-    # usuario A crea una pública y una privada
-    user_a = await register_and_login(client)
-    await _create_playlist(client, "Pública de A", is_public=True)
-    await _create_playlist(client, "Privada de A", is_public=False)
+    """GET /playlists/public: públicas de TODOS, con autor y system primero."""
+    admin = await register_and_login(client, admin=True, session=session)
 
-    # usuario B crea una pública
-    await register_and_login(client)
-    await _create_playlist(client, "Pública de B", is_public=True)
+    user_a = await create_app_user(session)
+    await create_user_playlist(
+        session, owner_id=user_a.id, name="Pública de A", is_public=True
+    )
+    await create_user_playlist(
+        session, owner_id=user_a.id, name="Privada de A", is_public=False
+    )
 
-    resp = await client.get("/playlists/public")
+    user_b = await create_app_user(session)
+    await create_user_playlist(
+        session, owner_id=user_b.id, name="Pública de B", is_public=True
+    )
+
+    system = await _create_system_playlist(
+        client, f"Sistema {uuid.uuid4().hex[:6]}", query="new"
+    )
+    assert system["owner_email"] is None
+
+    resp = await client.get("/playlists/public", params={"limit": 100})
     assert resp.status_code == 200
     body = resp.json()
     names = [p["name"] for p in body["items"]]
 
-    # La DB se comparte entre tests: asertamos PRESENCIA, no igualdad total.
     assert "Pública de A" in names
     assert "Pública de B" in names
-    assert "Privada de A" not in names  # las privadas jamás entran al feed
+    assert "Privada de A" not in names
 
-    # ordenadas por más reciente (B creó la última) y con el autor en cada item
-    assert names.index("Pública de B") < names.index("Pública de A")
     by_name = {p["name"]: p for p in body["items"]}
-    assert by_name["Pública de A"]["owner_email"] == user_a["email"]
-    assert by_name["Pública de B"]["owner_email"]  # autor presente
+    assert by_name["Pública de A"]["owner_email"] == user_a.email
+    assert by_name["Pública de B"]["owner_email"] == user_b.email
+    # El email interno del usuario de sistema NUNCA se expone.
+    assert by_name[system["name"]]["owner_email"] is None
+
+    # Las system van primero en el feed.
+    kinds = [p["kind"] for p in body["items"]]
+    assert kinds.index("system") < kinds.index("user") if "user" in kinds else True
+    assert any(p["id"] == system["id"] for p in body["items"])
 
 
 async def test_public_feed_is_public(client):
@@ -182,5 +66,18 @@ async def test_public_feed_is_public(client):
     resp = await client.get("/playlists/public")
     assert resp.status_code == 200
     body = resp.json()
-    # Shape de paginación estándar (puede traer playlists de otros tests)
     assert set(body.keys()) == {"items", "total", "offset", "limit"}
+
+
+async def test_system_playlist_owned_by_system_user(client, session):
+    """El admin que crea no es dueño: owner_id = usuario fijo del sistema."""
+    await register_and_login(client, admin=True, session=session)
+    system = await _create_system_playlist(
+        client, f"Ownership {uuid.uuid4().hex[:6]}"
+    )
+
+    from app.features.playlists.models import Playlist
+
+    playlist = await session.get(Playlist, uuid.UUID(system["id"]))
+    assert playlist is not None
+    assert playlist.owner_id == SYSTEM_USER_ID

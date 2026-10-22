@@ -1,7 +1,7 @@
 """Seguridad: rate limiting (slowapi) y notas de CSRF.
 
 Rate limiting:
-  Protege /auth/login, /auth/register y (en Fase 1) /uploads/presign.
+  Protege /auth/login, /init y (en Fase 1) /uploads/presign.
   Storage en memoria; para múltiples workers usar Redis como storage_uri.
 
 CSRF:

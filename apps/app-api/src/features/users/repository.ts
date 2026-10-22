@@ -7,7 +7,9 @@ import type { QueryResultRow, Queryable } from "../../db/types";
  * (`db/client.ts`) y lo comparte con `catalog`/`writes`; el cierre vive en
  * `app.ts` (`ctx.waitUntil`), nunca en el repository.
  *
- * No hay alta pública ni OAuth: las cuentas se crean con el seed del panel.
+ * No hay alta pública ni OAuth: las cuentas de la app son filas existentes en
+ * `users`; el alta/normalización llega con Better Auth (fase posterior). El
+ * seed `create_admin.py` escribe admins en `panel_users`, no acá.
  */
 export interface UserRecord extends QueryResultRow {
   id: string;

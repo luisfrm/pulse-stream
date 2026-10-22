@@ -16,8 +16,8 @@ async def test_create_artist_requires_auth(client):
     assert resp.status_code == 401
 
 
-async def test_normal_user_cannot_create_artist(client):
-    await register_and_login(client)
+async def test_normal_user_cannot_create_artist(client, session):
+    await register_and_login(client, session=session)
     resp = await client.post("/artists", json={"name": "Soda Stereo"})
     assert resp.status_code == 403
 

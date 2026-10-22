@@ -12,24 +12,26 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.db.session import get_session
 from app.features.auth.backend import auth_backend
-from app.features.users.models import User
+from app.features.users.panel_models import PanelUser
 
 logger = structlog.get_logger(__name__)
 
 
-class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
+class UserManager(UUIDIDMixin, BaseUserManager[PanelUser, uuid.UUID]):
+    """Manager de fastapi-users para las cuentas del panel (`panel_users`)."""
+
     reset_password_token_secret = settings.auth_secret
     verification_token_secret = settings.auth_secret
 
     async def _find_by_username(
         self, username: str, *, exclude_id: uuid.UUID | None = None
-    ) -> User | None:
-        """Busca un usuario por username (case-insensitive)."""
-        query = select(User).where(
-            func.lower(User.username) == username.strip().lower()
+    ) -> PanelUser | None:
+        """Busca una cuenta por username (case-insensitive)."""
+        query = select(PanelUser).where(
+            func.lower(PanelUser.username) == username.strip().lower()
         )
         if exclude_id is not None:
-            query = query.where(User.id != exclude_id)
+            query = query.where(PanelUser.id != exclude_id)
         result = await self.user_db.session.execute(query)
         return result.scalar_one_or_none()
 
@@ -38,8 +40,8 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         user_create,
         safe: bool = False,
         request: Request | None = None,
-    ) -> User:
-        """Registro: valida unicidad de username (además del email)."""
+    ) -> PanelUser:
+        """Alta: valida unicidad de username (además del email)."""
         username = getattr(user_create, "username", None)
         if username:
             existing = await self._find_by_username(username)
@@ -50,10 +52,10 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
     async def update(
         self,
         user_update,
-        user: User,
+        user: PanelUser,
         safe: bool = False,
         request: Request | None = None,
-    ) -> User:
+    ) -> PanelUser:
         """Update: valida unicidad de username (además del email)."""
         data = (
             user_update.create_update_dict()
@@ -69,15 +71,8 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
 
     async def authenticate(
         self, credentials: OAuth2PasswordRequestForm
-    ) -> User | None:
-        """Login por email + password; los usuarios sin hash no entran.
-
-        Copia el comportamiento de `BaseUserManager.authenticate` (incluido el
-        dummy hash para mitigar timing attacks cuando el email no existe) con
-        un corte extra: `pwdlib.verify_and_update` explota si el hash es None,
-        así que un usuario legacy sin password se trata como credenciales
-        inválidas (400 en el router) en vez de 500.
-        """
+    ) -> PanelUser | None:
+        """Login por email + password; las cuentas sin hash no entran."""
         try:
             user = await self.get_by_email(credentials.username)
         except exceptions.UserNotExists:
@@ -87,7 +82,7 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
             return None
 
         if user.hashed_password is None:
-            # Usuario legacy sin password local. Mismo costo de hashing que un
+            # Cuenta legacy sin password local. Mismo costo de hashing que un
             # login real para no filtrar la existencia del email por timing.
             self.password_helper.hash(credentials.password)
             return None
@@ -106,41 +101,41 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         return user
 
     async def on_after_register(
-        self, user: User, request: Request | None = None
+        self, user: PanelUser, request: Request | None = None
     ) -> None:
-        logger.info("user_registered", user_id=str(user.id), email=user.email)
+        logger.info("panel_user_registered", user_id=str(user.id), email=user.email)
 
     async def on_after_login(
-        self, user: User, request: Request | None = None, response=None
+        self, user: PanelUser, request: Request | None = None, response=None
     ) -> None:
-        logger.info("user_logged_in", user_id=str(user.id))
+        logger.info("panel_user_logged_in", user_id=str(user.id))
 
 
 async def get_user_db(
     session: AsyncSession = Depends(get_session),
-) -> AsyncIterator[SQLAlchemyUserDatabase[User, uuid.UUID]]:
-    yield SQLAlchemyUserDatabase(session, User)
+) -> AsyncIterator[SQLAlchemyUserDatabase[PanelUser, uuid.UUID]]:
+    yield SQLAlchemyUserDatabase(session, PanelUser)
 
 
 async def get_user_manager(
-    user_db: SQLAlchemyUserDatabase[User, uuid.UUID] = Depends(get_user_db),
+    user_db: SQLAlchemyUserDatabase[PanelUser, uuid.UUID] = Depends(get_user_db),
 ) -> AsyncIterator[UserManager]:
     yield UserManager(user_db)
 
 
-fastapi_users = FastAPIUsers[User, uuid.UUID](get_user_manager, [auth_backend])
+fastapi_users = FastAPIUsers[PanelUser, uuid.UUID](get_user_manager, [auth_backend])
 
 # Dependencies reutilizables de autenticación.
 current_user = fastapi_users.current_user(active=True)
 current_superuser = fastapi_users.current_user(active=True, superuser=True)
 
 
-async def require_admin(user: User = Depends(current_user)) -> User:
-    """Requiere rol admin (role=admin o is_superuser) en endpoints mutantes.
+async def require_admin(user: PanelUser = Depends(current_user)) -> PanelUser:
+    """Requiere `role="admin"` en `panel_users`.
 
-    Plan sección 13: creación/edición de artists/songs y /users requieren admin.
+    `is_superuser` existe porque fastapi-users lo exige, pero NO autoriza.
     """
-    if not user.is_superuser and user.role != "admin":
+    if user.role != "admin":
         raise HTTPException(
             status_code=http_status.HTTP_403_FORBIDDEN,
             detail="Requiere permisos de administrador",

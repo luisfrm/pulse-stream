@@ -8,6 +8,11 @@ const PANEL_COOKIE = process.env.PANEL_SESSION_COOKIE ?? "panel_session";
  * Guard a nivel request: chequea SOLO la presencia de la cookie de sesión.
  * La validación REAL ocurre en `app/panel/layout.tsx` vía `getSession()`
  * (GET /users/me) + chequeo de `role=admin`.
+ *
+ * `/login` e `/init` NO redirigen por presencia de cookie: una cookie vencida
+ * o inválida produciría un bucle login → panel → login. Esas páginas validan
+ * la sesión server-side y redirigen solo si es real. El estado de bootstrap se
+ * consulta en las páginas server-side, no en el proxy (sin fetch por request).
  */
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -19,14 +24,9 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Un admin ya logueado no necesita ver el login.
-  if (hasSession && pathname === "/login") {
-    return NextResponse.redirect(new URL("/panel", request.url));
-  }
-
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/panel/:path*", "/login"],
+  matcher: ["/panel/:path*", "/login", "/init"],
 };

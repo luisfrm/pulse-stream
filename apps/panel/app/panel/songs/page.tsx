@@ -48,9 +48,7 @@ export default async function SongsPage({
     ),
   ]);
 
-  const isAdmin = Boolean(
-    user && (user.is_superuser || user.role === "admin")
-  );
+  const isAdmin = user?.role === "admin";
 
   const refreshSongs = async () => {
     "use server";
