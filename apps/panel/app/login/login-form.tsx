@@ -15,6 +15,8 @@ import { friendlyError } from "@pulse-stream/shared";
 
 import { authService } from "@/lib/services/auth-service";
 
+import { sanitizeNextPath } from "./next-path";
+
 /**
  * Login del panel: mismo formulario email/password que la app, contra el
  * `panelApi`. El destino por defecto es /panel (`?next=` permite volver a la
@@ -23,7 +25,9 @@ import { authService } from "@/lib/services/auth-service";
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") ?? "/panel";
+  // `getAll` detecta `?next=a&next=b`; el sanitizer cae al fallback si hay
+  // ambigüedad, en vez de elegir silenciosamente el primero.
+  const next = sanitizeNextPath(searchParams.getAll("next"));
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

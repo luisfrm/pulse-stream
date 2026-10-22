@@ -6,6 +6,7 @@ import { initService } from "@/lib/services/init-service";
 import { getSession } from "@/lib/services/session-service";
 
 import { LoginForm } from "./login-form";
+import { sanitizeNextPath } from "./next-path";
 
 export const metadata: Metadata = { title: "Iniciar sesión" };
 
@@ -15,7 +16,7 @@ export const dynamic = "force-dynamic";
 export default async function PanelLoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string }>;
+  searchParams: Promise<{ next?: string | string[] }>;
 }) {
   const params = await searchParams;
   const [{ needs_init }, user] = await Promise.all([
@@ -27,11 +28,7 @@ export default async function PanelLoginPage({
   // Solo una sesión realmente válida evita el formulario (una cookie vencida
   // no puede producir el bucle login ↔ panel). Respetamos `?next=` interno.
   if (user?.role === "admin") {
-    const next =
-      params.next?.startsWith("/") && !params.next.startsWith("//")
-        ? params.next
-        : "/panel";
-    redirect(next);
+    redirect(sanitizeNextPath(params.next));
   }
 
   return (
