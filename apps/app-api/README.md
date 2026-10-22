@@ -7,9 +7,12 @@ email/usuario + contraseña**, lecturas con paridad Python, escrituras de usuari
 Desde el cutover de la Fase 4, **`apps/web` apunta a esta API**; el panel sigue
 contra Python.
 
-**No hay OAuth ni registro público**: las cuentas se crean con el seed del panel
-(`apps/api/scripts/create_admin.py`). El panel Python sigue siendo el dueño del
-esquema (Alembic) y de la administración; esta API no corre migraciones.
+**No hay OAuth ni registro público**: el seed del panel
+(`apps/api/scripts/create_admin.py`) crea cuentas en **`panel_users`**, no en
+`users`. Las cuentas de la app son las filas existentes en `users`; el alta
+nueva llega con Better Auth (fase siguiente). El panel Python sigue siendo el
+dueño del esquema (Alembic) y de la administración; esta API no corre
+migraciones.
 
 ## Estructura
 
@@ -95,8 +98,9 @@ Cookie `session`: `HttpOnly`, `Path=/`, `SameSite=Lax`, `Secure` si
 ## Decisiones
 
 - **Un solo driver de DB** (Neon HTTP) para que local y producción no difieran.
-- **Sin OAuth**: no hay `/auth/google`, `oauth_accounts` ni alta pública. Las
-  cuentas se crean con el seed del panel.
+- **Sin OAuth**: no hay `/auth/google`, `oauth_accounts` ni alta pública. El
+  seed del panel crea `panel_users`; las cuentas de la app son filas de `users`
+  (el alta nueva llega con Better Auth).
 - **Login con password**: `POST /auth/login` busca por email o username
   (case-insensitive) y verifica argon2id de `pwdlib` con `@noble/hashes` (JS
   puro; `hash-wasm` falla en Workers). **Requiere Workers Paid en prod**
@@ -113,5 +117,5 @@ El workflow `.github/workflows/ci.yml` corre tests y, en push a `master`,
 migra Neon y ejecuta `wrangler deploy --env prod`. El Worker de producción se
 llama `pulse-stream-app-api-prod` y se sirve en `api.luisrivas.site`.
 
-Pendientes externos: secrets de Cloudflare/Neon/R2, migración `0011` en
-`main`, seed del admin y actualización de env de Vercel.
+Pendientes externos: secrets de Cloudflare/Neon/R2, migración `0012` en
+`main`, seed del admin de panel y actualización de env de Vercel.

@@ -131,8 +131,10 @@ apps/api/app/
 poseen playlists/favoritos/listens. No hay registro público:
 `/auth/register`, reset-password y verificación de email fueron removidos. El
 bootstrap es `GET /init/status` + `POST /init` (crea el primer admin solo si
-`panel_users` está vacío; 409 si ya existe). El seed/CLI
-(`scripts/create_admin.py`) también escribe en `panel_users`.
+`panel_users` está vacío; 409 si ya existe). `POST /init` se permite solo en
+`ENV=local` desde loopback o con `INIT_TOKEN` + header `X-Init-Token` (ver
+`PENDING.md`). El seed/CLI (`scripts/create_admin.py`) también escribe en
+`panel_users`.
 
 La cookie es HttpOnly + JWT; el nombre por defecto es `session`, pero **en local
 el panel usa `panel_session`** (`SESSION_COOKIE_NAME=panel_session`) para no
@@ -190,7 +192,9 @@ El panel (`apps/panel`) tiene su propio route handler que borra
   `system@pulse-stream.app`, sin password e inactivo), no al admin que las crea.
   `owner_email` es NULL para `kind='system'` en Python y Hono. El panel las
   muta con `role=admin` (no por ownership); los usuarios de la app NO pueden
-  mutarlas (ni un admin legacy de Hono). El feed público las ordena primero.
+  mutarlas (ni un admin legacy de Hono). El feed público las ordena primero. El
+  usuario de sistema está protegido por un event ORM `before_delete`
+  (`SystemUserProtectedError`) y nunca se borra en el downgrade de `0012`.
 - `songs.play_count` y `users.total_plays` se incrementan en Hono
   (`writes/repository`) con CTEs atómicas, respetando el dedupe de 30 s. Python
   conserva los modelos/repos de listens para los snapshots, pero ya no expone
@@ -265,8 +269,11 @@ registran `Base.metadata` manualmente) y el `session` scope es único (config
 en `pyproject.toml`: `asyncio_default_*_loop_scope = "session"`).
 
 **Tests:** helpers en `apps/api/tests/helpers.py` — `register_and_login(client,
-admin=...)` (admin se promueve por DB), `PASSWORD` constante. Patrón típico:
-crear entidades vía API, assert status + shape del JSON.
+admin=..., session=...)` crea una cuenta en `panel_users` (no hay registro) y
+hace login; `create_panel_user`/`create_app_user`/`create_user_playlist`/
+`add_listen` siembran datos de panel y de app directamente en DB. `PASSWORD`
+constante. Patrón típico: crear entidades vía API, assert status + shape del
+JSON. Los tests de migraciones usan un schema descartable (`ALEMBIC_SCHEMA`).
 
 ---
 

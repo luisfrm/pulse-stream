@@ -17,6 +17,10 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   debe correr con `SESSION_COOKIE_NAME=panel_session`; así no comparte la cookie
   `session` que emite Hono para `apps/web` en localhost.
 - **Login**: email/password propio (`app/login`) contra Python. Sin register.
+  Si el panel no tiene cuentas, `/login` redirige a `/init` (bootstrap del
+  primer admin). `POST /init` solo funciona por loopback en `ENV=local` o con
+  `INIT_TOKEN` + header `X-Init-Token`; el formulario no maneja token (el panel
+  local funciona por loopback).
 - **Guards**: `proxy.ts` chequea solo la presencia de `panel_session`; el layout
   valida sesión + `role=admin` con `GET /users/me` (`is_superuser` no autoriza).
 - **Tipos**: `@pulse-stream/api-types` (generado desde el OpenAPI de Python con

@@ -4,8 +4,9 @@ import { redirect } from "next/navigation";
 export const metadata: Metadata = { title: "Iniciar sesión" };
 
 /**
- * No hay registro público: las cuentas las crea el seed del panel. Se mantiene
- * `/register` como redirect por compatibilidad con links viejos.
+ * No hay registro público: el seed del panel crea `panel_users` (admins), no
+ * cuentas de la app. Se mantiene `/register` como redirect por compatibilidad
+ * con links viejos.
  */
 export default async function RegisterPage({
   searchParams,

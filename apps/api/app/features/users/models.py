@@ -7,6 +7,7 @@ from sqlalchemy import (
     Integer,
     String,
     Uuid,
+    event,
     func,
     text,
 )
@@ -24,6 +25,10 @@ if TYPE_CHECKING:
 # Usuario fijo que posee las playlists del sistema.
 SYSTEM_USER_ID = uuid.UUID("00000000-0000-4000-8000-000000000001")
 SYSTEM_USER_EMAIL = "system@pulse-stream.app"
+
+
+class SystemUserProtectedError(RuntimeError):
+    """El usuario fijo del sistema no puede borrarse (rompería las playlists)."""
 
 
 class User(Base):
@@ -49,13 +54,13 @@ class User(Base):
         String(1024), nullable=True
     )
     is_active: Mapped[bool] = mapped_column(
-        nullable=False, default=True, server_default=text("true")
+        nullable=False, default=True
     )
     is_superuser: Mapped[bool] = mapped_column(
-        nullable=False, default=False, server_default=text("false")
+        nullable=False, default=False
     )
     is_verified: Mapped[bool] = mapped_column(
-        nullable=False, default=False, server_default=text("false")
+        nullable=False, default=False
     )
     role: Mapped[str | None] = mapped_column(String(20), nullable=True)
     username: Mapped[str | None] = mapped_column(
@@ -97,3 +102,17 @@ class User(Base):
         if self.cover_key and settings.r2_public_base_url:
             return f"{settings.r2_public_base_url.rstrip('/')}/{self.cover_key}"
         return None
+
+
+@event.listens_for(User, "before_delete")
+def _protect_system_user(_mapper, _connection, target: User) -> None:
+    """Bloquea cualquier borrado ORM del usuario fijo del sistema.
+
+    Hoy no existe un endpoint que borre filas de `users`, pero este guard evita
+    que una herramienta admin futura lo haga y arrastre las playlists system
+    por CASCADE.
+    """
+    if target.id == SYSTEM_USER_ID:
+        raise SystemUserProtectedError(
+            "El usuario de sistema no se puede borrar: es dueño de las playlists system"
+        )

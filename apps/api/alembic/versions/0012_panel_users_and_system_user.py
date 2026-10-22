@@ -16,10 +16,13 @@ Contexto (split panel/app):
 - Se inserta un usuario fijo (`system@pulse-stream.app`, sin password, inactivo)
   dueño de las playlists `kind='system'`; se reasignan las existentes.
 
-Downgrade: reasigna las playlists system al primer `panel_user` (preferimos un
-admin, por orden de creación) para no perderlas; si no hay ningún panel_user y
-existen playlists system, ABORTA (borrar el usuario de sistema las eliminaría
-por CASCADE). Luego borra el usuario de sistema y dropea `panel_users`.
+Downgrade: NO toca las playlists system ni borra el usuario de sistema. El
+usuario de sistema es una fila válida de `users`, así que `playlists.owner_id`
+sigue apuntando a un usuario existente (sin violar el FK). Solo se dropea
+`panel_users`: las cuentas panel-only creadas con `/init` desaparecen (no tienen
+fila en `users`), mientras que los admins copiados en el upgrade siguen
+existiendo en `users`. El usuario de sistema queda como residuo inofensivo
+(inactivo, sin password) para que un re-upgrade sea idempotente.
 """
 from typing import Sequence, Union
 
@@ -129,40 +132,14 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # Sin panel_users no hay a quién devolver las playlists system. Se usa el
-    # primer admin (por fecha de creación); si no hay ninguno y hay playlists
-    # system, se aborta para no borrarlas por CASCADE al eliminar el usuario
-    # de sistema.
-    op.execute(
-        f"""
-        DO $$
-        DECLARE
-            fallback_id uuid;
-        BEGIN
-            SELECT id INTO fallback_id
-            FROM panel_users
-            ORDER BY (role = 'admin') DESC, created_at ASC
-            LIMIT 1;
-
-            IF fallback_id IS NULL THEN
-                IF EXISTS (SELECT 1 FROM playlists WHERE kind = 'system') THEN
-                    RAISE EXCEPTION
-                        'No se puede bajar 0012: hay playlists system y no hay panel_users a quien reasignarlas';
-                END IF;
-            ELSE
-                UPDATE playlists
-                SET owner_id = fallback_id
-                WHERE kind = 'system';
-            END IF;
-        END $$;
-        """
-    )
-
-    op.execute(
-        f"DELETE FROM users WHERE id = '{SYSTEM_USER_ID}' "
-        f"AND email = '{SYSTEM_USER_EMAIL}'"
-    )
-
+    # Las playlists system quedan con su dueño actual: el usuario fijo del
+    # sistema, que es una fila real de `users` (el FK sigue válido). No se
+    # reasigna a `panel_users` porque esas cuentas pueden no existir en `users`
+    # (p. ej. el primer admin creado por /init) y romperían el FK.
+    #
+    # Solo se elimina la tabla del panel. Limitación documentada: los admins
+    # panel-only se pierden en el downgrade; los copiados desde `users` siguen
+    # existiendo como usuarios legacy (con su role/is_superuser originales).
     op.drop_index("ix_panel_users_username", table_name="panel_users")
     op.drop_index("ix_panel_users_email", table_name="panel_users")
     op.drop_table("panel_users")

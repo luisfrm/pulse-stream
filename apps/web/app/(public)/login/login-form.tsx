@@ -12,7 +12,8 @@ import { authService } from "@/lib/services/auth-service";
  * Login con email o username + contraseña.
  *
  * El endpoint Hono verifica argon2id (hash de pwdlib) y setea la cookie
- * `session`. No hay registro público: las cuentas las crea el seed del panel.
+ * `session`. No hay registro público: las cuentas de la app son filas de
+ * `users` (el seed del panel crea `panel_users`, no cuentas de la app).
  */
 export function LoginForm({ next = "/dashboard" }: { next?: string }) {
   const router = useRouter();

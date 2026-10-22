@@ -12,7 +12,12 @@ export const metadata: Metadata = { title: "Iniciar sesión" };
 // La página consulta el estado del bootstrap/sesión en cada request.
 export const dynamic = "force-dynamic";
 
-export default async function PanelLoginPage() {
+export default async function PanelLoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string }>;
+}) {
+  const params = await searchParams;
   const [{ needs_init }, user] = await Promise.all([
     initService.getStatus(),
     getSession(),
@@ -20,8 +25,14 @@ export default async function PanelLoginPage() {
 
   if (needs_init) redirect("/init");
   // Solo una sesión realmente válida evita el formulario (una cookie vencida
-  // no puede producir el bucle login ↔ panel).
-  if (user?.role === "admin") redirect("/panel");
+  // no puede producir el bucle login ↔ panel). Respetamos `?next=` interno.
+  if (user?.role === "admin") {
+    const next =
+      params.next?.startsWith("/") && !params.next.startsWith("//")
+        ? params.next
+        : "/panel";
+    redirect(next);
+  }
 
   return (
     <Suspense fallback={null}>

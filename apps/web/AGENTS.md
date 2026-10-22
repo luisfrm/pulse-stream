@@ -14,8 +14,10 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   en local y `https://api.luisrivas.site` en prod; cookie `session`.
 - **Login**: `/login` muestra solo el formulario de email/usuario +
   contraseña (`POST /auth/login` de Hono). No hay OAuth ni registro público:
-  las cuentas las crea el seed del panel. `/register` redirige a `/login` por
-  compatibilidad. Password auth requiere Workers Paid en prod.
+  el seed del panel crea `panel_users` (admins del panel), **no** cuentas de la
+  app; las cuentas de la app son filas de `users` y el alta nueva llega con
+  Better Auth (Fase 2). `/register` redirige a `/login` por compatibilidad.
+  Password auth requiere Workers Paid en prod.
 - **`/account`**: email read-only; solo se editan `username` y cover
   (`PATCH /users/me` de Hono acepta únicamente esos campos).
 - **Logout**: `<form method="POST" action="/api/logout">`; el route handler

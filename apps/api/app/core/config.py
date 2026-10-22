@@ -91,6 +91,11 @@ class Settings(BaseSettings):
     rate_limit_init: str = "5/hour"
     rate_limit_presign: str = "10/minute"
 
+    # Token opcional para /init. Si está seteado, POST /init exige el header
+    # `X-Init-Token` en CUALQUIER entorno (incluido local). Sin token, /init
+    # solo se permite en ENV=local y desde loopback (127.0.0.1/::1).
+    init_token: str | None = None
+
     # --- Cloudflare R2 (Fase 1: subida de canciones con presigned URLs) ---
     r2_account_id: str = ""
     r2_access_key_id: str = ""

@@ -5,7 +5,9 @@ import pytest
 from tests.helpers import (
     add_listen,
     create_app_user,
+    create_panel_user,
     create_user_playlist,
+    login,
     register_and_login,
 )
 
@@ -197,7 +199,26 @@ async def test_refresh_system_playlist_requires_admin(client, session):
     assert resp.status_code == 403
 
 
-async def test_refresh_foreign_user_playlist_forbidden(client, session):
+async def test_different_admin_can_mutate_foreign_system_playlist(client, session):
+    """Un admin no necesita ser el creador: muta cualquier playlist system."""
+    await register_and_login(client, admin=True, session=session)
+    resp = await client.post(
+        "/playlists/system", json={"name": "De otro admin", "query": "new"}
+    )
+    assert resp.status_code == 201
+    system_id = resp.json()["id"]
+
+    other_admin = await create_panel_user(session, role="admin")
+    await login(client, other_admin.email)
+
+    resp = await client.post(f"/playlists/system/{system_id}/refresh")
+    assert resp.status_code == 200, resp.text
+
+    resp = await client.delete(f"/playlists/{system_id}")
+    assert resp.status_code == 204
+
+
+async def test_foreign_user_playlist_cannot_be_mutated_from_panel(client, session):
     """Una playlist de usuario solo la muta su dueño (el panel no es dueño)."""
     await register_and_login(client, admin=True, session=session)
     owner = await create_app_user(session)

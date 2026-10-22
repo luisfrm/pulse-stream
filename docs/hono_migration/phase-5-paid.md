@@ -26,8 +26,9 @@ cambiar la arquitectura.
 - Verifica el hash argon2id de `pwdlib` con `@noble/hashes` (JS puro). Se
   descartó `hash-wasm`: en Workers falla con
   `WebAssembly.compile(): Wasm code generation disallowed by embedder`.
-- **No hay OAuth ni registro público**: las cuentas se crean con el seed del
-  panel. No hay usuarios “solo Google”.
+- **No hay OAuth ni registro público**: el seed del panel crea `panel_users`
+  (admins), no cuentas de la app; las cuentas de la app son filas de `users` y
+  el alta nueva llega con Better Auth en la fase siguiente.
 - La UI de `/login` muestra solo el formulario de password.
 - Rate limit en `/auth/*` y `/me/listens`: **pendiente**.
 - El admin del panel y los usuarios de la app pueden compartir hashes; el login

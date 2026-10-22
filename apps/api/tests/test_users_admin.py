@@ -21,6 +21,20 @@ async def test_list_users_requires_admin(client, session):
     assert resp.status_code == 401
 
 
+async def test_is_superuser_without_role_is_denied(client, session):
+    """`is_superuser` existe por fastapi-users, pero no autoriza nada."""
+    account = await create_panel_user(session, email())
+    account.is_superuser = True
+    await session.commit()
+    await login(client, account.email)
+
+    resp = await client.get("/admin/users")
+    assert resp.status_code == 403
+
+    resp = await client.post("/artists", json={"name": "No permitido"})
+    assert resp.status_code == 403
+
+
 async def test_admin_can_list_panel_users(client, session):
     await create_panel_user(session, email())
     admin = await create_panel_user(session, email(), role="admin")
@@ -31,7 +45,8 @@ async def test_admin_can_list_panel_users(client, session):
     users = resp.json()
     assert len(users) >= 2
     assert all(u["role"] in (None, "admin") for u in users)
-    assert all(u["is_superuser"] is False for u in users)
+    by_id = {u["id"]: u for u in users}
+    assert by_id[str(admin.id)]["is_superuser"] is False
 
 
 async def test_admin_cannot_delete_self(client, session):

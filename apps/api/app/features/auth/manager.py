@@ -127,7 +127,6 @@ fastapi_users = FastAPIUsers[PanelUser, uuid.UUID](get_user_manager, [auth_backe
 
 # Dependencies reutilizables de autenticación.
 current_user = fastapi_users.current_user(active=True)
-current_superuser = fastapi_users.current_user(active=True, superuser=True)
 
 
 async def require_admin(user: PanelUser = Depends(current_user)) -> PanelUser:

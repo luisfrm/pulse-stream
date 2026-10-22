@@ -127,7 +127,8 @@ pnpm db:current  # revisión Alembic aplicada
 | `DATABASE_URL` | **sí** | Conexión a Neon **pooled** (host con `-pooler`) con `postgresql+asyncpg://` |
 | `DATABASE_URL_DIRECT` | no | Conexión **directa** de Neon (sin `-pooler`). La usa Alembic para migraciones; sin ella, Alembic usa `DATABASE_URL` |
 | `CORS_ORIGIN_REGEX` | no | Regex de orígenes permitidos con cookies (default: subdominios de `tudominio.com` + `localhost:\d+`) |
-| `RATE_LIMIT_LOGIN` / `RATE_LIMIT_REGISTER` / `RATE_LIMIT_PRESIGN` | no | Límites de slowapi (defaults `5/minute`, `3/hour`, `10/minute`) |
+| `RATE_LIMIT_LOGIN` / `RATE_LIMIT_INIT` / `RATE_LIMIT_PRESIGN` | no | Límites de slowapi (defaults `5/minute`, `5/hour`, `10/minute`) |
+| `INIT_TOKEN` | no | Si se define, `POST /init` exige `X-Init-Token` en cualquier entorno. Sin token, `/init` solo se permite en `ENV=local` desde loopback (`127.0.0.1`/`::1`) |
 | `R2_ACCOUNT_ID` | Fase 1 | Account ID de Cloudflare (Dashboard > R2) — genera el endpoint `https://<id>.r2.cloudflarestorage.com` |
 | `R2_ACCESS_KEY_ID` | Fase 1 | Access Key del API Token de R2 (permiso "Object Read & Write") |
 | `R2_SECRET_ACCESS_KEY` | Fase 1 | Secret del API Token de R2 |
@@ -168,7 +169,7 @@ pnpm db:current  # revisión Alembic aplicada
 
 - [x] Monorepo pnpm + turbo + CI básico
 - [x] API FastAPI: auth con `fastapi-users` (cookie HttpOnly + JWT, Argon2), rate limiting (slowapi), CORS por regex, capas por feature según `AGENTS.md`, Alembic async, tests de integración
-- [x] Web: login/registro/dashboard protegido (`proxy.ts`), tipos generados desde OpenAPI, theme Tailwind del plan
+- [x] Web: login/dashboard protegido (`proxy.ts`), tipos generados desde OpenAPI, theme Tailwind del plan
 - [x] Verificado contra Neon real: migraciones + 27 tests de integración verdes
 
 ### Fase 1 — Catálogo ✅
@@ -261,8 +262,10 @@ pnpm db:current  # revisión Alembic aplicada
       R2. Contrato en `apps/app-api/openapi.json`.
 - [x] **DB única local/prod**: Neon HTTP (`@neondatabase/serverless`); sin
       Hyperdrive ni `pg` en el Worker.
-- [x] **Sin OAuth ni registro público**: las cuentas se crean con el seed del
-      panel. Se eliminaron `/auth/google`, `oauth_accounts` y el link de Google.
+- [x] **Sin OAuth ni registro público**: el seed del panel crea cuentas en
+      `panel_users` (no en `users`). Las cuentas de la app son las filas
+      existentes en `users`; el alta nueva llega con Better Auth. Se eliminaron
+      `/auth/google`, `oauth_accounts` y el link de Google.
 - [x] **`apps/web` contra Hono**: `NEXT_PUBLIC_API_URL=http://localhost:8787`
       (prod `https://api.luisrivas.site`), cookie `session`, tipos generados en
       `packages/app-api-types` (`pnpm gen:types:app`).

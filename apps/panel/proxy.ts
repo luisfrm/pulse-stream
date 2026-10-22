@@ -12,7 +12,7 @@ const PANEL_COOKIE = process.env.PANEL_SESSION_COOKIE ?? "panel_session";
  * `/login` e `/init` NO redirigen por presencia de cookie: una cookie vencida
  * o inválida produciría un bucle login → panel → login. Esas páginas validan
  * la sesión server-side y redirigen solo si es real. El estado de bootstrap se
- * consulta en las páginas server-side, no en el proxy (sin fetch por request).
+ * consulta en `app/login/page.tsx` y en `PanelGate` (layout), no en el proxy.
  */
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;

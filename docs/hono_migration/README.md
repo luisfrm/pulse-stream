@@ -54,7 +54,7 @@ Estado detallado: [STATUS.md](STATUS.md).
 6. **Presupuesto Free**: ≤3 queries por request, sin N+1, respuestas ≤50 KB, lecturas públicas cacheadas, sin `@aws-sdk` (usar `aws4fetch`) y **sin password auth en prod** (argon2 > 10 ms CPU → Workers Paid).
 7. **Cookies**: `session` (app, `Domain=.luisrivas.site` en prod) y `panel_session` (panel local). `workers.dev` no se usa para la API: es public suffix.
 8. **SQLAlchemy `onupdate` no existe en la DB.** Todo UPDATE de Hono setea `updated_at = now()` explícitamente.
-9. **Sin OAuth**: no hay `/auth/google`, `oauth_accounts` ni alta pública. Las cuentas se crean con el seed del panel.
+9. **Sin OAuth**: no hay `/auth/google`, `oauth_accounts` ni alta pública. El seed del panel crea `panel_users` (admins); las cuentas de la app son filas de `users` y el alta nueva llega con Better Auth.
 
 ## Cómo correr
 
