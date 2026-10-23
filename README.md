@@ -147,7 +147,7 @@ pnpm gen:types:worker
 
 | Workflow | Dispara | Qué corre | Secrets |
 |---|---|---|---|
-| `Tests` | **pull_request** | unitarios: worker `test:unit` (194) + web vitest (47). Sin red ni DB | ninguno |
+| `Tests` | **pull_request** | unitarios: worker `test:unit` (202) + web vitest (58). Sin red ni DB | ninguno |
 | `CI (integración)` | **push a master** / manual | pytest + vitest de integración con Neon, typecheck/lint/build del web, dry-run del worker y `generated.ts` pinneado | repository: `TEST_DATABASE_URL`, `TEST_DATABASE_URL_WORKER` |
 | `Deploy API Worker` | **push a master** (paths del worker) / manual | typecheck + unit + migraciones + `wrangler deploy` + sync de secrets + smoke | environment `production`: `CLOUDFLARE_API_TOKEN`, `MIGRATE_DATABASE_URL`, `DATABASE_URL`, `AUTH_SECRET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `RESEND_API_KEY`; variable `CLOUDFLARE_ACCOUNT_ID` |
 
