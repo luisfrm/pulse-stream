@@ -17,7 +17,9 @@ import { app } from "@/index";
 import {
   CONTRACT_DEVIATIONS,
   normalizeComponents,
+  normalizePaths,
   type NormalizedComponents,
+  type NormalizedPaths,
 } from "@/lib/contract";
 import { OPENAPI_VERSION, openApiInfo } from "@/lib/openapi";
 import pydanticContract from "@/lib/__fixtures__/openapi-contract.json";
@@ -28,7 +30,14 @@ const document = app.getOpenAPI31Document({
 });
 
 const ourComponents = normalizeComponents(document.components?.schemas ?? {});
-const expected = pydanticContract as NormalizedComponents;
+const ourPaths = normalizePaths((document.paths ?? {}) as Record<string, unknown>);
+
+const fixture = pydanticContract as {
+  components: NormalizedComponents;
+  paths: NormalizedPaths;
+};
+const expected = fixture.components;
+const expectedPaths = fixture.paths;
 
 /** Nombres que `apps/web/lib/services/types.ts` importa del contrato. */
 const WEB_CONSUMED_COMPONENTS = [
@@ -94,4 +103,31 @@ describe("contrato OpenAPI vs backend Python", () => {
       expect(Object.keys(node.properties)).not.toContain("is_verified");
     },
   );
+
+  // --- Paths: rutas, status y `$ref` del body -----------------------------
+
+  it("expone exactamente las mismas rutas y métodos", () => {
+    expect(Object.keys(ourPaths).sort()).toEqual(
+      Object.keys(expectedPaths).sort(),
+    );
+
+    for (const [path, expectedMethods] of Object.entries(expectedPaths)) {
+      expect(Object.keys(ourPaths[path] ?? {}).sort()).toEqual(
+        Object.keys(expectedMethods).sort(),
+      );
+    }
+  });
+
+  it.each(
+    Object.entries(expectedPaths).flatMap(([path, methods]) =>
+      Object.keys(methods).map((method) => [`${method.toUpperCase()} ${path}`, path, method] as const),
+    ),
+  )("%s declara los mismos status y bodies que Python", (_label, path, method) => {
+    const expectedOperation = expectedPaths[path]?.[method];
+    const ourOperation = ourPaths[path]?.[method];
+
+    expect(ourOperation).toBeDefined();
+    expect(ourOperation?.statuses).toEqual(expectedOperation?.statuses);
+    expect(ourOperation?.refs).toEqual(expectedOperation?.refs);
+  });
 });

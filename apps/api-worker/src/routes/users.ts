@@ -14,6 +14,7 @@ import { createRoute, z, type OpenAPIHono } from "@hono/zod-openapi";
 import { toUserDto } from "@/lib/serialize";
 import { requireSuperuser, requireUser } from "@/middleware/auth";
 import {
+  ErrorModelSchema,
   HTTPValidationErrorSchema,
   UserReadSchema,
   UserUpdateSchema,
@@ -24,6 +25,12 @@ import {
   updateProfile,
 } from "@/services/users";
 import type { AppEnv } from "@/index";
+
+/** 400 de fastapi-users: body `ErrorModel` (`{"detail": ...}`). */
+const badRequest = {
+  description: "Bad Request",
+  content: { "application/json": { schema: ErrorModelSchema } },
+};
 
 const validationError = {
   description: "Validation Error",
@@ -41,6 +48,7 @@ const meRoute = createRoute({
   path: "/users/me",
   tags: ["users"],
   summary: "Users:Current User",
+  operationId: "users_current_user_users_me_get",
   middleware: [requireUser] as const,
   responses: {
     200: {
@@ -56,6 +64,7 @@ const patchMeRoute = createRoute({
   path: "/users/me",
   tags: ["users"],
   summary: "Users:Patch Current User",
+  operationId: "users_patch_current_user_users_me_patch",
   middleware: [requireUser] as const,
   request: {
     body: {
@@ -68,6 +77,7 @@ const patchMeRoute = createRoute({
       description: "Successful Response",
       content: { "application/json": { schema: UserReadSchema } },
     },
+    400: badRequest,
     401: unauthorized,
     422: validationError,
   },
@@ -78,6 +88,7 @@ const getUserRoute = createRoute({
   path: "/users/{id}",
   tags: ["users"],
   summary: "Users:User",
+  operationId: "users_user_users__id__get",
   middleware: [requireSuperuser] as const,
   request: { params: userIdParams },
   responses: {
@@ -97,6 +108,7 @@ const patchUserRoute = createRoute({
   path: "/users/{id}",
   tags: ["users"],
   summary: "Users:Patch User",
+  operationId: "users_patch_user_users__id__patch",
   middleware: [requireSuperuser] as const,
   request: {
     params: userIdParams,
@@ -110,6 +122,7 @@ const patchUserRoute = createRoute({
       description: "Successful Response",
       content: { "application/json": { schema: UserReadSchema } },
     },
+    400: badRequest,
     401: unauthorized,
     403: forbidden,
     404: userNotFound,
@@ -122,6 +135,7 @@ const deleteUserRoute = createRoute({
   path: "/users/{id}",
   tags: ["users"],
   summary: "Users:Delete User",
+  operationId: "users_delete_user_users__id__delete",
   middleware: [requireSuperuser] as const,
   request: { params: userIdParams },
   responses: {

@@ -9,12 +9,15 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import type { ListenRead, RecentlyPlayedSong, SongRead } from "@/schemas";
+import { createDb } from "@/db/client";
+import { listens } from "@/db/schema";
 import {
   createClient,
   describeDb,
   readJson,
   registerAndLogin,
   resetDb,
+  testConfig,
   type TestClient,
 } from "./helpers";
 import { createAlbum, createArtist, createSong } from "./catalog-helpers";
@@ -108,6 +111,63 @@ describeDb("listens", () => {
     );
     expect(recent.total).toBe(1);
     expect(recent.items).toHaveLength(1);
+  });
+
+  it("dedupe: un listen de hace 31 s del mismo tema SÍ se registra de nuevo", async () => {
+    // Primero las canciones (crea un admin), después el usuario que escucha:
+    // `seedSongs` registra un usuario nuevo y cambia la sesión del cliente.
+    const [song] = await seedSongs(client, 1);
+    const user = await registerAndLogin(client);
+
+    // Semilla directa: el play "anterior" ocurrió 31 s atrás (fuera de la
+    // ventana de 30 s), así que el próximo POST debe insertar otra fila.
+    await createDb(testConfig())
+      .insert(listens)
+      .values({
+        id: crypto.randomUUID(),
+        userId: user.id,
+        songId: song!.id,
+        playedAt: new Date(Date.now() - 31_000),
+      });
+
+    const response = await client.postJson("/me/listens", {
+      song_id: song!.id,
+    });
+    expect(response.status, await response.clone().text()).toBe(201);
+
+    // Dos filas reales -> user_play_count 2 y el contador persistente subió
+    // solo por el play nuevo (la fila sembrada no toca contadores).
+    const recent = await readJson<{
+      items: RecentlyPlayedSong[];
+      total: number;
+    }>(await client.get("/me/recently-played"));
+    expect(recent.total).toBe(1);
+    expect(recent.items[0]?.user_play_count).toBe(2);
+    expect(
+      (await readJson<SongRead>(await client.get(`/songs/${song!.id}`)))
+        .play_count,
+    ).toBe(1);
+  });
+
+  it("historial vacío: Page vacía con offset/limit", async () => {
+    await registerAndLogin(client);
+
+    const body = await readJson<{
+      items: unknown[];
+      total: number;
+      offset: number;
+      limit: number;
+    }>(await client.get("/me/recently-played"));
+
+    expect(body).toEqual({ items: [], total: 0, offset: 0, limit: 50 });
+  });
+
+  it("limit fuera de rango -> 422", async () => {
+    await registerAndLogin(client);
+
+    for (const query of ["limit=0", "limit=101", "offset=-1"]) {
+      expect((await client.get(`/me/recently-played?${query}`)).status).toBe(422);
+    }
   });
 
   it("recently-played: canciones sin duplicar, la última primero", async () => {

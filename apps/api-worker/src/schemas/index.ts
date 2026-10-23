@@ -12,6 +12,13 @@ import { AlbumCreateSchema, AlbumReadSchema, AlbumUpdateSchema } from "./albums"
 import { AlbumDetailSchema } from "./album-detail";
 import { ArtistCreateSchema, ArtistReadSchema, ArtistUpdateSchema } from "./artists";
 import {
+  ForgotPasswordSchema,
+  LoginBodySchema,
+  RequestVerifyTokenSchema,
+  ResetPasswordSchema,
+  VerifyTokenSchema,
+} from "./auth";
+import {
   ErrorModelSchema,
   HTTPValidationErrorSchema,
   ValidationErrorSchema,
@@ -50,6 +57,7 @@ import {
 import {
   PresignRequestSchema,
   PresignResponseSchema,
+  ZipImportBodySchema,
   ZipImportIssueSchema,
   ZipImportResultSchema,
 } from "./uploads";
@@ -84,6 +92,22 @@ export const openApiComponents: Array<readonly [string, z.ZodType]> = [
   ["ArtistCreate", ArtistCreateSchema],
   ["ArtistRead", ArtistReadSchema],
   ["ArtistUpdate", ArtistUpdateSchema],
+  // Bodies de fastapi-users / uploads: nombres EXACTOS que emite FastAPI.
+  ["Body_auth_cookie_login_auth_login_post", LoginBodySchema],
+  [
+    "Body_import_album_zip_albums__album_id__import_zip_post",
+    ZipImportBodySchema,
+  ],
+  ["Body_reset_forgot_password_auth_forgot_password_post", ForgotPasswordSchema],
+  [
+    "Body_reset_reset_password_auth_reset_password_post",
+    ResetPasswordSchema,
+  ],
+  [
+    "Body_verify_request_token_auth_request_verify_token_post",
+    RequestVerifyTokenSchema,
+  ],
+  ["Body_verify_verify_auth_verify_post", VerifyTokenSchema],
   ["ErrorModel", ErrorModelSchema],
   ["HTTPValidationError", HTTPValidationErrorSchema],
   ["ListenCreate", ListenCreateSchema],

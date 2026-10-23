@@ -6,7 +6,13 @@
 
 import { z } from "@hono/zod-openapi";
 
-import { DateTimeSchema, IntSchema, UuidSchema, optionalCoverKeySchema } from "./common";
+import {
+  DateTimeSchema,
+  IntSchema,
+  UuidSchema,
+  nullableRef,
+  optionalCoverKeySchema,
+} from "./common";
 import { ArtistReadSchema } from "./artists";
 
 export const AlbumCreateSchema = z
@@ -20,7 +26,7 @@ export const AlbumCreateSchema = z
 export const AlbumUpdateSchema = z
   .object({
     title: z.string().min(1).max(255).nullable().optional(),
-    artist_id: UuidSchema.nullable().optional(),
+    artist_id: nullableRef(UuidSchema).optional(),
     cover_key: optionalCoverKeySchema(),
   })
   .openapi("AlbumUpdate");

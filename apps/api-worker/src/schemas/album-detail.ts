@@ -17,6 +17,6 @@ export const AlbumDetailSchema = z
     ...albumReadShape(),
     songs: z.array(SongReadSchema).optional(),
   })
-  .openapi("AlbumDetail");
+  .openapi("AlbumDetail").openapi({ description: "Álbum con sus canciones ordenadas.\n\nVive acá (no en schemas.py) para evitar el ciclo de imports entre\nalbums.schemas (AlbumRead) y songs.schemas (SongRead)." });
 
 export type AlbumDetail = z.infer<typeof AlbumDetailSchema>;

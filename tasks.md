@@ -4,6 +4,28 @@
 > resolución). Cuando aparece una idea de mejora, se agrega acá y se resuelve
 > en la misma pasada o en la siguiente.
 
+## ✅ Rewrite del backend en Cloudflare Workers (`apps/api-worker`) — F0..F8
+
+Port completo del backend Python a Hono/Drizzle sobre Workers, con paridad de
+contrato verificada por CI. `apps/api` queda como implementación de referencia.
+
+| Fase | Alcance | Estado |
+|---|---|---|
+| **F0** | Esqueleto del Worker: Hono + `/health`, CORS con credenciales, error handler con el body de FastAPI, `/openapi.json` + `/docs` (solo local), `wrangler.jsonc`, `env.ts` normalizado | ✅ |
+| **F1** | Drizzle + Neon HTTP: esquema espejo de Alembic (0001..0009) + migraciones propias (`0001_better_auth`), `db:check`/`db:generate`/`db:migrate` con guard, `user:set-password` | ✅ |
+| **F2** | better-auth (email+password, cookie HttpOnly `session`), CSRF por `Origin`, rate limiting en `rate_limits` | ✅ |
+| **F3** | Usuarios: `/auth/*` (login/logout/register/forgot/reset/verify), `/users/me`, `/users/{id}` (superusuario), `/admin/users` (listado/borrado/rol) | ✅ |
+| **F4** | Catálogo: artistas, álbumes (+ detalle), canciones (+ colaboradores N:M, álbum obligatorio), géneros, `songs/popular`; serializadores Pydantic idénticos | ✅ |
+| **F5** | Uploads: presign de audio/covers (aws4fetch, WebP ≤ 256 KB con `Cache-Control` firmado), import por ZIP de un álbum (40 MB, ZIP bomb/CRC/audio propios, storage inyectable) | ✅ |
+| **F6** | Playlists de usuario + `system` (snapshots top_week/top_month/new, refresh) y biblioteca (`/me/favorites` de canciones/playlists/álbumes + `/me/library/ids`) | ✅ |
+| **F7** | Historial: `POST /me/listens` (dedupe 30 s + contadores atómicos en un batch) y `GET /me/recently-played` (`user_play_count`) | ✅ |
+| **F8** | Cierre: puerto 8787, `gen:types:worker` (mismo `generated.ts` que Python salvo 2 desviaciones documentadas), gate de contrato con paths/status/`$ref`, CI con `TEST_DATABASE_URL` + guard, `build` dry-run, docs | ✅ |
+
+Pendientes conocidos del rewrite: `UserCreate`/`UserUpdate` no aceptan campos
+de privilegio (desviación de seguridad deliberada) y `PlaylistRead.kind` sale
+como enum inline en vez de `$ref` (zod no puede emitir `$ref` + `default`); ambos
+están documentados en el gate de contrato.
+
 ## ✅ Resueltas (Fase 3b — vida de usuario + reproductor + PWA)
 
 | # | Tarea | Resolución |

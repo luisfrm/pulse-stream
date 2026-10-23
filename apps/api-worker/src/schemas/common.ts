@@ -69,6 +69,71 @@ export function nullableUsernameSchema() {
   return z.string().min(2).max(50).regex(USERNAME_REGEX).nullable().optional();
 }
 
+/**
+ * Query param entero con el contrato de FastAPI (`int = Query(..., ge=, le=)`).
+ *
+ * OJO: `z.coerce.number()` / `z.preprocess(...)` hacen que zod-to-openapi emita
+ * `type: ["integer","null"]`, que rompe la paridad con el OpenAPI de Python (y
+ * con `openapi-typescript`). La coerción string -> number se resuelve en el
+ * `preprocess` y el `.openapi({...})` fija el schema documentado a mano
+ * (metadata pisa el generado, por eso se repiten minimum/maximum/default).
+ */
+export function queryInt(options: {
+  default: number;
+  min?: number;
+  max?: number;
+  description?: string;
+}) {
+  let schema = z.number().int();
+  if (options.min !== undefined) schema = schema.min(options.min);
+  if (options.max !== undefined) schema = schema.max(options.max);
+
+  const documentSchema: Record<string, unknown> = {
+    type: "integer",
+    default: options.default,
+  };
+  if (options.min !== undefined) documentSchema.minimum = options.min;
+  if (options.max !== undefined) documentSchema.maximum = options.max;
+  if (options.description !== undefined) {
+    documentSchema.description = options.description;
+  }
+
+  return z
+    .preprocess((value) => {
+      if (value === undefined || value === null || value === "") return undefined;
+      return typeof value === "string" ? Number(value) : value;
+    }, schema.default(options.default))
+    .openapi(documentSchema);
+}
+
+/** Valores que Pydantic acepta como `True` en un query param `bool`. */
+const QUERY_TRUTHY = new Set(["true", "1", "on", "yes", "t", "y"]);
+
+/**
+ * Query param booleano (`bool = Query(True)`): acepta true/false/1/0/yes/no/
+ * on/off (case-insensitive) y documenta `{type: "boolean", default}`.
+ *
+ * `z.stringbool()` coacciona bien pero zod-to-openapi lo emite como
+ * `type: "string"`; el `preprocess` + metadata conserva el tipo booleano.
+ */
+export function queryBool(options: { default: boolean; description?: string }) {
+  const documentSchema: Record<string, unknown> = {
+    type: "boolean",
+    default: options.default,
+  };
+  if (options.description !== undefined) {
+    documentSchema.description = options.description;
+  }
+
+  return z
+    .preprocess((value) => {
+      if (value === undefined || value === null || value === "") return undefined;
+      if (typeof value === "boolean") return value;
+      return QUERY_TRUTHY.has(String(value).trim().toLowerCase());
+    }, z.boolean().default(options.default))
+    .openapi(documentSchema);
+}
+
 function pageShape<T extends z.ZodType>(item: T) {
   return {
     items: z.array(item),

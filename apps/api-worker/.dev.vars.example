@@ -55,5 +55,6 @@ RATE_LIMIT_PRESIGN=10/minute
 # RATE_LIMIT_DISABLED=true
 
 # Origin público de la API. better-auth lo usa como `baseURL` para firmar URLs
-# internas (su router HTTP no se monta). Default: http://localhost:8001.
-# API_URL=http://localhost:8001
+# internas (su router HTTP no se monta). Default: http://localhost:8787 (el
+# puerto en el que corre `pnpm dev` y el que espera el web).
+API_URL=http://localhost:8787

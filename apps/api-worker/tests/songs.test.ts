@@ -34,7 +34,7 @@ const ADMIN_REQUIRED = "Requiere permisos de administrador";
 const ALBUM_REQUIRED = "La canción requiere un álbum";
 const R2_BASE = "https://cdn.pulse.test";
 
-/** Fila de `listens` directa: el endpoint `POST /me/listens` es de F5. */
+/** Fila de `listens` directa (para plays con timestamps viejos). */
 async function insertListen(
   userId: string,
   songId: string,

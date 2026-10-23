@@ -114,7 +114,7 @@ function createAuth(config: AppConfig) {
         : {}),
       // Paridad con Python: fastapi-users no valida Origin ni CSRF. Sin esto,
       // el web en :3000 sería rechazado por el origin-check interno de
-      // better-auth al llamar a la API en :8001. La defensa CSRF real vive en
+      // better-auth al llamar a la API en :8787. La defensa CSRF real vive en
       // `src/middleware/origin.ts` (gate de `Origin` en métodos mutantes), no
       // acá: better-auth no está montado como router.
       disableCSRFCheck: true,

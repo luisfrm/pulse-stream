@@ -366,3 +366,50 @@ horizontal vive solo en `body`.
 - No inventar mÃ©tricas/features: si un dato no existe en el backend, agregar el
   endpoint (no hardcodear en el front).
 - `README.md` y `tasks.md` se actualizan cuando se cierra una fase/tarea.
+
+## 4. API Worker (`apps/api-worker`) — rewrite del backend sobre Cloudflare
+
+> `apps/api` es la **implementación de referencia**: define el contrato OpenAPI
+> y sus tests (`pytest`) son la especificación. El Worker lo reemplaza en
+> runtime y debe ser *drop-in*: `pnpm gen:types:worker` tiene que generar el
+> mismo `packages/api-types/src/generated.ts` que la API Python.
+
+**Stack**: Hono + `@hono/zod-openapi` (validación y OpenAPI), Drizzle ORM sobre
+**Neon HTTP** (`@neondatabase/serverless`), better-auth (sesiones), aws4fetch
+(presign S3 de R2), fflate (ZIP), vitest + Postgres real en los tests.
+
+**Capas** (mismo espíritu que `apps/api`): `routes/` solo HTTP (parsea, valida,
+serializa con `lib/serialize.ts`), `services/` reglas de negocio, `repositories/`
+únicamente SQL, `schemas/` contratos zod (los enums viven acá, nunca en la DB).
+`deps.ts` inyecta el storage de R2 (`createApp({ storage })` en tests).
+
+**Neon HTTP: sin transacciones interactivas.** Una sentencia por operación o
+`db.batch([...])` (viaja como una sola transacción del servidor) para lo que
+debe ser atómico: canción+colaboradores, reemplazo de un snapshot, `listens` +
+contadores, playlist+items, delete+renumeración. Nunca `BEGIN/COMMIT`.
+
+**Auth**: better-auth email+password; cookie HttpOnly `session`. El
+`middleware/auth.ts` resuelve la sesión y relee la fila de `users` (rol,
+username). Las passwords legacy (argon2) se resetean con `pnpm user:set-password`.
+
+**Puerto/scripts**: `pnpm --filter @pulse-stream/api-worker dev` en **:8787**
+(el que espera el web); `build` = `wrangler deploy --dry-run`. Migraciones
+**a mano** en `migrations/` + `db:check`/`db:generate` libres; `db:migrate`
+exige `MIGRATE_DATABASE_URL` y `CONFIRM_TARGET=yes` fuera de la base de test.
+
+**Gate de contrato** (`src/lib/contract.*`): el fixture
+`src/lib/__fixtures__/openapi-contract.json` se genera desde el OpenAPI de
+Python (`PYTHON_OPENAPI_JSON=... pnpm gen:contract`) y los tests comparan
+componentes normalizados **y** rutas/status/`$ref`. Un endpoint faltante, un
+status cambiado o un componente distinto rompe CI sin DB. Desviaciones
+deliberadas: `UserCreate`/`UserUpdate` (sin campos de privilegio) y
+`PlaylistRead.kind` (enum inline equivalente al `$ref` + `default`).
+
+**R2**: el audio nunca pasa por la API salvo el **import por ZIP** de un álbum
+(tope 40 MB por el límite del body del Worker, protección de ZIP bomb, CRC y
+audio validado con un parser propio). Los covers se firman con
+`Cache-Control` inmutable.
+
+**Tests**: `tests/*.test.ts` son de integración contra `TEST_DATABASE_URL`
+(sin la variable las suites se saltean, salvo en CI donde
+`tests/ci-guard.test.ts` falla a propósito).

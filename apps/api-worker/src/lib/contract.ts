@@ -180,3 +180,78 @@ export function normalizeComponents(
   }
   return normalized;
 }
+
+// --- Paths (rutas + status + $ref de cada body) ------------------------------
+
+/** Una operación: códigos de estado y el `$ref` del body JSON de cada uno. */
+export interface NormalizedOperation {
+  /** Códigos ordenados numéricamente (`[200, 422]`). */
+  statuses: number[];
+  /** status -> `$ref` del schema JSON (`null` si no hay body o es inline). */
+  refs: Record<string, string | null>;
+}
+
+/** path -> method -> operación. */
+export type NormalizedPaths = Record<string, Record<string, NormalizedOperation>>;
+
+const HTTP_METHODS = [
+  "get",
+  "put",
+  "post",
+  "delete",
+  "options",
+  "head",
+  "patch",
+  "trace",
+] as const;
+
+function responseRef(response: unknown): string | null {
+  if (!isJsonObject(response)) return null;
+  const content = response.content;
+  if (!isJsonObject(content)) return null;
+  const media = content["application/json"];
+  if (!isJsonObject(media)) return null;
+  const schema = media.schema;
+  if (!isJsonObject(schema)) return null;
+  const ref = schema.$ref;
+  return typeof ref === "string" ? ref : null;
+}
+
+/**
+ * Normaliza `paths`: para cada ruta+método guarda los códigos de respuesta y el
+ * `$ref` de cada body. Es lo que detecta una ruta faltante, un status cambiado
+ * (200 vs 201) o un componente distinto, sin comparar descripciones.
+ */
+export function normalizePaths(paths: Record<string, unknown>): NormalizedPaths {
+  const normalized: NormalizedPaths = {};
+
+  for (const path of Object.keys(paths).sort()) {
+    const item = paths[path];
+    if (!isJsonObject(item)) continue;
+
+    const operations: Record<string, NormalizedOperation> = {};
+    for (const method of HTTP_METHODS) {
+      const operation = item[method];
+      if (!isJsonObject(operation)) continue;
+
+      const responses = isJsonObject(operation.responses)
+        ? operation.responses
+        : {};
+      const statuses = Object.keys(responses)
+        .map((status) => Number.parseInt(status, 10))
+        .filter((status) => Number.isFinite(status))
+        .sort((left, right) => left - right);
+
+      const refs: Record<string, string | null> = {};
+      for (const status of statuses) {
+        refs[String(status)] = responseRef(responses[String(status)]);
+      }
+      operations[method] = { statuses, refs };
+    }
+
+    // Un path sin operaciones (solo `parameters` compartidos) no aporta.
+    if (Object.keys(operations).length > 0) normalized[path] = operations;
+  }
+
+  return normalized;
+}

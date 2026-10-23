@@ -10,8 +10,7 @@
  * `users.total_plays` en la misma transacción del INSERT (ver repository).
  */
 
-import type { UserRow } from "@/db/schema";
-import type { ListenRow } from "@/db/schema";
+import type { ListenRow, UserRow } from "@/db/schema";
 import type { AppConfig } from "@/env";
 import { SongNotFoundError } from "@/lib/errors";
 import {

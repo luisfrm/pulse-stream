@@ -8,9 +8,10 @@
     "enabled": true
   },
   "dev": {
-    // 8001: el backend Python (uvicorn) usa 8000 y el web 3000. El worker
-    // convive con ambos para poder comparar respuestas lado a lado.
-    "port": 8001
+    // 8787: el puerto que espera el web (`NEXT_PUBLIC_API_URL` de
+    // apps/web/.env.local). El backend Python (uvicorn, :8000) es la
+    // implementación de referencia y ya no corre en el flujo del monorepo.
+    "port": 8787
   },
   // Los secretos viven en .dev.vars (local) y en `wrangler secret put` (prod).
   // No agregar vars sensibles acá: este archivo se commitea.

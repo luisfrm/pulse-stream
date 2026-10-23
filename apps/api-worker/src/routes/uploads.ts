@@ -4,9 +4,12 @@
  *   POST /uploads/presign        -> URL firmada para AUDIO (cualquier sesión)
  *   POST /uploads/presign-cover  -> URL firmada para COVERS WebP (cualquier sesión)
  *
- * Ambos exigen sesión activa (401) y comparten el rate limit
+ * Ambos exigen sesión activa (401 en runtime) y comparten el rate limit
  * `RATE_LIMIT_PRESIGN` (slowapi: `Depends(current_user)` corre ANTES del
  * limiter, así que un anónimo no consume cuota).
+ *
+ * PARIDAD DE CONTRATO: `responses` = 200 + 422 (los 400/401/429 existen en
+ * runtime pero no se documentan, igual que en FastAPI).
  */
 
 import { createRoute, type OpenAPIHono } from "@hono/zod-openapi";
@@ -27,16 +30,11 @@ const validationError = {
   content: { "application/json": { schema: HTTPValidationErrorSchema } },
 };
 
-const unauthorized = { description: "Missing token or inactive user." };
-
 const presignResponses = {
   200: {
     description: "Successful Response",
     content: { "application/json": { schema: PresignResponseSchema } },
   },
-  400: { description: "Archivo no permitido" },
-  401: unauthorized,
-  429: { description: "Rate limit excedido" },
   422: validationError,
 } as const;
 
@@ -45,6 +43,7 @@ const presignRoute = createRoute({
   path: "/uploads/presign",
   tags: ["uploads"],
   summary: "Presign Upload",
+  operationId: "presign_upload_uploads_presign_post",
   description:
     "Firma una URL de subida directa a R2 para AUDIO (5-10 min de validez).",
   middleware: [requireUser] as const,
@@ -62,8 +61,9 @@ const presignCoverRoute = createRoute({
   path: "/uploads/presign-cover",
   tags: ["uploads"],
   summary: "Presign Cover",
+  operationId: "presign_cover_uploads_presign_cover_post",
   description:
-    "Firma una URL de subida directa a R2 para COVERS (solo WebP <= 256 KB, " +
+    "Firma una URL de subida directa a R2 para COVERS (solo WebP <= 256 KB,\n" +
     "con Cache-Control inmutable firmado).",
   middleware: [requireUser] as const,
   request: {
@@ -81,7 +81,6 @@ export function registerUploadRoutes(
 ): void {
   app.openapi(presignRoute, async (c) => {
     const config = c.get("config");
-    // Bucket propio: agotar el límite de audio no bloquea los covers.
     await enforceRateLimit(c, "presign", config.rateLimits.presign);
     const result = await presignAudioUpload(
       config,

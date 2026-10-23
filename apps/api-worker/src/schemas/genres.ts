@@ -22,6 +22,6 @@ export const SongGenreEnum = z
     "latin",
     "indie",
   ])
-  .openapi("SongGenre");
+  .openapi("SongGenre").openapi({ description: "Géneros permitidos.\n\nRegla AGENTS.md: enums viven SOLO en Pydantic — en la DB los géneros se\nguardan como strings (columna JSON de songs). Si agregás un género acá,\nregenerás los tipos TS (`pnpm gen:types`) y TypeScript te avisa en el front." });
 
 export type SongGenre = z.infer<typeof SongGenreEnum>;

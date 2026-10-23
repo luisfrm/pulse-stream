@@ -21,7 +21,7 @@ export interface Bindings {
   /**
    * Origin público de la API. better-auth lo necesita como `baseURL` para
    * firmar URLs internas (no se expone ningún endpoint suyo). Default:
-   * `http://localhost:8001` (el puerto del worker en local).
+   * `http://localhost:8787` (el puerto del worker en local).
    */
   API_URL?: string;
   DATABASE_URL?: string;
@@ -68,8 +68,8 @@ const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7; // 7 días
 /** Nombre por defecto de la cookie de sesión (el que lee `apps/web/proxy.ts`). */
 export const DEFAULT_SESSION_COOKIE_NAME = "session";
 
-/** Puerto del worker en local (`wrangler dev --port 8001`). */
-const DEFAULT_API_URL = "http://localhost:8001";
+/** Puerto del worker en local (`wrangler dev --port 8787`). */
+const DEFAULT_API_URL = "http://localhost:8787";
 
 const MB = 1024 * 1024;
 

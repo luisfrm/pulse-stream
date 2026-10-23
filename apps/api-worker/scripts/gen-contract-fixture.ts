@@ -4,22 +4,28 @@
  * consume el web vía `openapi-typescript`.
  *
  * Uso (desde `apps/api-worker`):
- *   pnpm gen:contract
+ *   PYTHON_OPENAPI_JSON=/ruta/openapi.json pnpm gen:contract
  *
- * Requiere `PYTHON_OPENAPI_JSON` apuntando al JSON. Para producirlo:
+ * Para producir el JSON:
  *   cd apps/api
- *   uv run python -c "import json,sys; from app.main import app; json.dump(app.openapi(), sys.stdout)" > openapi.json
+ *   uv run python -c "import json; from app.main import app; open('openapi.json','w',encoding='utf-8').write(json.dumps(app.openapi(), ensure_ascii=False))"
  *
- * Solo se incluyen los componentes que existen en AMBOS lados (la intersección
- * con `openApiComponents`), salvo las desviaciones deliberadas documentadas en
- * el test (`UserCreate`/`UserUpdate` no aceptan campos de privilegio).
+ * El fixture guarda:
+ *   - `components`: la forma normalizada de los schemas compartidos (salvo las
+ *     desviaciones deliberadas documentadas en el test);
+ *   - `paths`: por ruta+método, los códigos de respuesta y el `$ref` de cada
+ *     body (detecta rutas faltantes o status equivocados sin DB).
  */
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { CONTRACT_DEVIATIONS, normalizeComponents } from "../src/lib/contract";
+import {
+  CONTRACT_DEVIATIONS,
+  normalizeComponents,
+  normalizePaths,
+} from "../src/lib/contract";
 import { openApiComponents } from "../src/schemas";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -34,6 +40,7 @@ if (!sourcePath) {
 
 const pythonDoc = JSON.parse(readFileSync(sourcePath, "utf8")) as {
   components?: { schemas?: Record<string, unknown> };
+  paths?: Record<string, unknown>;
 };
 
 const pythonSchemas = pythonDoc.components?.schemas ?? {};
@@ -53,13 +60,19 @@ for (const name of shared) {
   selected[name] = pythonSchemas[name];
 }
 
+const fixture = {
+  components: normalizeComponents(selected),
+  paths: normalizePaths(pythonDoc.paths ?? {}),
+};
+
 mkdirSync(dirname(outputPath), { recursive: true });
 writeFileSync(
   outputPath,
-  `${JSON.stringify(normalizeComponents(selected), null, 2)}\n`,
+  `${JSON.stringify(fixture, null, 2)}\n`,
   "utf8",
 );
 
 console.log(
-  `Fixture escrito en ${outputPath} (${shared.length} componentes compartidos).`,
+  `Fixture escrito en ${outputPath} (${shared.length} componentes, ` +
+    `${Object.keys(fixture.paths).length} paths).`,
 );

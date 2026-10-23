@@ -29,14 +29,13 @@ const validationError = {
   content: { "application/json": { schema: HTTPValidationErrorSchema } },
 };
 
-const unauthorized = { description: "Missing token or inactive user." };
-const notFound = { description: "Canción no encontrada" };
 
 const recordPlayRoute = createRoute({
   method: "post",
   path: "/me/listens",
   tags: ["listens"],
   summary: "Record Play",
+  operationId: "record_play_me_listens_post",
   description:
     "Registra una reproducción (play). Idempotente dentro de ~30 s por canción.\n\n" +
     "Cada play suma +1 a `songs.play_count` y a `users.total_plays`.",
@@ -52,8 +51,6 @@ const recordPlayRoute = createRoute({
       description: "Successful Response",
       content: { "application/json": { schema: ListenReadSchema } },
     },
-    401: unauthorized,
-    404: notFound,
     422: validationError,
   },
 });
@@ -63,6 +60,7 @@ const recentlyPlayedRoute = createRoute({
   path: "/me/recently-played",
   tags: ["listens"],
   summary: "Recently Played",
+  operationId: "recently_played_me_recently_played_get",
   description:
     "Canciones reproducidas por el usuario (sin duplicar), último play primero.\n\n" +
     "Cada item incluye `user_play_count`: cuántas veces la tocó el usuario.",
@@ -75,7 +73,6 @@ const recentlyPlayedRoute = createRoute({
         "application/json": { schema: PageRecentlyPlayedSongSchema },
       },
     },
-    401: unauthorized,
     422: validationError,
   },
 });

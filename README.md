@@ -48,23 +48,60 @@ pnpm install
 pnpm dev   # http://localhost:3000
 ```
 
-### 3. Tipos TS desde OpenAPI (regla de AGENTS.md)
+### 3. API Worker (Hono/Cloudflare) — implementación que reemplaza a `apps/api`
+
+`apps/api-worker` es el rewrite del backend sobre Cloudflare Workers (Hono +
+Drizzle + Neon HTTP + better-auth + R2). `apps/api` queda como implementación
+de referencia (el contrato OpenAPI y los tests de Python son la especificación).
+
+```bash
+cd apps/api-worker
+cp .dev.vars.example .dev.vars   # completá DATABASE_URL, AUTH_SECRET, R2_*, ...
+pnpm --filter @pulse-stream/api-worker dev   # http://localhost:8787
+```
+
+- **Puertos**: worker `:8787` (el que espera `apps/web/.env.local`),
+  web `:3000`. `pnpm dev` en la raíz levanta los dos con turbo y **no**
+  necesita la API de Python.
+- **Docs**: `http://localhost:8787/docs` y `/openapi.json` (solo con
+  `ENV=local`).
+- **Migraciones**: se escriben a mano en `migrations/` y se aplican con
+  `pnpm db:migrate`, que exige `MIGRATE_DATABASE_URL` (sin fallback) y
+  `CONFIRM_TARGET=yes` si el destino no coincide con `TEST_DATABASE_URL`.
+  `db:check` (sin drift) y `db:generate` son libres.
+- **Auth**: better-auth con email+password; la sesión viaja en la cookie
+  HttpOnly `session`. Las passwords legacy (argon2 de fastapi-users) no se
+  migran: se resetean con `pnpm user:set-password`.
+- **Uploads**: presign S3 (aws4fetch) para audio/covers; el import por ZIP de
+  un álbum acepta **hasta 40 MB** (límite del body del Worker) y valida
+  ZIP bombs, CRC y audio (parser propio, sin `mutagen`).
+- **Contrato**: `pnpm --filter @pulse-stream/api-worker gen:contract` regenera
+  el fixture de paridad y los tests comparan componentes + rutas/status/$ref.
+
+### 4. Tipos TS desde OpenAPI (regla de AGENTS.md)
 
 Los tipos del frontend se **generan**, nunca se declaran a mano:
 
 ```bash
-# con la API corriendo en :8000
-pnpm gen:types   # regenera packages/api-types/src/generated.ts
+pnpm gen:types          # desde la API Python (:8000)
+pnpm gen:types:worker   # desde el Worker (:8787) — debe dar el MISMO archivo
 ```
+
+El resultado del Worker tiene que ser idéntico al de Python (`generated.ts` es
+el contrato que consume el web); las únicas diferencias documentadas son
+`UserCreate`/`UserUpdate` (no aceptan campos de privilegio: desviación de
+seguridad) y `PlaylistRead.kind` (enum inline equivalente al `$ref`, porque
+zod no puede emitir `$ref` + `default`).
 
 ### Scripts raíz
 
 ```bash
-pnpm dev         # API + web (turbo)
+pnpm dev         # worker (:8787) + web (:3000) con turbo
 pnpm build
 pnpm lint
 pnpm typecheck
-pnpm test        # tests de la API (requieren TEST_DATABASE_URL)
+pnpm test        # tests del worker (requieren TEST_DATABASE_URL)
+pnpm gen:types:worker
 ```
 
 ## Variables de entorno
@@ -90,7 +127,14 @@ pnpm test        # tests de la API (requieren TEST_DATABASE_URL)
 
 | Variable | Obligatoria | Descripción |
 |---|---|---|
-| `NEXT_PUBLIC_API_URL` | no (default `http://localhost:8000`) | URL base de la API FastAPI |
+| `NEXT_PUBLIC_API_URL` | no (default `http://localhost:8000`) | URL base de la API (`http://localhost:8787` con el Worker) |
+
+### `apps/api-worker/.dev.vars`
+
+Copia de `.dev.vars.example`. Claves: `ENV`, `AUTH_SECRET`, `DATABASE_URL`
+(pooled), `DATABASE_URL_DIRECT` (migraciones), `TEST_DATABASE_URL`,
+`MIGRATE_DATABASE_URL`, `R2_*`, `COOKIE_*`, `RATE_LIMIT_*`, `API_URL`
+(`http://localhost:8787`). En deploy van con `wrangler secret put <NOMBRE>`.
 
 ## Estado del proyecto
 

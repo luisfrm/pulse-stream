@@ -30,7 +30,8 @@ const listUsersRoute = createRoute({
   path: "/admin/users",
   tags: ["users"],
   summary: "List Users",
-  description: "Listado de usuarios - solo admin (role=admin).",
+  operationId: "list_users_admin_users_get",
+  description: "Listado de usuarios — solo admin (role=admin).",
   middleware: [requireAdmin] as const,
   request: { query: pageQuerySchema() },
   responses: {
@@ -47,8 +48,9 @@ const deleteUserRoute = createRoute({
   path: "/admin/users/{user_id}",
   tags: ["users"],
   summary: "Delete User",
+  operationId: "delete_user_admin_users__user_id__delete",
   description:
-    "Borra un usuario - solo admin, y no puede borrarse a si mismo.",
+    "Borra un usuario — solo admin, y no puede borrarse a sí mismo.",
   middleware: [requireAdmin] as const,
   request: { params: userIdParams },
   responses: {
@@ -62,8 +64,9 @@ const setRoleRoute = createRoute({
   path: "/admin/users/{user_id}/role",
   tags: ["users"],
   summary: "Set User Role",
+  operationId: "set_user_role_admin_users__user_id__role_patch",
   description:
-    'Asigna/revoca el rol de un usuario - solo admin.\n\n`role: "admin"` ' +
+    'Asigna/revoca el rol de un usuario — solo admin.\n\n`role: "admin"` ' +
     "otorga acceso al panel; `role: null` lo revoca.\nUn admin no puede " +
     "quitarse su propio rol.",
   middleware: [requireAdmin] as const,

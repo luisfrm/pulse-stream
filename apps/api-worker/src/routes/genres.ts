@@ -14,6 +14,7 @@ const listGenresRoute = createRoute({
   path: "/genres",
   tags: ["genres"],
   summary: "List Genres",
+  operationId: "list_genres_genres_get",
   description: "Lista los géneros permitidos (mismo set que valida el backend).",
   responses: {
     200: {

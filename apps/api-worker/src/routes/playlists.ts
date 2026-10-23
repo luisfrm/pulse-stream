@@ -26,6 +26,7 @@ import {
   PlaylistSystemCreateSchema,
   PlaylistUpdateSchema,
   UuidSchema,
+  queryBool,
 } from "@/schemas";
 import {
   addSongRecord,
@@ -48,10 +49,6 @@ const validationError = {
   content: { "application/json": { schema: HTTPValidationErrorSchema } },
 };
 
-const unauthorized = { description: "Missing token or inactive user." };
-const forbidden = { description: "No tenés acceso a esta playlist" };
-const adminForbidden = { description: "Requiere permisos de administrador" };
-const notFound = { description: "Playlist o canción no encontrada" };
 
 const playlistParams = z.object({ playlist_id: UuidSchema });
 const playlistSongParams = z.object({
@@ -59,9 +56,9 @@ const playlistSongParams = z.object({
   song_id: UuidSchema,
 });
 
-/** `bool` de FastAPI: acepta true/false/1/0/yes/no/on/off (case-insensitive). */
+/** `mine` = solo las playlists del usuario (default true, como Python). */
 const listQuery = z.object({
-  mine: z.stringbool().default(true),
+  mine: queryBool({ default: true }),
 });
 
 /** Detalle serializado (playlist + canciones ordenadas por posición). */
@@ -78,6 +75,7 @@ const createSystemPlaylistRoute = createRoute({
   path: "/playlists/system",
   tags: ["playlists"],
   summary: "Create System Playlist",
+  operationId: "create_system_playlist_playlists_system_post",
   description:
     "Genera una playlist del sistema (snapshot de una query) — admin only.",
   middleware: [requireAdmin] as const,
@@ -92,8 +90,6 @@ const createSystemPlaylistRoute = createRoute({
       description: "Successful Response",
       content: { "application/json": { schema: PlaylistDetailSchema } },
     },
-    401: unauthorized,
-    403: adminForbidden,
     422: validationError,
   },
 });
@@ -103,9 +99,10 @@ const refreshSystemPlaylistRoute = createRoute({
   path: "/playlists/system/{playlist_id}/refresh",
   tags: ["playlists"],
   summary: "Refresh System Playlist",
+  operationId: "refresh_system_playlist_playlists_system__playlist_id__refresh_post",
   description:
     "Regenera el snapshot de una playlist del sistema — admin only.\n\n" +
-    "Recalcula las canciones según la `query` que la generó (top_week, " +
+    "Recalcula las canciones según la `query` que la generó (top_week,\n" +
     "top_month o new) y reemplaza el contenido en la misma playlist.",
   middleware: [requireAdmin] as const,
   request: { params: playlistParams },
@@ -114,10 +111,6 @@ const refreshSystemPlaylistRoute = createRoute({
       description: "Successful Response",
       content: { "application/json": { schema: PlaylistDetailSchema } },
     },
-    400: { description: "La playlist no se puede regenerar" },
-    401: unauthorized,
-    403: forbidden,
-    404: notFound,
     422: validationError,
   },
 });
@@ -127,6 +120,7 @@ const listPublicPlaylistsRoute = createRoute({
   path: "/playlists/public",
   tags: ["playlists"],
   summary: "List Public Playlists",
+  operationId: "list_public_playlists_playlists_public_get",
   description:
     "Feed público: playlists públicas de toda la comunidad (nuevas primero).\n\n" +
     "Público (sin sesión): son contenido visible para cualquiera por diseño.",
@@ -145,6 +139,7 @@ const listPlaylistsRoute = createRoute({
   path: "/playlists",
   tags: ["playlists"],
   summary: "List Playlists",
+  operationId: "list_playlists_playlists_get",
   description: "Playlists del usuario actual (o las públicas del mismo perfil).",
   middleware: [requireUser] as const,
   request: { query: listQuery },
@@ -153,7 +148,6 @@ const listPlaylistsRoute = createRoute({
       description: "Successful Response",
       content: { "application/json": { schema: z.array(PlaylistReadSchema) } },
     },
-    401: unauthorized,
     422: validationError,
   },
 });
@@ -163,6 +157,7 @@ const getPlaylistRoute = createRoute({
   path: "/playlists/{playlist_id}",
   tags: ["playlists"],
   summary: "Get Playlist",
+  operationId: "get_playlist_playlists__playlist_id__get",
   description: "Detalle con canciones ordenadas (solo dueño o playlist pública).",
   middleware: [requireUser] as const,
   request: { params: playlistParams },
@@ -171,9 +166,6 @@ const getPlaylistRoute = createRoute({
       description: "Successful Response",
       content: { "application/json": { schema: PlaylistDetailSchema } },
     },
-    401: unauthorized,
-    403: forbidden,
-    404: notFound,
     422: validationError,
   },
 });
@@ -183,6 +175,7 @@ const createPlaylistRoute = createRoute({
   path: "/playlists",
   tags: ["playlists"],
   summary: "Create Playlist",
+  operationId: "create_playlist_playlists_post",
   middleware: [requireUser] as const,
   request: {
     body: {
@@ -195,7 +188,6 @@ const createPlaylistRoute = createRoute({
       description: "Successful Response",
       content: { "application/json": { schema: PlaylistDetailSchema } },
     },
-    401: unauthorized,
     422: validationError,
   },
 });
@@ -205,12 +197,8 @@ const updatePlaylistRoute = createRoute({
   path: "/playlists/{playlist_id}",
   tags: ["playlists"],
   summary: "Update Playlist",
-  description:
-    "Actualiza solo los campos presentes en el body.\n\n" +
-    "`description: null` y `cover_key: null` LIMPIAN el campo; " +
-    "`name: null` e `is_public: null` son un NO-OP (no borran ni fallan: " +
-    "ambas columnas son NOT NULL).",
-  middleware: [requireUser] as const,
+  operationId: "update_playlist_playlists__playlist_id__patch",
+    middleware: [requireUser] as const,
   request: {
     params: playlistParams,
     body: {
@@ -223,9 +211,6 @@ const updatePlaylistRoute = createRoute({
       description: "Successful Response",
       content: { "application/json": { schema: PlaylistDetailSchema } },
     },
-    401: unauthorized,
-    403: forbidden,
-    404: notFound,
     422: validationError,
   },
 });
@@ -235,13 +220,11 @@ const deletePlaylistRoute = createRoute({
   path: "/playlists/{playlist_id}",
   tags: ["playlists"],
   summary: "Delete Playlist",
+  operationId: "delete_playlist_playlists__playlist_id__delete",
   middleware: [requireUser] as const,
   request: { params: playlistParams },
   responses: {
     204: { description: "Successful Response" },
-    401: unauthorized,
-    403: forbidden,
-    404: notFound,
     422: validationError,
   },
 });
@@ -251,6 +234,7 @@ const addSongRoute = createRoute({
   path: "/playlists/{playlist_id}/songs",
   tags: ["playlists"],
   summary: "Add Song To Playlist",
+  operationId: "add_song_to_playlist_playlists__playlist_id__songs_post",
   middleware: [requireUser] as const,
   request: {
     params: playlistParams,
@@ -264,9 +248,6 @@ const addSongRoute = createRoute({
       description: "Successful Response",
       content: { "application/json": { schema: PlaylistDetailSchema } },
     },
-    401: unauthorized,
-    403: forbidden,
-    404: notFound,
     422: validationError,
   },
 });
@@ -276,6 +257,7 @@ const removeSongRoute = createRoute({
   path: "/playlists/{playlist_id}/songs/{song_id}",
   tags: ["playlists"],
   summary: "Remove Song From Playlist",
+  operationId: "remove_song_from_playlist_playlists__playlist_id__songs__song_id__delete",
   middleware: [requireUser] as const,
   request: { params: playlistSongParams },
   responses: {
@@ -283,9 +265,6 @@ const removeSongRoute = createRoute({
       description: "Successful Response",
       content: { "application/json": { schema: PlaylistDetailSchema } },
     },
-    401: unauthorized,
-    403: forbidden,
-    404: notFound,
     422: validationError,
   },
 });
@@ -295,19 +274,17 @@ const listMyPlaylistsRoute = createRoute({
   path: "/me/playlists",
   tags: ["playlists"],
   summary: "List My Playlists",
+  operationId: "list_my_playlists_me_playlists_get",
   description:
     'Playlists del usuario actual (para el menú "agregar a playlist").\n\n' +
-    "Incluye `song_ids` por playlist (orden por posición) para que el picker " +
-    'muestre "Ya está en esta playlist" sin traer las canciones completas. ' +
-    "Devuelve hasta 200 playlists (las más nuevas primero); el listado paginado " +
-    "está en `/me/playlists/page`.",
+    "Incluye `song_ids` por playlist (orden por posición) para que el picker\n" +
+    'muestre "Ya está en esta playlist" sin traer las canciones completas.',
   middleware: [requireUser] as const,
   responses: {
     200: {
       description: "Successful Response",
       content: { "application/json": { schema: z.array(MyPlaylistReadSchema) } },
     },
-    401: unauthorized,
   },
 });
 
@@ -316,10 +293,11 @@ const listMyPlaylistsPageRoute = createRoute({
   path: "/me/playlists/page",
   tags: ["playlists"],
   summary: "List My Playlists Paginated",
+  operationId: "list_my_playlists_paginated_me_playlists_page_get",
   description:
     "Versión paginada para el listado /playlists de la app (Ver más).\n\n" +
-    "`GET /me/playlists` (sin paginar) sigue trayendo TODAS las playlists del " +
-    "usuario porque el PlaylistPicker las necesita enteras (suele ser < 50); " +
+    "`GET /me/playlists` (sin paginar) sigue trayendo TODAS las playlists del\n" +
+    "usuario porque el PlaylistPicker las necesita enteras (suele ser < 50);\n" +
     "este endpoint solo lo usa el listado para acotar el primer render.",
   middleware: [requireUser] as const,
   request: { query: pageQuerySchema(20) },
@@ -328,7 +306,6 @@ const listMyPlaylistsPageRoute = createRoute({
       description: "Successful Response",
       content: { "application/json": { schema: PageMyPlaylistReadSchema } },
     },
-    401: unauthorized,
     422: validationError,
   },
 });
@@ -370,31 +347,9 @@ export function registerPlaylistRoutes(app: OpenAPIHono<AppEnv>): void {
     );
   });
 
-  app.openapi(listMyPlaylistsRoute, async (c) => {
-    const config = c.get("config");
-    const playlists = await listPlaylistsForUser(config, c.get("user"), false);
-    return c.json(
-      playlists.map((playlist) => toMyPlaylistDto(playlist, config)),
-      200,
-    );
-  });
-
-  app.openapi(listMyPlaylistsPageRoute, async (c) => {
-    const config = c.get("config");
-    const { offset, limit } = c.req.valid("query");
-    const page = await listPlaylistsForUserPage(config, c.get("user"), offset, limit);
-    return c.json(
-      paginate(
-        page.items.map((playlist) => toMyPlaylistDto(playlist, config)),
-        page.total,
-        offset,
-        limit,
-      ),
-      200,
-    );
-  });
-
   // --- Parametrizadas ---------------------------------------------------
+  // ORDEN = orden de registro del router Python: los paths se emiten en este
+  // orden en `generated.ts` (gate de tipos). `/me/playlists` va al final.
   app.openapi(listPlaylistsRoute, async (c) => {
     const config = c.get("config");
     const { mine } = c.req.valid("query");
@@ -468,5 +423,30 @@ export function registerPlaylistRoutes(app: OpenAPIHono<AppEnv>): void {
       song_id,
     );
     return c.json(toDetailDto(detail, config), 200);
+  });
+
+  // --- `/me/playlists` (después de /playlists, como en el router Python) ---
+  app.openapi(listMyPlaylistsRoute, async (c) => {
+    const config = c.get("config");
+    const playlists = await listPlaylistsForUser(config, c.get("user"), false);
+    return c.json(
+      playlists.map((playlist) => toMyPlaylistDto(playlist, config)),
+      200,
+    );
+  });
+
+  app.openapi(listMyPlaylistsPageRoute, async (c) => {
+    const config = c.get("config");
+    const { offset, limit } = c.req.valid("query");
+    const page = await listPlaylistsForUserPage(config, c.get("user"), offset, limit);
+    return c.json(
+      paginate(
+        page.items.map((playlist) => toMyPlaylistDto(playlist, config)),
+        page.total,
+        offset,
+        limit,
+      ),
+      200,
+    );
   });
 }

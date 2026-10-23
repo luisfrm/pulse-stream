@@ -8,6 +8,10 @@
  *   POST   /songs          -> solo admin (201)
  *   PATCH  /songs/{id}     -> solo admin
  *   DELETE /songs/{id}     -> solo admin (204)
+ *
+ * PARIDAD DE CONTRATO: `responses` = éxito + 422 (como Python) y los query
+ * params opcionales son nullable (`str | None = Query(None)`), para que
+ * `pnpm gen:types:worker` no cambie `generated.ts`.
  */
 
 import { createRoute, z, type OpenAPIHono } from "@hono/zod-openapi";
@@ -24,6 +28,8 @@ import {
   SongUpdateSchema,
   SongWithPlaysSchema,
   UuidSchema,
+  queryBool,
+  queryInt,
 } from "@/schemas";
 import {
   createSongRecord,
@@ -39,34 +45,35 @@ const validationError = {
   content: { "application/json": { schema: HTTPValidationErrorSchema } },
 };
 
-const unauthorized = { description: "Missing token or inactive user." };
-const forbidden = { description: "Requiere permisos de administrador" };
-const notFound = { description: "Canción no encontrada" };
-
 const listQuery = pageQuerySchema().extend({
-  q: z.string().max(255).optional().openapi({
+  q: z.string().max(255).nullable().optional().openapi({
     description: "Búsqueda por título",
   }),
-  artist_id: UuidSchema.optional().openapi({ description: "Filtrar por artista" }),
-  collaborator_id: UuidSchema.optional().openapi({
+  artist_id: UuidSchema.nullable().optional().openapi({
+    description: "Filtrar por artista",
+  }),
+  collaborator_id: UuidSchema.nullable().optional().openapi({
     description: "Filtrar por artista colaborador (no principal)",
   }),
-  album_id: UuidSchema.optional().openapi({
+  album_id: UuidSchema.nullable().optional().openapi({
     // Mismo texto que el router Python (incluido el "en orden de posición").
     description: "Filtrar por álbum (en orden de posición)",
   }),
-  playlist_id: UuidSchema.optional().openapi({
+  playlist_id: UuidSchema.nullable().optional().openapi({
     description: "Filtrar por playlist (en orden de posición)",
   }),
 });
 
-/** `bool` de FastAPI: acepta true/false/1/0/yes/no/on/off (case-insensitive). */
 const popularQuery = z.object({
-  limit: z.coerce.number().int().min(1).max(50).default(10),
-  days: z.coerce.number().int().min(1).max(365).default(30).openapi({
+  limit: queryInt({ min: 1, max: 50, default: 10 }),
+  days: queryInt({
+    min: 1,
+    max: 365,
+    default: 30,
     description: "Ventana móvil en días",
   }),
-  month: z.stringbool().default(false).openapi({
+  month: queryBool({
+    default: false,
     description: "Usar el mes calendario actual (UTC) en vez de `days`",
   }),
 });
@@ -78,6 +85,7 @@ const listSongsRoute = createRoute({
   path: "/songs",
   tags: ["songs"],
   summary: "List Songs",
+  operationId: "list_songs_songs_get",
   request: { query: listQuery },
   responses: {
     200: {
@@ -93,7 +101,9 @@ const popularSongsRoute = createRoute({
   path: "/songs/popular",
   tags: ["songs"],
   summary: "Popular Songs",
-  description: "Top canciones por reproducciones en una ventana (días o mes actual).",
+  operationId: "popular_songs_songs_popular_get",
+  description:
+    "Top canciones por reproducciones en una ventana (días o mes actual).",
   request: { query: popularQuery },
   responses: {
     200: {
@@ -111,13 +121,13 @@ const getSongRoute = createRoute({
   path: "/songs/{song_id}",
   tags: ["songs"],
   summary: "Get Song",
+  operationId: "get_song_songs__song_id__get",
   request: { params: songParams },
   responses: {
     200: {
       description: "Successful Response",
       content: { "application/json": { schema: SongReadSchema } },
     },
-    404: notFound,
     422: validationError,
   },
 });
@@ -127,6 +137,7 @@ const createSongRoute = createRoute({
   path: "/songs",
   tags: ["songs"],
   summary: "Create Song",
+  operationId: "create_song_songs_post",
   middleware: [requireAdmin] as const,
   request: {
     body: {
@@ -139,9 +150,6 @@ const createSongRoute = createRoute({
       description: "Successful Response",
       content: { "application/json": { schema: SongReadSchema } },
     },
-    401: unauthorized,
-    403: forbidden,
-    404: notFound,
     422: validationError,
   },
 });
@@ -151,6 +159,7 @@ const updateSongRoute = createRoute({
   path: "/songs/{song_id}",
   tags: ["songs"],
   summary: "Update Song",
+  operationId: "update_song_songs__song_id__patch",
   middleware: [requireAdmin] as const,
   request: {
     params: songParams,
@@ -164,10 +173,6 @@ const updateSongRoute = createRoute({
       description: "Successful Response",
       content: { "application/json": { schema: SongReadSchema } },
     },
-    400: { description: "La canción requiere un álbum" },
-    401: unauthorized,
-    403: forbidden,
-    404: notFound,
     422: validationError,
   },
 });
@@ -177,13 +182,11 @@ const deleteSongRoute = createRoute({
   path: "/songs/{song_id}",
   tags: ["songs"],
   summary: "Delete Song",
+  operationId: "delete_song_songs__song_id__delete",
   middleware: [requireAdmin] as const,
   request: { params: songParams },
   responses: {
     204: { description: "Successful Response" },
-    401: unauthorized,
-    403: forbidden,
-    404: notFound,
     422: validationError,
   },
 });

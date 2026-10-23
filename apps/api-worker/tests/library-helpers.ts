@@ -46,7 +46,7 @@ export async function addSongToPlaylist(
   return (await response.json()) as PlaylistDetail;
 }
 
-/** Fila de `listens` directa (el endpoint de F7 todavía no existe). */
+/** Fila de `listens` directa (conteos exactos, sin dedupe de 30 s). */
 export async function insertListen(
   userId: string,
   songId: string,

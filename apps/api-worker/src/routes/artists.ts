@@ -6,6 +6,12 @@
  *   POST   /artists          -> solo admin (201)
  *   PATCH  /artists/{id}     -> solo admin
  *   DELETE /artists/{id}     -> solo admin (204, cascada en DB)
+ *
+ * PARIDAD DE CONTRATO: los `responses` declarados son EXACTAMENTE los del
+ * OpenAPI de Python (éxito + 422), porque `openapi-typescript` los emite y
+ * `pnpm gen:types:worker` tiene que dejar `generated.ts` idéntico. Los 401/403/
+ * 404/409 existen en runtime (los lanza `middleware/auth` o el service) pero no
+ * se documentan, igual que en FastAPI.
  */
 
 import { createRoute, z, type OpenAPIHono } from "@hono/zod-openapi";
@@ -35,12 +41,8 @@ const validationError = {
   content: { "application/json": { schema: HTTPValidationErrorSchema } },
 };
 
-const unauthorized = { description: "Missing token or inactive user." };
-const forbidden = { description: "Requiere permisos de administrador" };
-const notFound = { description: "Artista no encontrado" };
-
 const listQuery = pageQuerySchema().extend({
-  q: z.string().max(255).optional().openapi({
+  q: z.string().max(255).nullable().optional().openapi({
     description: "Búsqueda por nombre",
   }),
 });
@@ -52,6 +54,7 @@ const listArtistsRoute = createRoute({
   path: "/artists",
   tags: ["artists"],
   summary: "List Artists",
+  operationId: "list_artists_artists_get",
   request: { query: listQuery },
   responses: {
     200: {
@@ -67,13 +70,13 @@ const getArtistRoute = createRoute({
   path: "/artists/{artist_id}",
   tags: ["artists"],
   summary: "Get Artist",
+  operationId: "get_artist_artists__artist_id__get",
   request: { params: artistParams },
   responses: {
     200: {
       description: "Successful Response",
       content: { "application/json": { schema: ArtistReadSchema } },
     },
-    404: notFound,
     422: validationError,
   },
 });
@@ -83,6 +86,7 @@ const createArtistRoute = createRoute({
   path: "/artists",
   tags: ["artists"],
   summary: "Create Artist",
+  operationId: "create_artist_artists_post",
   middleware: [requireAdmin] as const,
   request: {
     body: {
@@ -95,9 +99,6 @@ const createArtistRoute = createRoute({
       description: "Successful Response",
       content: { "application/json": { schema: ArtistReadSchema } },
     },
-    401: unauthorized,
-    403: forbidden,
-    409: { description: "Ya existe un artista con ese nombre" },
     422: validationError,
   },
 });
@@ -107,6 +108,7 @@ const updateArtistRoute = createRoute({
   path: "/artists/{artist_id}",
   tags: ["artists"],
   summary: "Update Artist",
+  operationId: "update_artist_artists__artist_id__patch",
   middleware: [requireAdmin] as const,
   request: {
     params: artistParams,
@@ -120,10 +122,6 @@ const updateArtistRoute = createRoute({
       description: "Successful Response",
       content: { "application/json": { schema: ArtistReadSchema } },
     },
-    401: unauthorized,
-    403: forbidden,
-    404: notFound,
-    409: { description: "Ya existe un artista con ese nombre" },
     422: validationError,
   },
 });
@@ -133,13 +131,11 @@ const deleteArtistRoute = createRoute({
   path: "/artists/{artist_id}",
   tags: ["artists"],
   summary: "Delete Artist",
+  operationId: "delete_artist_artists__artist_id__delete",
   middleware: [requireAdmin] as const,
   request: { params: artistParams },
   responses: {
     204: { description: "Successful Response" },
-    401: unauthorized,
-    403: forbidden,
-    404: notFound,
     422: validationError,
   },
 });

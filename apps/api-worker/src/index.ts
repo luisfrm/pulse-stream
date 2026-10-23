@@ -20,7 +20,12 @@ import type { UserRow } from "@/db/schema";
 import type { AppDeps } from "@/deps";
 import { AppError, CodedAppError, isAppError } from "@/lib/errors";
 import { isAllowedOrigin } from "@/lib/cors";
-import { OPENAPI_VERSION, openApiInfo, registerOpenApiComponents } from "@/lib/openapi";
+import {
+  OPENAPI_VERSION,
+  applyPydanticTitles,
+  openApiInfo,
+  registerOpenApiComponents,
+} from "@/lib/openapi";
 import { fastApiValidationHook, toFastApiValidationError } from "@/lib/validate";
 import { requireTrustedOrigin } from "@/middleware/origin";
 import { registerAdminUserRoutes } from "@/routes/admin-users";
@@ -72,6 +77,8 @@ const healthRoute = createRoute({
   method: "get",
   path: "/health",
   tags: ["health"],
+  summary: "Health",
+  operationId: "health_health_get",
   responses: {
     200: {
       description: "Successful Response",
@@ -103,8 +110,7 @@ function docsHtml(openApiUrl: string): string {
  * OpenAPI. El registry de `@hono/zod-openapi` es estático (se arma al crear la
  * app) y `SESSION_COOKIE_NAME` es por request, así que se ajusta acá.
  */
-function applySessionCookieName(document: unknown, name: string): void {
-  if (typeof document !== "object" || document === null) return;
+function applySessionCookieName(document: unknown, name: string): void {  if (typeof document !== "object" || document === null) return;
   if (!("components" in document)) return;
   const components: unknown = document.components;
   if (typeof components !== "object" || components === null) return;
@@ -116,6 +122,30 @@ function applySessionCookieName(document: unknown, name: string): void {
   if (typeof scheme !== "object" || scheme === null) return;
 
   (scheme as { name?: string }).name = name;
+}
+
+/**
+ * Ordena `components.schemas` alfabéticamente.
+ *
+ * Pydantic/FastAPI emite los componentes ordenados por nombre; el registry de
+ * `@hono/zod-openapi` los deja en orden de registro/dependencias y
+ * `openapi-typescript` vuelca el documento tal cual, así que sin esto el
+ * `generated.ts` sale distinto aunque las definiciones sean idénticas.
+ */
+function sortComponentSchemas(document: unknown): void {
+  if (typeof document !== "object" || document === null) return;
+  if (!("components" in document)) return;
+  const components = (document as { components?: unknown }).components;
+  if (typeof components !== "object" || components === null) return;
+  if (!("schemas" in components)) return;
+  const schemas = (components as { schemas?: unknown }).schemas;
+  if (typeof schemas !== "object" || schemas === null) return;
+
+  const sorted: Record<string, unknown> = {};
+  for (const key of Object.keys(schemas).sort()) {
+    sorted[key] = (schemas as Record<string, unknown>)[key];
+  }
+  (components as { schemas: Record<string, unknown> }).schemas = sorted;
 }
 
 export function createApp(deps: AppDeps = {}) {
@@ -158,8 +188,6 @@ export function createApp(deps: AppDeps = {}) {
   // No aplica a GET/HEAD/OPTIONS ni a requests sin `Origin` (curl/SSR/tests).
   app.use("*", requireTrustedOrigin);
 
-  app.openapi(healthRoute, (c) => c.json({ status: "ok" }, 200));
-
   // F3: auth + usuarios. Los routers se montan acá para que `/openapi.json`
   // los incluya en el mismo documento.
   registerAuthRoutes(app);
@@ -184,6 +212,10 @@ export function createApp(deps: AppDeps = {}) {
   // F7: historial de reproducciones (`POST /me/listens` + `/me/recently-played`).
   registerListenRoutes(app);
 
+  // `/health` va AL FINAL: FastAPI lo declara después de los routers y el orden
+  // de los paths se preserva en `generated.ts` (gate de tipos).
+  app.openapi(healthRoute, (c) => c.json({ status: "ok" }, 200));
+
   // /openapi.json y /docs existen solo en local (igual que `docs_url` en la
   // API Python); fuera de local caen al 404 JSON del `notFound`.
   app.get("/openapi.json", (c) => {
@@ -199,6 +231,8 @@ export function createApp(deps: AppDeps = {}) {
     // El nombre de la cookie de sesión sale de `SESSION_COOKIE_NAME`, no de
     // una constante: el registry es estático y el env es por request.
     applySessionCookieName(document, config.cookie.name);
+    applyPydanticTitles(document);
+    sortComponentSchemas(document);
     return c.json(document);
   });
 

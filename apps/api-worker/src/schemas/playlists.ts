@@ -7,7 +7,7 @@ import { z } from "@hono/zod-openapi";
 import { DateTimeSchema, IntSchema, UuidSchema, nullableRef, optionalCoverKeySchema } from "./common";
 import { SongReadSchema } from "./songs";
 
-export const PlaylistKindEnum = z.enum(["user", "system"]).openapi("PlaylistKind");
+export const PlaylistKindEnum = z.enum(["user", "system"]).openapi("PlaylistKind").openapi({ description: "Tipo de playlist (columna VARCHAR plana — regla de enums en Pydantic)." });
 
 /**
  * `kind` con el default de Pydantic (`kind = "user"`).
@@ -22,7 +22,7 @@ const playlistKindWithDefault = () =>
 
 export const PlaylistSystemQueryEnum = z
   .enum(["top_week", "top_month", "new"])
-  .openapi("PlaylistSystemQuery");
+  .openapi("PlaylistSystemQuery").openapi({ description: "Fuente de datos de una playlist del sistema (se genera desde el panel)." });
 
 export const PlaylistCreateSchema = z
   .object({
@@ -39,7 +39,7 @@ export const PlaylistSystemCreateSchema = z
     description: z.string().nullable().optional(),
     query: PlaylistSystemQueryEnum,
   })
-  .openapi("PlaylistSystemCreate");
+  .openapi("PlaylistSystemCreate").openapi({ description: "Creación de una playlist del sistema (admin only).\n\nLa playlist se genera como snapshot de una query: top de la semana,\ntop del mes o canciones recién agregadas." });
 
 export const PlaylistUpdateSchema = z
   .object({
@@ -85,7 +85,7 @@ export const PlaylistDetailSchema = z
     ...playlistReadShape(),
     songs: z.array(SongReadSchema).optional(),
   })
-  .openapi("PlaylistDetail");
+  .openapi("PlaylistDetail").openapi({ description: "Playlist con sus canciones (estilo Spotify: lista ordenada)." });
 
 /** Playlist del usuario para el PlaylistPicker (GET /me/playlists). */
 export const MyPlaylistReadSchema = z
@@ -93,7 +93,7 @@ export const MyPlaylistReadSchema = z
     ...playlistReadShape(),
     song_ids: z.array(UuidSchema).optional(),
   })
-  .openapi("MyPlaylistRead");
+  .openapi("MyPlaylistRead").openapi({ description: "Playlist del usuario para el PlaylistPicker (GET /me/playlists).\n\nExpone `song_ids` —ordenados por posición— para que el frontend muestre\n\"Ya está en esta playlist\" sin traer las canciones completas. Schema\nexclusivo de /me/playlists: NO reemplaza a `PlaylistRead`." });
 
 export type PlaylistKind = z.infer<typeof PlaylistKindEnum>;
 export type PlaylistSystemQuery = z.infer<typeof PlaylistSystemQueryEnum>;

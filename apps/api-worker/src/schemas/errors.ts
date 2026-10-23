@@ -22,7 +22,9 @@ export const ErrorModelSchema = z
  * Un issue de validación.
  *
  * `input` es `Any` en Pydantic (sin `type`), así que se documenta como `{}`.
- * `ctx` es un objeto sin propiedades declaradas.
+ * `ctx` es un objeto sin propiedades declaradas (`Record<string, never>` en TS):
+ * el `.openapi({ type: "object" })` fuerza el `{}` de Pydantic (sin
+ * `additionalProperties`).
  */
 export const ValidationErrorSchema = z
   .object({
@@ -30,7 +32,7 @@ export const ValidationErrorSchema = z
     msg: z.string(),
     type: z.string(),
     input: z.any().optional(),
-    ctx: z.record(z.string(), z.any()).optional(),
+    ctx: z.record(z.string(), z.any()).optional().openapi({ type: "object" }),
   })
   .openapi("ValidationError");
 

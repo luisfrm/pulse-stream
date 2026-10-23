@@ -94,6 +94,15 @@ describe("toPydanticDateTime", () => {
       "2026-10-22T12:34:56.001000Z",
     );
   });
+
+  it("trunca los microsegundos 4..6 (Date de JS solo guarda ms)", () => {
+    // Postgres puede devolver `.789123`, pero el driver construye un `Date` de
+    // milisegundos: el contrato de 6 dígitos se mantiene y la precisión fina
+    // se pierde (documentado en `toPydanticDateTime`).
+    const fromPostgres = new Date("2026-10-22T12:34:56.789123Z");
+    expect(fromPostgres.getMilliseconds()).toBe(789);
+    expect(toPydanticDateTime(fromPostgres)).toBe("2026-10-22T12:34:56.789000Z");
+  });
 });
 
 describe("publicUrl", () => {

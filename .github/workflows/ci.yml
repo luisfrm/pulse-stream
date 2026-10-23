@@ -24,8 +24,8 @@ jobs:
 
       - name: Run tests
         env:
-          # Opcional: una branch efímera de Neon (plan sección 7). Sin ella,
-          # los tests de integración se saltan con un mensaje claro.
+          # Opcional: una branch efímera de Neon (plan sección 7). Sin ella, los
+          # tests de integración se saltan con un mensaje claro.
           TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
         run: uv run pytest
 
@@ -57,7 +57,7 @@ jobs:
         run: pnpm --filter @pulse-stream/web build
 
   api-worker:
-    name: API Worker (tsc + vitest)
+    name: API Worker (typecheck + vitest + dry-run build)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -74,11 +74,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Sin DB: los tests del worker son unitarios (contrato OpenAPI,
-      # serializadores, CORS, validación). Las migraciones se aplican a mano.
       - name: Typecheck
         run: pnpm --filter @pulse-stream/api-worker typecheck
 
+      # Los tests incluyen las suites de integración (F3..F7): sin DB se
+      # saltean y el job quedaría verde sin probar nada. El guard
+      # `tests/ci-guard.test.ts` falla si CI=true y falta la variable.
       - name: Test
+        env:
+          TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+          CI: "true"
         run: pnpm --filter @pulse-stream/api-worker test
 
+      - name: Build (wrangler deploy --dry-run)
+        run: pnpm --filter @pulse-stream/api-worker build
