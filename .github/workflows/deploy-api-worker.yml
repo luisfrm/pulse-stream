@@ -93,9 +93,14 @@ jobs:
           rm -f secrets.json
 
       # `/health` valida el fail-fast de config (ENV=prod exige todos los
-      # secretos) y `/artists` valida la conexión a Neon.
+      # secretos) y `/artists` valida la conexión a Neon. En el primer deploy el
+      # certificado del custom domain puede tardar: se reintenta ~2 min.
       - name: Smoke
         run: |
-          curl -fsS --retry 5 --retry-delay 3 https://pulse-stream-api.luisrivas.site/health
-          curl -fsS --retry 5 --retry-delay 3 https://pulse-stream-api.luisrivas.site/genres > /dev/null
-          curl -fsS --retry 5 --retry-delay 3 "https://pulse-stream-api.luisrivas.site/artists?limit=1" > /dev/null
+          for url in \
+            "https://pulse-stream-api.luisrivas.site/health" \
+            "https://pulse-stream-api.luisrivas.site/genres" \
+            "https://pulse-stream-api.luisrivas.site/artists?limit=1"; do
+            curl -fsS --retry 12 --retry-delay 10 --retry-all-errors --retry-max-time 150 "$url" > /dev/null
+          done
+          echo "Smoke OK"
