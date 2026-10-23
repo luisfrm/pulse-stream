@@ -28,6 +28,8 @@ import { registerAlbumRoutes } from "@/routes/albums";
 import { registerArtistRoutes } from "@/routes/artists";
 import { registerAuthRoutes } from "@/routes/auth";
 import { registerGenreRoutes } from "@/routes/genres";
+import { registerFavoriteRoutes } from "@/routes/favorites";
+import { registerPlaylistRoutes } from "@/routes/playlists";
 import { registerSongRoutes } from "@/routes/songs";
 import { registerUploadRoutes } from "@/routes/uploads";
 import { registerUserRoutes } from "@/routes/users";
@@ -172,6 +174,11 @@ export function createApp(deps: AppDeps = {}) {
 
   // F5: uploads (presign de audio/covers + import por ZIP de un álbum).
   registerUploadRoutes(app, deps);
+
+  // F6: playlists (usuario + system) y biblioteca (favoritos de canciones,
+  // playlists y álbumes). Mismo orden que `include_router` en main.py.
+  registerPlaylistRoutes(app);
+  registerFavoriteRoutes(app);
 
   // /openapi.json y /docs existen solo en local (igual que `docs_url` en la
   // API Python); fuera de local caen al 404 JSON del `notFound`.

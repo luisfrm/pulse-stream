@@ -89,6 +89,8 @@ export interface TestClient {
   clearCookies(): void;
   request(path: string, init?: RequestInit): Promise<Response>;
   get(path: string): Promise<Response>;
+  /** `POST` sin body (endpoints de acción, ej. refresh). */
+  post(path: string): Promise<Response>;
   del(path: string): Promise<Response>;
   postJson(path: string, body: unknown): Promise<Response>;
   patchJson(path: string, body: unknown): Promise<Response>;
@@ -146,6 +148,7 @@ export function createClient(
     clearCookies: () => cookies.clear(),
     request,
     get: (path) => request(path, { method: "GET" }),
+    post: (path) => request(path, { method: "POST" }),
     del: (path) => request(path, { method: "DELETE" }),
     postJson: (path, body) =>
       request(path, {

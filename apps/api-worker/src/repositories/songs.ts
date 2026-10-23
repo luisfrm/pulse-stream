@@ -12,16 +12,16 @@
  * pero un batch viaja como una sola transacción al servidor.
  */
 
-import { and, asc, count, desc, eq, gte, inArray, ne, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, ne, sql } from "drizzle-orm";
 
 import { createDb } from "@/db/client";
 import {
   albums,
   artists,
-  listens,
   playlistSongs,
   songCollaborators,
   songs,
+  userFavorites,
   type AlbumRow,
   type ArtistRow,
   type NewSongRow,
@@ -55,12 +55,6 @@ export interface SongFilters {
   collaboratorId?: string | null;
   albumId?: string | null;
   playlistId?: string | null;
-}
-
-/** Par (canción, plays) del ranking de reproducciones. */
-export interface SongPlayRanking {
-  songId: string;
-  plays: number;
 }
 
 function songConditions(filters: SongFilters) {
@@ -268,23 +262,60 @@ export async function findSongsByAlbumId(
 }
 
 /**
- * Ranking de reproducciones en una ventana: `count(*)` por canción, orden
- * `plays desc, song_id asc`. `since = null` = sin ventana.
+ * Canciones de una playlist en orden de posición (detalle).
+ *
+ * Desempate por `id` para que dos posiciones iguales (dato legacy) no salgan en
+ * orden arbitrario; el camino normal ya lo garantiza la posición 0..n-1.
  */
-export async function topSongIds(
+export async function findSongsByPlaylistId(
   config: AppConfig,
-  since: Date | null,
-  limit: number,
-): Promise<SongPlayRanking[]> {
+  playlistId: string,
+): Promise<SongWithRelations[]> {
   const rows = await createDb(config)
-    .select({ songId: listens.songId, plays: count(listens.id) })
-    .from(listens)
-    .where(since ? gte(listens.playedAt, since) : undefined)
-    .groupBy(listens.songId)
-    .orderBy(desc(count(listens.id)), asc(listens.songId))
+    .select({ song: songs, artist: artists })
+    .from(playlistSongs)
+    .innerJoin(songs, eq(playlistSongs.songId, songs.id))
+    .innerJoin(artists, eq(songs.artistId, artists.id))
+    .where(eq(playlistSongs.playlistId, playlistId))
+    .orderBy(asc(playlistSongs.position), asc(songs.id));
+
+  return loadSongRelations(config, rows);
+}
+
+/**
+ * Canciones favoritas del usuario, ordenadas por fecha del like (más recientes
+ * primero) — `GET /me/favorites`.
+ */
+export async function findSongsFavoritedByUser(
+  config: AppConfig,
+  userId: string,
+  offset: number,
+  limit: number,
+): Promise<SongWithRelations[]> {
+  const rows = await createDb(config)
+    .select({ song: songs, artist: artists })
+    .from(userFavorites)
+    .innerJoin(songs, eq(userFavorites.songId, songs.id))
+    .innerJoin(artists, eq(songs.artistId, artists.id))
+    .where(eq(userFavorites.userId, userId))
+    .orderBy(desc(userFavorites.createdAt), asc(songs.id))
+    .offset(offset)
     .limit(limit);
 
-  return rows.map(({ songId, plays }) => ({ songId, plays }));
+  return loadSongRelations(config, rows);
+}
+
+/** IDs de las canciones más nuevas (snapshot `new` de playlists system). */
+export async function listNewestSongIds(
+  config: AppConfig,
+  limit: number,
+): Promise<string[]> {
+  const rows = await createDb(config)
+    .select({ id: songs.id })
+    .from(songs)
+    .orderBy(desc(songs.createdAt), asc(songs.id))
+    .limit(limit);
+  return rows.map((row) => row.id);
 }
 
 /** `true` si la canción existe (sin traer relaciones): chequeo de PATCH/DELETE. */

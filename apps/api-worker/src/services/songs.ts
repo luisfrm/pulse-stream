@@ -11,6 +11,7 @@
  */
 
 import type { AppConfig } from "@/env";
+import { startOfUtcMonth } from "@/lib/datetime";
 import {
   AlbumNotFoundError,
   AlbumRequiredError,
@@ -25,6 +26,7 @@ import {
   findArtistByName,
 } from "@/repositories/artists";
 import { findAlbumById } from "@/repositories/albums";
+import { topSongIds } from "@/repositories/listens";
 import {
   countSongs,
   createSongWithCollaborators,
@@ -34,7 +36,6 @@ import {
   listSongs,
   setSongCollaborators,
   songExists,
-  topSongIds,
   updateSong,
   type SongFilters,
   type SongPatch,
@@ -261,11 +262,6 @@ export async function deleteSongRecord(
   await deleteSong(config, songId);
 }
 
-/** Inicio del mes calendario actual en UTC (ventana de `month=true`). */
-function startOfUtcMonth(now: Date): Date {
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-}
-
 /**
  * `GET /songs/popular`: ranking por `listens` en la ventana pedida.
  * `play_count` de cada item es el count de la VENTANA, no `songs.play_count`.
@@ -279,7 +275,7 @@ export async function listPopularSongs(
     ? startOfUtcMonth(now)
     : new Date(now.getTime() - options.days * 24 * 60 * 60 * 1000);
 
-  const ranking = await topSongIds(config, since, options.limit);
+  const ranking = await topSongIds(config, { since, limit: options.limit });
   const songs = await findSongsByIds(
     config,
     ranking.map(({ songId }) => songId),
