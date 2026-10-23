@@ -37,10 +37,17 @@ export interface Bindings {
   COOKIE_DOMAIN?: string;
   COOKIE_SAMESITE?: string;
   SESSION_COOKIE_NAME?: string;
+  /** Resend: envío del mail de reset de contraseña (secret en deploy). */
+  RESEND_API_KEY?: string;
+  /** Remitente verificado en Resend (`Pulse Stream <no-reply@dominio>`). */
+  EMAIL_FROM?: string;
+  /** Origin del web: arma el link `/reset-password?token=...` del mail. */
+  WEB_APP_URL?: string;
   /** Ventanas de rate limiting (formato de slowapi: "5/minute"). */
   RATE_LIMIT_LOGIN?: string;
   RATE_LIMIT_REGISTER?: string;
   RATE_LIMIT_PRESIGN?: string;
+  RATE_LIMIT_FORGOT_PASSWORD?: string;
   /**
    * Apaga el rate limiting SOLO fuera de prod (tests). En prod se ignora:
    * un flag de entorno no puede desactivar una defensa en producción.
@@ -60,6 +67,9 @@ export const DEFAULT_RATE_LIMITS = {
   login: "5/minute",
   register: "3/hour",
   presign: "10/minute",
+  // Más laxo: un usuario que no recuerda su password puede reintentar; el
+  // link igual invalida el anterior. Frena el abuso del envío de mails.
+  forgotPassword: "5/hour",
 } as const;
 
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7; // 7 días
@@ -100,10 +110,24 @@ export interface AppConfig {
   /** `undefined` si el binding no está: validar con `requireDatabaseUrl`. */
   databaseUrl: string | undefined;
   corsOriginRegex: string;
+  /**
+   * Envío de emails (reset de contraseña) por Resend REST.
+   *
+   * `resendApiKey`/`from` pueden faltar en local: `sendEmail` lo loguea y no
+   * rompe (el link se loguea en desarrollo). En prod son obligatorios
+   * (`assertProdConfig`).
+   */
+  email: {
+    resendApiKey: string | undefined;
+    from: string | undefined;
+    /** Origin del web que recibe el link del mail (nunca el del browser). */
+    webAppUrl: string;
+  };
   rateLimits: {
     login: string;
     register: string;
     presign: string;
+    forgotPassword: string;
   };
   /** `true` solo fuera de prod (tests): apaga slowapi y better-auth. */
   rateLimitDisabled: boolean;
@@ -183,6 +207,12 @@ export function assertProdConfig(environment: Environment, env: Bindings): void 
     if (!optional(env[key])) missing.push(key);
   }
 
+  // Sin estas, el mail de reset se saltearía o apuntaría a localhost: el
+  // usuario pediría el link y nunca lo recibiría.
+  for (const key of ["RESEND_API_KEY", "EMAIL_FROM", "WEB_APP_URL"] as const) {
+    if (!optional(env[key])) missing.push(key);
+  }
+
   if (missing.length > 0) {
     throw new Error(
       "Configuración de producción incompleta: faltan o son inválidas " +
@@ -222,10 +252,18 @@ export function createConfig(env: Bindings): AppConfig {
     authSecret: optional(env.AUTH_SECRET),
     databaseUrl: optional(env.DATABASE_URL),
     corsOriginRegex,
+    email: {
+      resendApiKey: optional(env.RESEND_API_KEY),
+      from: optional(env.EMAIL_FROM),
+      webAppUrl: optional(env.WEB_APP_URL) ?? "http://localhost:3000",
+    },
     rateLimits: {
       login: optional(env.RATE_LIMIT_LOGIN) ?? DEFAULT_RATE_LIMITS.login,
       register: optional(env.RATE_LIMIT_REGISTER) ?? DEFAULT_RATE_LIMITS.register,
       presign: optional(env.RATE_LIMIT_PRESIGN) ?? DEFAULT_RATE_LIMITS.presign,
+      forgotPassword:
+        optional(env.RATE_LIMIT_FORGOT_PASSWORD) ??
+        DEFAULT_RATE_LIMITS.forgotPassword,
     },
     // En prod SIEMPRE false: el flag existe solo para tests.
     rateLimitDisabled: environment !== "prod" && env.RATE_LIMIT_DISABLED === "true",

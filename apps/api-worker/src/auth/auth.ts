@@ -19,6 +19,11 @@
  * `/internal/auth` no está montado). Los endpoints públicos viven en
  * `src/routes/auth.ts` y llaman a `auth.api.*` en el server, así el contrato
  * de respuestas/cookies queda idéntico al de FastAPI.
+ *
+ * Reset de contraseña: better-auth genera el token (1 h, un solo uso) y el
+ * mail sale por Resend (`lib/email.ts`). El adapter de Drizzle se envuelve
+ * para NO exponer `consumeOne`/`incrementOne` (usan `db.transaction()`, que
+ * el driver HTTP de Neon no soporta).
  */
 
 import { betterAuth } from "better-auth";
@@ -28,6 +33,12 @@ import { username } from "better-auth/plugins";
 import { createDb } from "@/db/client";
 import * as schema from "@/db/schema";
 import { requireAuthSecret, requireDatabaseUrl, type AppConfig } from "@/env";
+import {
+  buildPasswordResetUrl,
+  PASSWORD_RESET_TOKEN_TTL_MINUTES,
+  renderPasswordResetEmail,
+  sendEmail,
+} from "@/lib/email";
 import { USERNAME_REGEX } from "@/schemas/common";
 
 export type Auth = ReturnType<typeof createAuth>;
@@ -47,25 +58,41 @@ function createAuth(config: AppConfig) {
   const secret = requireAuthSecret(config);
   const db = createDb(config);
 
+  // better-auth resuelve `schema[modelName]`: con `user.modelName =
+  // "users"` la clave real es `users`. Se mantiene `user` además para
+  // que el adapter encuentre el modelo si cambia la resolución interna.
+  const baseAdapter = drizzleAdapter(db, {
+    provider: "pg",
+    schema: {
+      user: schema.users,
+      users: schema.users,
+      session: schema.session,
+      account: schema.account,
+      verification: schema.verification,
+      rateLimit: schema.rateLimit,
+    },
+  });
+
+  /**
+   * Neon HTTP no soporta transacciones interactivas: `db.transaction()` lanza
+   * "No transactions support in neon-http driver". El adapter de Drizzle usa
+   * `db.transaction()` en `consumeOne`/`incrementOne`; sin esos métodos
+   * better-auth usa su fallback atómico (una sola sentencia condicional).
+   */
+  function database(options: Parameters<typeof baseAdapter>[0]) {
+    const adapter = baseAdapter(options);
+    const withoutTransactions = { ...adapter } as Record<string, unknown>;
+    delete withoutTransactions.consumeOne;
+    delete withoutTransactions.incrementOne;
+    return withoutTransactions as unknown as typeof adapter;
+  }
+
   return betterAuth({
     secret,
     // No hay router HTTP montado: `baseURL` solo se usa para URLs internas.
     baseURL: config.apiUrl,
     basePath: "/internal/auth",
-    database: drizzleAdapter(db, {
-      provider: "pg",
-      // better-auth resuelve `schema[modelName]`: con `user.modelName =
-      // "users"` la clave real es `users`. Se mantiene `user` además para
-      // que el adapter encuentre el modelo si cambia la resolución interna.
-      schema: {
-        user: schema.users,
-        users: schema.users,
-        session: schema.session,
-        account: schema.account,
-        verification: schema.verification,
-        rateLimit: schema.rateLimit,
-      },
-    }),
+    database,
     advanced: {
       database: {
         // `users.id` es uuid: los ids `text` de better-auth romperían la FK.
@@ -136,16 +163,31 @@ function createAuth(config: AppConfig) {
       enabled: true,
       minPasswordLength: 8,
       requireEmailVerification: false,
-      sendResetPassword: async ({ user }) => {
-        // Log-only: el envío real de emails no está implementado (igual que
-        // el `on_after_forgot_password` no-op de Python).
-        // NUNCA loguear `url`: contiene el token bearer de un solo uso.
-        console.info("reset_password_requested", { userId: user.id });
+      // Un solo uso y 1 hora de vida (el default de better-auth es 1 hora; se
+      // fija explícito para que no cambie con una actualización).
+      resetPasswordTokenExpiresIn: PASSWORD_RESET_TOKEN_TTL_MINUTES * 60,
+      // Al cambiar la password se revocan TODAS las sesiones: si la cuenta
+      // estaba comprometida, el atacante queda afuera.
+      revokeSessionsOnPasswordReset: true,
+      sendResetPassword: async ({ user, token }) => {
+        const resetUrl = buildPasswordResetUrl(config.email.webAppUrl, token);
+        // Solo local y solo si no hay API key: comodidad para probar sin inbox.
+        // En prod NUNCA se loguea el link (contiene el token bearer).
+        if (config.isLocal && !config.email.resendApiKey) {
+          console.info("password_reset_link_local", { userId: user.id, url: resetUrl });
+        }
+        const email = renderPasswordResetEmail({
+          username: user.name || user.email,
+          resetUrl,
+          expiresInMinutes: PASSWORD_RESET_TOKEN_TTL_MINUTES,
+        });
+        await sendEmail(config, { to: user.email, ...email });
       },
     },
     emailVerification: {
       sendVerificationEmail: async ({ user }) => {
-        // Mismo criterio: `url` lleva el token de verificación, no se loguea.
+        // Sigue sin implementarse (igual que Python): `url` lleva el token de
+        // verificación, así que no se loguea.
         console.info("verify_email_requested", { userId: user.id });
       },
     },
@@ -179,8 +221,10 @@ function createAuth(config: AppConfig) {
 /**
  * Instancia de better-auth para el `config` del request actual.
  *
- * Se cachea por `DATABASE_URL|AUTH_SECRET|ENV|SESSION_COOKIE_NAME`: rotar el
- * secreto, cambiar de entorno o renombrar la cookie invalida la instancia.
+ * Se cachea por `DATABASE_URL|AUTH_SECRET|ENV|SESSION_COOKIE_NAME` + la config
+ * de email (el remitente y el origin del web se congelan en el `sendResetPassword`
+ * del closure). De la API key solo entra `resend:on|off`: el valor del secreto
+ * NUNCA forma parte de la clave.
  */
 export function getAuth(config: AppConfig): Auth {
   const key = [
@@ -188,6 +232,9 @@ export function getAuth(config: AppConfig): Auth {
     requireAuthSecret(config),
     config.env,
     config.cookie.name,
+    config.email.webAppUrl,
+    config.email.from ?? "",
+    config.email.resendApiKey ? "resend:on" : "resend:off",
   ].join("|");
   const cached = authCache.get(key);
   if (cached) return cached;

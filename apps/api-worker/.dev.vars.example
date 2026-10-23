@@ -50,10 +50,12 @@ COOKIE_SAMESITE=lax
 # el login "exitoso" pero con el guard viendo una cookie que no existe.
 SESSION_COOKIE_NAME=session
 
-# Rate limiting (formato slowapi). Defaults: 5/minute, 3/hour, 10/minute.
+# Rate limiting (formato slowapi). Defaults: 5/minute, 3/hour, 10/minute,
+# 5/hour.
 RATE_LIMIT_LOGIN=5/minute
 RATE_LIMIT_REGISTER=3/hour
 RATE_LIMIT_PRESIGN=10/minute
+# RATE_LIMIT_FORGOT_PASSWORD=5/hour
 
 # Apaga el rate limiting SOLO fuera de prod (tests). En prod se ignora.
 # RATE_LIMIT_DISABLED=true
@@ -62,3 +64,12 @@ RATE_LIMIT_PRESIGN=10/minute
 # internas (su router HTTP no se monta). Default: http://localhost:8787 (el
 # puerto en el que corre `pnpm dev` y el que espera el web).
 API_URL=http://localhost:8787
+
+# Resend (envío del mail de reset). Sin API key, en local el link se loguea
+# (`password_reset_link_local`) y el flujo se puede probar sin inbox. En prod
+# las tres son obligatorias: el worker falla al arrancar si faltan.
+# El remitente tiene que pertenecer a un dominio VERIFICADO en Resend.
+# RESEND_API_KEY=re_...
+# EMAIL_FROM=Pulse Stream <no-reply@luisrivas.site>
+# WEB_APP_URL=http://localhost:3000
+# RATE_LIMIT_FORGOT_PASSWORD=5/hour

@@ -22,6 +22,7 @@ import { createDb } from "@/db/client";
 import { users } from "@/db/schema";
 import { createConfig, type AppConfig, type Bindings } from "@/env";
 import { app } from "@/index";
+import { setEmailSender, type EmailMessage } from "@/lib/email";
 import type { UserRead } from "@/schemas";
 
 /** Password de los tests (misma que `apps/api/tests/helpers.py`). */
@@ -79,6 +80,11 @@ export function testBindings(overrides: Partial<Bindings> = {}): Bindings {
     R2_SECRET_ACCESS_KEY: env.R2_SECRET_ACCESS_KEY ?? "test-secret-key",
     R2_BUCKET_NAME: env.R2_BUCKET_NAME ?? "test-bucket",
     R2_PUBLIC_BASE_URL: env.R2_PUBLIC_BASE_URL ?? "https://cdn.example.test",
+    // Email (reset de contraseña): herméticos y con el sender de los tests
+    // (ver `createClient`), así la suite nunca toca Resend.
+    RESEND_API_KEY: env.RESEND_API_KEY ?? "test-resend-key",
+    EMAIL_FROM: env.EMAIL_FROM ?? "Pulse Stream <no-reply@example.test>",
+    WEB_APP_URL: env.WEB_APP_URL ?? "https://web.example.test",
     COOKIE_DOMAIN: "",
     DATABASE_URL: TEST_DATABASE_URL,
     RATE_LIMIT_DISABLED: "true",
@@ -112,6 +118,8 @@ export async function resetDb(): Promise<void> {
 
 export interface TestClient {
   readonly cookies: Map<string, string>;
+  /** Mails emitidos por el endpoint (sender de test, nunca red). */
+  readonly emails: EmailMessage[];
   cookieHeader(): string | undefined;
   clearCookies(): void;
   request(path: string, init?: RequestInit): Promise<Response>;
@@ -147,6 +155,14 @@ export function createClient(
 ): TestClient {
   const cookies = new Map<string, string>();
 
+  // El transporte de email se reemplaza SIEMPRE en tests: nada sale a Resend.
+  // Se instala al crear el cliente (y no en un `beforeEach` global) para que
+  // cada cliente capture solo sus propios mails.
+  const emails: EmailMessage[] = [];
+  setEmailSender(async (message) => {
+    emails.push(message);
+  });
+
   const cookieHeader = (): string | undefined => {
     if (cookies.size === 0) return undefined;
     return [...cookies].map(([name, value]) => `${name}=${value}`).join("; ");
@@ -171,6 +187,7 @@ export function createClient(
 
   return {
     cookies,
+    emails,
     cookieHeader,
     clearCookies: () => cookies.clear(),
     request,
