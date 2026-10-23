@@ -6,10 +6,11 @@
  * inline con lookup case-insensitive, géneros validados por zod, colaboradores
  * reemplazables y ranking de populares por reproducciones de la VENTANA.
  *
- * OJO: los endpoints de F5 (`POST /playlists`, `POST /me/listens`) todavía no
- * existen en el worker, así que esas filas se insertan directo en la DB de test
- * (mismas tablas, mismos constraints) para poder probar el filtro/orden que sí
- * es de F4.
+ * OJO: estas pruebas siembran `listens` directo en la DB a propósito, porque
+ * necesitan (a) plays con timestamps viejos (ventanas de `days`) y (b) el
+ * contador persistente `songs.play_count` en 0 para demostrar que el
+ * `play_count` del ranking es el de la VENTANA. El camino HTTP de
+ * `/me/listens` (contadores reales) está cubierto en `tests/plays.test.ts`.
  */
 
 import { beforeEach, describe, expect, it } from "vitest";

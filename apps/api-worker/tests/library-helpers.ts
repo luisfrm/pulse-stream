@@ -2,9 +2,10 @@
  * Helpers de playlists/biblioteca para los tests de F6 (equivalen a los
  * `_create_playlist` / `_add_song` de `apps/api/tests/test_playlists*.py`).
  *
- * `insertListen` escribe en `listens` directo: el endpoint `POST /me/listens`
- * es de F7, pero los snapshots de las playlists del sistema necesitan plays
- * reales para rankear.
+ * `insertListen` escribe en `listens` directo aunque `POST /me/listens` (F7) ya
+ * exista: los snapshots necesitan conteos EXACTOS por canción (p.ej. 5/4/2) sin
+ * pelear con el dedupe de 30 s, que obligaría a intercalar canciones. El camino
+ * HTTP está cubierto en `tests/listens.test.ts` y `tests/plays.test.ts`.
  */
 
 import { createDb } from "@/db/client";
