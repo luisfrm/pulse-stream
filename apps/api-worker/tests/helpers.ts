@@ -68,9 +68,17 @@ export function testBindings(overrides: Partial<Bindings> = {}): Bindings {
   return {
     ...(env as unknown as Bindings),
     ENV: "local",
-    // better-auth firma la sesión con AUTH_SECRET. En CI no existe `.dev.vars`,
-    // así que sin este default `register` devuelve 500.
+    // Defaults para que los tests sean herméticos: en CI no existe `.dev.vars`.
+    // `AUTH_SECRET` lo exige better-auth (sin él, register devuelve 500) y el
+    // resto lo exige `assertProdConfig` cuando un test usa `ENV=prod`.
     AUTH_SECRET: env.AUTH_SECRET ?? "test-auth-secret",
+    CORS_ORIGIN_REGEX:
+      env.CORS_ORIGIN_REGEX ?? "https://([a-z0-9-]+\\.)?example\\.test",
+    R2_ACCOUNT_ID: env.R2_ACCOUNT_ID ?? "test-account",
+    R2_ACCESS_KEY_ID: env.R2_ACCESS_KEY_ID ?? "test-access-key",
+    R2_SECRET_ACCESS_KEY: env.R2_SECRET_ACCESS_KEY ?? "test-secret-key",
+    R2_BUCKET_NAME: env.R2_BUCKET_NAME ?? "test-bucket",
+    R2_PUBLIC_BASE_URL: env.R2_PUBLIC_BASE_URL ?? "https://cdn.example.test",
     COOKIE_DOMAIN: "",
     DATABASE_URL: TEST_DATABASE_URL,
     RATE_LIMIT_DISABLED: "true",
