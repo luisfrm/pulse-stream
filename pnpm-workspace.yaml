@@ -4,5 +4,15 @@ packages:
 
 # Aprobaciones de build scripts (antes vivía en apps/web/pnpm-workspace.yaml).
 allowBuilds:
+  # workerd/esbuild necesitan su postinstall para que `wrangler dev` y
+  # `vitest` (via vite) funcionen en apps/api-worker.
+  esbuild: true
   sharp: false
   unrs-resolver: false
+  workerd: true
+
+minimumReleaseAgeExclude:
+  - '@cloudflare/workers-types@5.20261022.1'
+  - dotenv@18.0.9
+  - miniflare@5.20261019.2-beta
+  - wrangler@4.152.0

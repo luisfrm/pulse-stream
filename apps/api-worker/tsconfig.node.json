@@ -1,0 +1,9 @@
+{
+  "extends": "../../packages/config/tsconfig/base.json",
+  "compilerOptions": {
+    // Scripts de tooling (drizzle-kit, migrador): corren en Node, no en Workers.
+    "lib": ["ES2022"],
+    "types": ["node"]
+  },
+  "include": ["drizzle.config.ts", "vitest.config.ts", "scripts/**/*.ts"]
+}

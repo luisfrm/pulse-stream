@@ -1,0 +1,18 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "pulse-stream-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true
+  },
+  "dev": {
+    // 8001: el backend Python (uvicorn) usa 8000 y el web 3000. El worker
+    // convive con ambos para poder comparar respuestas lado a lado.
+    "port": 8001
+  },
+  // Los secretos viven en .dev.vars (local) y en `wrangler secret put` (prod).
+  // No agregar vars sensibles acá: este archivo se commitea.
+  "vars": {}
+}

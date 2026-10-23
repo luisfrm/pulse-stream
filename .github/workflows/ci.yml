@@ -55,3 +55,30 @@ jobs:
 
       - name: Build
         run: pnpm --filter @pulse-stream/web build
+
+  api-worker:
+    name: API Worker (tsc + vitest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.5.3
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Sin DB: los tests del worker son unitarios (contrato OpenAPI,
+      # serializadores, CORS, validación). Las migraciones se aplican a mano.
+      - name: Typecheck
+        run: pnpm --filter @pulse-stream/api-worker typecheck
+
+      - name: Test
+        run: pnpm --filter @pulse-stream/api-worker test
+
