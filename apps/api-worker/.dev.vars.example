@@ -1,0 +1,64 @@
+# Ejemplo de `apps/api-worker/.dev.vars` (copia a `.dev.vars` y completá).
+#
+# `.dev.vars` está git-ignored: NUNCA commitees secretos reales.
+# En deploy estos valores van con `wrangler secret put <NOMBRE>`.
+
+# local | dev | prod. En local se fuerzan cookies host-only/lax/Secure=false y
+# el CORS queda restringido a loopback.
+ENV=local
+
+# Secreto de firma de sesión (better-auth). Generá uno random en local.
+AUTH_SECRET=dummy-auth-secret-change-me
+
+# Neon: URL pooled para el runtime del Worker.
+DATABASE_URL=postgresql://user:password@ep-dummy-000000-pooler.us-east-1.aws.neon.tech/pulse?sslmode=require
+
+# Destino de test del WORKER (su propia base: el backend Python usa
+# TEST_DATABASE_URL y su drop_all no convive con las tablas del rewrite).
+# `vitest.config.ts` prefiere TEST_DATABASE_URL_WORKER y cae a TEST_DATABASE_URL.
+TEST_DATABASE_URL_WORKER=postgresql://user:password@ep-dummy-worker-test-000000-pooler.us-east-1.aws.neon.tech/pulse_worker_test?sslmode=require
+
+# Destino explícito de `pnpm db:migrate` (endpoint DIRECTO de Neon, sin
+# `-pooler`). Sin fallback a DATABASE_URL: es el único nombre que lee el script.
+# Si no coincide con TEST_DATABASE_URL_WORKER hace falta CONFIRM_TARGET=yes.
+MIGRATE_DATABASE_URL=postgresql://user:password@ep-dummy-worker-test-000000.us-east-1.aws.neon.tech/pulse_worker_test?sslmode=require
+
+# Cloudflare R2 (presign de uploads). En local pueden quedar vacíos si no
+# vas a subir archivos.
+R2_ACCOUNT_ID=dummy-account-id
+R2_ACCESS_KEY_ID=dummy-access-key-id
+R2_SECRET_ACCESS_KEY=dummy-secret-access-key
+R2_BUCKET_NAME=pulse-stream-dummy
+R2_PUBLIC_BASE_URL=https://cdn.example.com
+
+# Opcionales (defaults entre paréntesis): límites de tamaño.
+# R2_MAX_UPLOAD_BYTES=52428800            (50 MB, por archivo)
+# R2_MAX_ZIP_IMPORT_BYTES=41943040        (40 MB, tope del body del Worker:
+#                                          NO 512 MB, el runtime no acepta más)
+
+# Regex de origins permitidos (se aplica con fullmatch, igual que Starlette).
+# En local se ignora (se usa el loopback).
+CORS_ORIGIN_REGEX=https://([a-zA-Z0-9-]+\.)?example\.com|http://localhost:\d+
+
+# Cookie de sesión. Dejar vacío en local (host-only). En prod, si front y API
+# son subdominios, poner el dominio registrable (ej. example.com).
+COOKIE_DOMAIN=
+# lax (default) | none (solo si front y API están en dominios distintos).
+COOKIE_SAMESITE=lax
+# OJO: debe quedar `session`. El web lo tiene hardcodeado en `apps/web/proxy.ts`
+# (guard) y en `app/api/logout` (borrado): renombrarla acá sin cambiarlos deja
+# el login "exitoso" pero con el guard viendo una cookie que no existe.
+SESSION_COOKIE_NAME=session
+
+# Rate limiting (formato slowapi). Defaults: 5/minute, 3/hour, 10/minute.
+RATE_LIMIT_LOGIN=5/minute
+RATE_LIMIT_REGISTER=3/hour
+RATE_LIMIT_PRESIGN=10/minute
+
+# Apaga el rate limiting SOLO fuera de prod (tests). En prod se ignora.
+# RATE_LIMIT_DISABLED=true
+
+# Origin público de la API. better-auth lo usa como `baseURL` para firmar URLs
+# internas (su router HTTP no se monta). Default: http://localhost:8787 (el
+# puerto en el que corre `pnpm dev` y el que espera el web).
+API_URL=http://localhost:8787

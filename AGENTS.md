@@ -366,3 +366,66 @@ horizontal vive solo en `body`.
 - No inventar métricas/features: si un dato no existe en el backend, agregar el
   endpoint (no hardcodear en el front).
 - `README.md` y `tasks.md` se actualizan cuando se cierra una fase/tarea.
+
+## 4. API Worker (`apps/api-worker`) � rewrite del backend sobre Cloudflare
+
+> `apps/api` es la **implementaci�n de referencia**: define el contrato OpenAPI
+> y sus tests (`pytest`) son la especificaci�n. El Worker lo reemplaza en
+> runtime y debe ser *drop-in*: `pnpm gen:types:worker` tiene que generar el
+> mismo `packages/api-types/src/generated.ts` que la API Python.
+
+**Stack**: Hono + `@hono/zod-openapi` (validaci�n y OpenAPI), Drizzle ORM sobre
+**Neon HTTP** (`@neondatabase/serverless`), better-auth (sesiones), aws4fetch
+(presign S3 de R2), fflate (ZIP), vitest + Postgres real en los tests.
+
+**Capas** (mismo esp�ritu que `apps/api`): `routes/` solo HTTP (parsea, valida,
+serializa con `lib/serialize.ts`), `services/` reglas de negocio, `repositories/`
+�nicamente SQL, `schemas/` contratos zod (los enums viven ac�, nunca en la DB).
+`deps.ts` inyecta el storage de R2 (`createApp({ storage })` en tests).
+
+**Neon HTTP: sin transacciones interactivas.** Una sentencia por operaci�n o
+`db.batch([...])` (viaja como una sola transacci�n del servidor) para lo que
+debe ser at�mico: canci�n+colaboradores, reemplazo de un snapshot, `listens` +
+contadores, playlist+items, delete+renumeraci�n. Nunca `BEGIN/COMMIT`.
+
+**Auth**: better-auth email+password; cookie HttpOnly `session`. El
+`middleware/auth.ts` resuelve la sesi�n y relee la fila de `users` (rol,
+username). Las passwords legacy (argon2) se resetean con `pnpm user:set-password`.
+
+**Puerto/scripts**: `pnpm --filter @pulse-stream/api-worker dev` en **:8787**
+(el que espera el web); `build` = `wrangler deploy --dry-run`. Migraciones
+**a mano** en `migrations/` + `db:check`/`db:generate` libres; `db:migrate`
+exige `MIGRATE_DATABASE_URL` y `CONFIRM_TARGET=yes` fuera de la base de test.
+
+**Gate de contrato** (`src/lib/contract.*`): el fixture
+`src/lib/__fixtures__/openapi-contract.json` se genera desde el OpenAPI de
+Python (`PYTHON_OPENAPI_JSON=... pnpm gen:contract`) y los tests comparan
+componentes normalizados **y** rutas/status/`$ref`. Un endpoint faltante, un
+status cambiado o un componente distinto rompe CI sin DB. Desviaciones
+deliberadas: `UserCreate`/`UserUpdate` (sin campos de privilegio) y
+`PlaylistRead.kind` (enum inline equivalente al `$ref` + `default`).
+
+**R2**: el audio nunca pasa por la API salvo el **import por ZIP** de un �lbum
+(tope 40 MB por el l�mite del body del Worker, protecci�n de ZIP bomb, CRC y
+audio validado con un parser propio). Los covers se firman con
+`Cache-Control` inmutable.
+
+**Tests**: `tests/*.test.ts` son de integraci�n contra `TEST_DATABASE_URL`
+(sin la variable las suites se saltean, salvo en CI donde
+`tests/ci-guard.test.ts` falla a prop�sito).
+
+**Cierre del rewrite (F8)**: los tests de integraci�n del Worker usan su PROPIA
+base (`TEST_DATABASE_URL_WORKER`, con fallback a `TEST_DATABASE_URL`); en CI el
+job del worker corre Alembic (esquema de referencia) + `db:migrate` (Drizzle),
+y falla si `CI=true` sin base (`tests/ci-guard.test.ts`). `createConfig` hace
+fail-fast de la config de producci�n (CORS real, R2, `AUTH_SECRET`,
+`DATABASE_URL`) y `generated.ts` est� pinneado en CI
+(`pnpm gen:types:worker && git diff --exit-code`), generado desde
+`apps/api-worker/openapi.json` sin server corriendo.
+
+**CI/CD**: `Tests` (solo unitarios, en cada PR), `CI (integracion)` (pytest +
+vitest con Neon, push a master) y `Deploy API Worker` (migraciones + `wrangler
+deploy` + `wrangler secret bulk` + smoke, environment `production`). El web lo
+deploya Vercel. La config NO secreta del Worker vive en `wrangler.jsonc`
+(`vars` + `routes`); los secretos de runtime se sincronizan desde GitHub en cada
+deploy, asi que GitHub es la fuente de verdad. Nunca commitear `.dev.vars`.

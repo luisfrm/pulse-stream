@@ -31,7 +31,10 @@ export default function PanelLayout({
 
 async function PanelGate({ children }: { children: React.ReactNode }) {
   const user = await getSession();
-  if (!user) redirect("/login?next=/panel");
+  // Sin sesión válida: limpiar la cookie vieja vía `/api/logout` (GET) antes de
+  // `/login`. Si no, `proxy.ts` (que solo mira la PRESENCIA de la cookie) manda
+  // `/login` → `/dashboard` y el layout vuelve acá: loop de redirects.
+  if (!user) redirect("/api/logout?next=%2Flogin%3Fnext%3D%2Fpanel");
 
   const isAdmin = user.role === "admin" || user.is_superuser;
   if (!isAdmin) redirect("/");

@@ -1038,10 +1038,7 @@ export interface components {
             scope: string;
             /** Client Id */
             client_id?: string | null;
-            /**
-             * Client Secret
-             * Format: password
-             */
+            /** Client Secret */
             client_secret?: string | null;
         };
         /** Body_import_album_zip_albums__album_id__import_zip_post */
@@ -1132,8 +1129,12 @@ export interface components {
              * Format: uuid
              */
             id: string;
-            /** @default user */
-            kind: components["schemas"]["PlaylistKind"];
+            /**
+             * Kind
+             * @default user
+             * @enum {string}
+             */
+            kind: "user" | "system";
             /** Name */
             name: string;
             /** Description */
@@ -1259,8 +1260,12 @@ export interface components {
              * Format: uuid
              */
             id: string;
-            /** @default user */
-            kind: components["schemas"]["PlaylistKind"];
+            /**
+             * Kind
+             * @default user
+             * @enum {string}
+             */
+            kind: "user" | "system";
             /** Name */
             name: string;
             /** Description */
@@ -1303,8 +1308,12 @@ export interface components {
              * Format: uuid
              */
             id: string;
-            /** @default user */
-            kind: components["schemas"]["PlaylistKind"];
+            /**
+             * Kind
+             * @default user
+             * @enum {string}
+             */
+            kind: "user" | "system";
             /** Name */
             name: string;
             /** Description */
@@ -1568,23 +1577,8 @@ export interface components {
             email: string;
             /** Password */
             password: string;
-            /**
-             * Is Active
-             * @default true
-             */
-            is_active: boolean | null;
-            /**
-             * Is Superuser
-             * @default false
-             */
-            is_superuser: boolean | null;
-            /**
-             * Is Verified
-             * @default false
-             */
-            is_verified: boolean | null;
             /** Username */
-            username?: string | null;
+            username?: string;
         };
         /**
          * UserRead
@@ -1655,17 +1649,13 @@ export interface components {
          * @description Actualización de un usuario (self o admin).
          */
         UserUpdate: {
+            /**
+             * Email
+             * Format: email
+             */
+            email?: string;
             /** Password */
-            password?: string | null;
-            /** Email */
-            email?: string | null;
-            /** Is Active */
-            is_active?: boolean | null;
-            /** Is Superuser */
-            is_superuser?: boolean | null;
-            /** Is Verified */
-            is_verified?: boolean | null;
-            role?: components["schemas"]["UserRole"] | null;
+            password?: string;
             /** Username */
             username?: string | null;
             /** Cover Key */

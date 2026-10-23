@@ -1,0 +1,35 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "pulse-stream-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true
+  },
+  "dev": {
+    // 8787: el puerto que espera el web (`NEXT_PUBLIC_API_URL` de
+    // apps/web/.env.local). El backend Python (uvicorn, :8000) es la
+    // implementación de referencia y ya no corre en el flujo del monorepo.
+    "port": 8787
+  },
+  // Dominio de producción (Cloudflare crea DNS + certificado en el primer
+  // deploy). La zona `luisrivas.site` tiene que estar en la misma cuenta.
+  "routes": [
+    { "pattern": "pulse-stream-api.luisrivas.site", "custom_domain": true }
+  ],
+  // Config NO secreta y versionada. Los secretos (AUTH_SECRET, DATABASE_URL,
+  // R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY) los sincroniza el workflow
+  // `Deploy API Worker` desde GitHub; en local los pisa `.dev.vars`.
+  "vars": {
+    "ENV": "prod",
+    "API_URL": "https://pulse-stream-api.luisrivas.site",
+    "CORS_ORIGIN_REGEX": "https://([a-zA-Z0-9-]+\\.)?luisrivas\\.site",
+    "COOKIE_DOMAIN": "luisrivas.site",
+    "COOKIE_SAMESITE": "lax",
+    "SESSION_COOKIE_NAME": "session",
+    "R2_ACCOUNT_ID": "1b3a3982280061d5b7e98c97f210afb3",
+    "R2_BUCKET_NAME": "pulsestream",
+    "R2_PUBLIC_BASE_URL": "https://pulsestreambucket.luisrivas.site"
+  }
+}

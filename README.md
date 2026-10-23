@@ -48,24 +48,123 @@ pnpm install
 pnpm dev   # http://localhost:3000
 ```
 
-### 3. Tipos TS desde OpenAPI (regla de AGENTS.md)
+### 3. API Worker (Hono/Cloudflare) — implementación que reemplaza a `apps/api`
+
+`apps/api-worker` es el rewrite del backend sobre Cloudflare Workers (Hono +
+Drizzle + Neon HTTP + better-auth + R2). `apps/api` queda como implementación
+de referencia (el contrato OpenAPI y los tests de Python son la especificación).
+
+```bash
+cd apps/api-worker
+cp .dev.vars.example .dev.vars   # completá DATABASE_URL, AUTH_SECRET, R2_*, ...
+pnpm --filter @pulse-stream/api-worker dev   # http://localhost:8787
+```
+
+- **Puertos**: worker `:8787` (el que espera `apps/web/.env.local`),
+  web `:3000`. `pnpm dev` en la raíz levanta los dos con turbo y **no**
+  necesita la API de Python.
+- **Docs**: `http://localhost:8787/docs` y `/openapi.json` (solo con
+  `ENV=local`).
+- **Migraciones**: se escriben a mano en `migrations/` y se aplican con
+  `pnpm db:migrate`, que exige `MIGRATE_DATABASE_URL` (sin fallback) y
+  `CONFIRM_TARGET=yes` si el destino no coincide con `TEST_DATABASE_URL`.
+  `db:check` (sin drift) y `db:generate` son libres.
+- **Auth**: better-auth con email+password; la sesión viaja en la cookie
+  HttpOnly `session`. Las passwords legacy (argon2 de fastapi-users) no se
+  migran: se resetean con `pnpm user:set-password`.
+- **Uploads**: presign S3 (aws4fetch) para audio/covers; el import por ZIP de
+  un álbum acepta **hasta 40 MB** (límite del body del Worker) y valida
+  ZIP bombs, CRC y audio (parser propio, sin `mutagen`).
+- **Contrato**: `pnpm --filter @pulse-stream/api-worker gen:contract` regenera
+  el fixture de paridad y los tests comparan componentes + rutas/status/$ref.
+
+### 4. Tipos TS desde OpenAPI (regla de AGENTS.md)
 
 Los tipos del frontend se **generan**, nunca se declaran a mano:
 
 ```bash
-# con la API corriendo en :8000
-pnpm gen:types   # regenera packages/api-types/src/generated.ts
+pnpm gen:types          # desde la API Python (:8000)
+pnpm gen:types:worker   # desde el Worker (:8787) — debe dar el MISMO archivo
 ```
+
+El resultado del Worker tiene que ser idéntico al de Python (`generated.ts` es
+el contrato que consume el web); las únicas diferencias documentadas son
+`UserCreate`/`UserUpdate` (no aceptan campos de privilegio: desviación de
+seguridad) y `PlaylistRead.kind` (enum inline equivalente al `$ref`, porque
+zod no puede emitir `$ref` + `default`).
+
+`gen:types:worker` ya **no necesita un server corriendo**: exporta el OpenAPI a
+`apps/api-worker/openapi.json` (git-ignored) con el mismo `buildOpenApiDocument`
+que sirve `/openapi.json`. En CI el archivo generado está *pinneado*:
+`pnpm gen:types:worker && git diff --exit-code packages/api-types/src/generated.ts`.
+
+## Cutover y rollback (Python → Worker)
+
+**Corte duro, sin dual-run.** Los dos backends no comparten formato de usuario:
+
+- los usuarios creados por Python **no tienen fila en `account`** (better-auth
+  no puede autenticarlos) y los creados por el Worker tienen
+  `hashed_password = NULL` (fastapi-users no puede autenticarlos).
+
+Pasos:
+
+1. Mergear la rama a `master` (el deploy del Worker se dispara con push a master).
+2. Deployar el Worker con el workflow **Deploy API Worker** (o a mano con
+   `pnpm --filter @pulse-stream/api-worker deploy`). El job corre migraciones,
+   publica con `wrangler deploy`, sincroniza los 4 secrets de runtime desde
+   GitHub y hace smoke de `/health`, `/genres` y `/artists`.
+3. Verificar el smoke y recién entonces apuntar `apps/web` al Worker
+   (`NEXT_PUBLIC_API_URL` + `ENV=prod` + `COOKIE_DOMAIN` en Vercel) y redeployar
+   el web. Si cambiás la env antes de que el Worker esté arriba, el sitio queda
+   apuntando a una API inexistente.
+4. Resetear las passwords legacy, una por una:
+   `pnpm --filter @pulse-stream/api-worker user:set-password -- --email ...`.
+5. Smoke E2E: login, dashboard, play (contadores), like, playlist, búsqueda,
+   settings, logout.
+
+**Cookies viejas.** Un usuario con el JWT de fastapi-users todavía en el
+navegador ya **no queda en loop**: el proxy ve la cookie, el layout recibe 401 y
+redirige a `/api/logout`, que borra la cookie en una respuesta same-origin y
+manda a `/login`.
+
+**Rollback.** Volver a Python exige re-hashear cada usuario creado después del
+corte (su password vive en `account.password`, no en `hashed_password`): es un
+script de migración de datos, no un simple redeploy. Planificá el corte con una
+ventana y un backup.
 
 ### Scripts raíz
 
 ```bash
-pnpm dev         # API + web (turbo)
+pnpm dev         # worker (:8787) + web (:3000) con turbo
 pnpm build
 pnpm lint
 pnpm typecheck
-pnpm test        # tests de la API (requieren TEST_DATABASE_URL)
+pnpm test        # tests del worker (requieren TEST_DATABASE_URL)
+pnpm gen:types:worker
 ```
+
+## CI/CD
+
+| Workflow | Dispara | Qué corre | Secrets |
+|---|---|---|---|
+| `Tests` | **pull_request** | unitarios: worker `test:unit` (194) + web vitest (47). Sin red ni DB | ninguno |
+| `CI (integración)` | **push a master** / manual | pytest + vitest de integración con Neon, typecheck/lint/build del web, dry-run del worker y `generated.ts` pinneado | repository: `TEST_DATABASE_URL`, `TEST_DATABASE_URL_WORKER` |
+| `Deploy API Worker` | **push a master** (paths del worker) / manual | typecheck + unit + migraciones + `wrangler deploy` + sync de secrets + smoke | environment `production`: `CLOUDFLARE_API_TOKEN`, `MIGRATE_DATABASE_URL`, `DATABASE_URL`, `AUTH_SECRET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`; variable `CLOUDFLARE_ACCOUNT_ID` |
+
+**El web lo deploya Vercel** con su integración de Git; no hay workflow de deploy
+web. Variables en Vercel (Production): `NEXT_PUBLIC_API_URL`,
+`ENV=prod`, `COOKIE_DOMAIN`, `COOKIE_SAMESITE`.
+
+**Config del Worker**: lo no secreto (`ENV`, `API_URL`, `CORS_ORIGIN_REGEX`,
+`COOKIE_*`, `SESSION_COOKIE_NAME`, `R2_ACCOUNT_ID`, `R2_BUCKET_NAME`,
+`R2_PUBLIC_BASE_URL`) vive en `apps/api-worker/wrangler.jsonc` (`vars` + `routes`
+del custom domain). Los secretos de runtime los sincroniza el workflow con
+`wrangler secret bulk` en cada deploy: GitHub es la fuente de verdad, así rotar
+un secreto es cambiarlo en GitHub y volver a deployar.
+
+Dos bases de test, a propósito: pytest hace `drop_all/create_all` (esquema
+Alembic) y el Worker hace `TRUNCATE` sobre el esquema con better-auth; en la
+misma base se rompen mutuamente.
 
 ## Variables de entorno
 
@@ -90,7 +189,19 @@ pnpm test        # tests de la API (requieren TEST_DATABASE_URL)
 
 | Variable | Obligatoria | Descripción |
 |---|---|---|
-| `NEXT_PUBLIC_API_URL` | no (default `http://localhost:8000`) | URL base de la API FastAPI |
+| `NEXT_PUBLIC_API_URL` | sí en deploy | URL base de la API (`http://localhost:8787` en local; `https://pulse-stream-api.luisrivas.site` en prod). Se inlinea en build |
+| `ENV` | no (default `local`) | `prod` en Vercel: la cookie de logout va con `Secure` |
+| `COOKIE_DOMAIN` | en prod con subdominios | Dominio registrable (`luisrivas.site`) para que el borrado del logout matchee al del Worker |
+| `COOKIE_SAMESITE` | no (default `lax`) | `none` solo si web y API están en dominios distintos |
+
+### `apps/api-worker/.dev.vars`
+
+Copia de `.dev.vars.example`. Claves: `ENV`, `AUTH_SECRET`, `DATABASE_URL`
+(pooled, runtime), `TEST_DATABASE_URL_WORKER` (base de test propia),
+`MIGRATE_DATABASE_URL` (Neon **directa**, único nombre que lee `db:migrate`),
+`R2_*`, `COOKIE_*`, `RATE_LIMIT_*`, `API_URL` (`http://localhost:8787`).
+En deploy los secretos van por el workflow (ver CI/CD); lo no secreto está en
+`wrangler.jsonc`.
 
 ## Estado del proyecto
 

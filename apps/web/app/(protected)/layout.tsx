@@ -28,7 +28,12 @@ export default function ProtectedLayout({
 
 async function ProtectedShell({ children }: { children: React.ReactNode }) {
   const user = await getSession();
-  if (!user) redirect("/login");
+  // Sin sesión válida se pasa por `/api/logout` (GET) y no directo a `/login`:
+  // si el navegador todavía tiene una cookie `session` vieja (JWT de
+  // fastapi-users o expirada), `proxy.ts` la ve, manda a `/login`, y `/login`
+  // vuelve a `/dashboard` → loop infinito. El logout emite el Set-Cookie de
+  // borrado en una respuesta same-origin y recién ahí cae en `/login`.
+  if (!user) redirect("/api/logout");
 
   const isAdmin = user.role === "admin" || user.is_superuser;
 

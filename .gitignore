@@ -22,6 +22,9 @@ htmlcov/
 .env
 .env.*
 !.env.example
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
 
 # Logs
 *.log
@@ -36,3 +39,14 @@ Thumbs.db
 
 # Next.js
 *.tsbuildinfo
+
+# Cloudflare Workers
+.wrangler/
+worker-configuration.d.ts
+
+# OpenAPI exportado por apps/api-worker (generado, no se commitea)
+apps/api-worker/openapi.json
+
+# Playwright MCP artifacts
+.playwright-mcp/
+

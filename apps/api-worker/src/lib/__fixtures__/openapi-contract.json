@@ -1,0 +1,2871 @@
+{
+  "components": {
+    "AlbumCreate": {
+      "kind": "object",
+      "required": [
+        "artist_id",
+        "title"
+      ],
+      "properties": {
+        "artist_id": {
+          "kind": "primitive",
+          "type": "string",
+          "format": "uuid"
+        },
+        "cover_key": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        },
+        "title": {
+          "kind": "primitive",
+          "type": "string"
+        }
+      }
+    },
+    "AlbumDetail": {
+      "kind": "object",
+      "required": [
+        "artist",
+        "created_at",
+        "id",
+        "title"
+      ],
+      "properties": {
+        "artist": {
+          "kind": "ref",
+          "ref": "ArtistRead"
+        },
+        "cover_key": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        },
+        "cover_url": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        },
+        "created_at": {
+          "kind": "primitive",
+          "type": "string",
+          "format": "date-time"
+        },
+        "id": {
+          "kind": "primitive",
+          "type": "string",
+          "format": "uuid"
+        },
+        "song_count": {
+          "kind": "primitive",
+          "type": "integer",
+          "default": 0
+        },
+        "songs": {
+          "kind": "array",
+          "items": {
+            "kind": "ref",
+            "ref": "SongRead"
+          }
+        },
+        "title": {
+          "kind": "primitive",
+          "type": "string"
+        }
+      }
+    },
+    "AlbumRead": {
+      "kind": "object",
+      "required": [
+        "artist",
+        "created_at",
+        "id",
+        "title"
+      ],
+      "properties": {
+        "artist": {
+          "kind": "ref",
+          "ref": "ArtistRead"
+        },
+        "cover_key": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        },
+        "cover_url": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        },
+        "created_at": {
+          "kind": "primitive",
+          "type": "string",
+          "format": "date-time"
+        },
+        "id": {
+          "kind": "primitive",
+          "type": "string",
+          "format": "uuid"
+        },
+        "song_count": {
+          "kind": "primitive",
+          "type": "integer",
+          "default": 0
+        },
+        "title": {
+          "kind": "primitive",
+          "type": "string"
+        }
+      }
+    },
+    "AlbumUpdate": {
+      "kind": "object",
+      "required": [],
+      "properties": {
+        "artist_id": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string",
+              "format": "uuid"
+            }
+          ]
+        },
+        "cover_key": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        },
+        "title": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    "ArtistCreate": {
+      "kind": "object",
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "cover_key": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        },
+        "image_url": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        },
+        "name": {
+          "kind": "primitive",
+          "type": "string"
+        }
+      }
+    },
+    "ArtistRead": {
+      "kind": "object",
+      "required": [
+        "created_at",
+        "id",
+        "name"
+      ],
+      "properties": {
+        "cover_key": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        },
+        "cover_url": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        },
+        "created_at": {
+          "kind": "primitive",
+          "type": "string",
+          "format": "date-time"
+        },
+        "id": {
+          "kind": "primitive",
+          "type": "string",
+          "format": "uuid"
+        },
+        "image_url": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        },
+        "name": {
+          "kind": "primitive",
+          "type": "string"
+        }
+      }
+    },
+    "ArtistUpdate": {
+      "kind": "object",
+      "required": [],
+      "properties": {
+        "cover_key": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        },
+        "image_url": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        },
+        "name": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    "Body_auth_cookie_login_auth_login_post": {
+      "kind": "object",
+      "required": [
+        "password",
+        "username"
+      ],
+      "properties": {
+        "client_id": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        },
+        "client_secret": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        },
+        "grant_type": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        },
+        "password": {
+          "kind": "primitive",
+          "type": "string",
+          "format": "password"
+        },
+        "remember": {
+          "kind": "primitive",
+          "type": "boolean",
+          "default": false
+        },
+        "scope": {
+          "kind": "primitive",
+          "type": "string",
+          "default": ""
+        },
+        "username": {
+          "kind": "primitive",
+          "type": "string"
+        }
+      }
+    },
+    "Body_import_album_zip_albums__album_id__import_zip_post": {
+      "kind": "object",
+      "required": [
+        "file"
+      ],
+      "properties": {
+        "file": {
+          "kind": "primitive",
+          "type": "string"
+        }
+      }
+    },
+    "Body_reset_forgot_password_auth_forgot_password_post": {
+      "kind": "object",
+      "required": [
+        "email"
+      ],
+      "properties": {
+        "email": {
+          "kind": "primitive",
+          "type": "string",
+          "format": "email"
+        }
+      }
+    },
+    "Body_reset_reset_password_auth_reset_password_post": {
+      "kind": "object",
+      "required": [
+        "password",
+        "token"
+      ],
+      "properties": {
+        "password": {
+          "kind": "primitive",
+          "type": "string"
+        },
+        "token": {
+          "kind": "primitive",
+          "type": "string"
+        }
+      }
+    },
+    "Body_verify_request_token_auth_request_verify_token_post": {
+      "kind": "object",
+      "required": [
+        "email"
+      ],
+      "properties": {
+        "email": {
+          "kind": "primitive",
+          "type": "string",
+          "format": "email"
+        }
+      }
+    },
+    "Body_verify_verify_auth_verify_post": {
+      "kind": "object",
+      "required": [
+        "token"
+      ],
+      "properties": {
+        "token": {
+          "kind": "primitive",
+          "type": "string"
+        }
+      }
+    },
+    "ErrorModel": {
+      "kind": "object",
+      "required": [
+        "detail"
+      ],
+      "properties": {
+        "detail": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "object",
+              "required": [],
+              "properties": {}
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    "HTTPValidationError": {
+      "kind": "object",
+      "required": [],
+      "properties": {
+        "detail": {
+          "kind": "array",
+          "items": {
+            "kind": "ref",
+            "ref": "ValidationError"
+          }
+        }
+      }
+    },
+    "ListenCreate": {
+      "kind": "object",
+      "required": [
+        "song_id"
+      ],
+      "properties": {
+        "song_id": {
+          "kind": "primitive",
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    },
+    "ListenRead": {
+      "kind": "object",
+      "required": [
+        "id",
+        "played_at",
+        "song_id"
+      ],
+      "properties": {
+        "id": {
+          "kind": "primitive",
+          "type": "string",
+          "format": "uuid"
+        },
+        "played_at": {
+          "kind": "primitive",
+          "type": "string",
+          "format": "date-time"
+        },
+        "song_id": {
+          "kind": "primitive",
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    },
+    "MyPlaylistRead": {
+      "kind": "object",
+      "required": [
+        "created_at",
+        "id",
+        "name"
+      ],
+      "properties": {
+        "cover_key": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        },
+        "cover_url": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        },
+        "created_at": {
+          "kind": "primitive",
+          "type": "string",
+          "format": "date-time"
+        },
+        "description": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        },
+        "id": {
+          "kind": "primitive",
+          "type": "string",
+          "format": "uuid"
+        },
+        "is_public": {
+          "kind": "primitive",
+          "type": "boolean",
+          "default": false
+        },
+        "kind": {
+          "kind": "enum",
+          "values": [
+            "system",
+            "user"
+          ],
+          "default": "user"
+        },
+        "name": {
+          "kind": "primitive",
+          "type": "string"
+        },
+        "owner_email": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        },
+        "query": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "enum",
+              "values": [
+                "new",
+                "top_month",
+                "top_week"
+              ]
+            },
+            {
+              "kind": "primitive",
+              "type": "null"
+            }
+          ]
+        },
+        "song_count": {
+          "kind": "primitive",
+          "type": "integer",
+          "default": 0
+        },
+        "song_ids": {
+          "kind": "array",
+          "items": {
+            "kind": "primitive",
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      }
+    },
+    "Page_AlbumRead_": {
+      "kind": "object",
+      "required": [
+        "items",
+        "limit",
+        "offset",
+        "total"
+      ],
+      "properties": {
+        "items": {
+          "kind": "array",
+          "items": {
+            "kind": "ref",
+            "ref": "AlbumRead"
+          }
+        },
+        "limit": {
+          "kind": "primitive",
+          "type": "integer"
+        },
+        "offset": {
+          "kind": "primitive",
+          "type": "integer"
+        },
+        "total": {
+          "kind": "primitive",
+          "type": "integer"
+        }
+      }
+    },
+    "Page_ArtistRead_": {
+      "kind": "object",
+      "required": [
+        "items",
+        "limit",
+        "offset",
+        "total"
+      ],
+      "properties": {
+        "items": {
+          "kind": "array",
+          "items": {
+            "kind": "ref",
+            "ref": "ArtistRead"
+          }
+        },
+        "limit": {
+          "kind": "primitive",
+          "type": "integer"
+        },
+        "offset": {
+          "kind": "primitive",
+          "type": "integer"
+        },
+        "total": {
+          "kind": "primitive",
+          "type": "integer"
+        }
+      }
+    },
+    "Page_MyPlaylistRead_": {
+      "kind": "object",
+      "required": [
+        "items",
+        "limit",
+        "offset",
+        "total"
+      ],
+      "properties": {
+        "items": {
+          "kind": "array",
+          "items": {
+            "kind": "ref",
+            "ref": "MyPlaylistRead"
+          }
+        },
+        "limit": {
+          "kind": "primitive",
+          "type": "integer"
+        },
+        "offset": {
+          "kind": "primitive",
+          "type": "integer"
+        },
+        "total": {
+          "kind": "primitive",
+          "type": "integer"
+        }
+      }
+    },
+    "Page_PlaylistRead_": {
+      "kind": "object",
+      "required": [
+        "items",
+        "limit",
+        "offset",
+        "total"
+      ],
+      "properties": {
+        "items": {
+          "kind": "array",
+          "items": {
+            "kind": "ref",
+            "ref": "PlaylistRead"
+          }
+        },
+        "limit": {
+          "kind": "primitive",
+          "type": "integer"
+        },
+        "offset": {
+          "kind": "primitive",
+          "type": "integer"
+        },
+        "total": {
+          "kind": "primitive",
+          "type": "integer"
+        }
+      }
+    },
+    "Page_RecentlyPlayedSong_": {
+      "kind": "object",
+      "required": [
+        "items",
+        "limit",
+        "offset",
+        "total"
+      ],
+      "properties": {
+        "items": {
+          "kind": "array",
+          "items": {
+            "kind": "ref",
+            "ref": "RecentlyPlayedSong"
+          }
+        },
+        "limit": {
+          "kind": "primitive",
+          "type": "integer"
+        },
+        "offset": {
+          "kind": "primitive",
+          "type": "integer"
+        },
+        "total": {
+          "kind": "primitive",
+          "type": "integer"
+        }
+      }
+    },
+    "Page_SongRead_": {
+      "kind": "object",
+      "required": [
+        "items",
+        "limit",
+        "offset",
+        "total"
+      ],
+      "properties": {
+        "items": {
+          "kind": "array",
+          "items": {
+            "kind": "ref",
+            "ref": "SongRead"
+          }
+        },
+        "limit": {
+          "kind": "primitive",
+          "type": "integer"
+        },
+        "offset": {
+          "kind": "primitive",
+          "type": "integer"
+        },
+        "total": {
+          "kind": "primitive",
+          "type": "integer"
+        }
+      }
+    },
+    "PlaylistAddSong": {
+      "kind": "object",
+      "required": [
+        "song_id"
+      ],
+      "properties": {
+        "song_id": {
+          "kind": "primitive",
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    },
+    "PlaylistCreate": {
+      "kind": "object",
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "description": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        },
+        "is_public": {
+          "kind": "primitive",
+          "type": "boolean",
+          "default": false
+        },
+        "name": {
+          "kind": "primitive",
+          "type": "string"
+        }
+      }
+    },
+    "PlaylistDetail": {
+      "kind": "object",
+      "required": [
+        "created_at",
+        "id",
+        "name"
+      ],
+      "properties": {
+        "cover_key": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        },
+        "cover_url": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        },
+        "created_at": {
+          "kind": "primitive",
+          "type": "string",
+          "format": "date-time"
+        },
+        "description": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        },
+        "id": {
+          "kind": "primitive",
+          "type": "string",
+          "format": "uuid"
+        },
+        "is_public": {
+          "kind": "primitive",
+          "type": "boolean",
+          "default": false
+        },
+        "kind": {
+          "kind": "enum",
+          "values": [
+            "system",
+            "user"
+          ],
+          "default": "user"
+        },
+        "name": {
+          "kind": "primitive",
+          "type": "string"
+        },
+        "owner_email": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        },
+        "query": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "enum",
+              "values": [
+                "new",
+                "top_month",
+                "top_week"
+              ]
+            },
+            {
+              "kind": "primitive",
+              "type": "null"
+            }
+          ]
+        },
+        "song_count": {
+          "kind": "primitive",
+          "type": "integer",
+          "default": 0
+        },
+        "songs": {
+          "kind": "array",
+          "items": {
+            "kind": "ref",
+            "ref": "SongRead"
+          }
+        }
+      }
+    },
+    "PlaylistKind": {
+      "kind": "enum",
+      "values": [
+        "system",
+        "user"
+      ]
+    },
+    "PlaylistRead": {
+      "kind": "object",
+      "required": [
+        "created_at",
+        "id",
+        "name"
+      ],
+      "properties": {
+        "cover_key": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        },
+        "cover_url": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        },
+        "created_at": {
+          "kind": "primitive",
+          "type": "string",
+          "format": "date-time"
+        },
+        "description": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        },
+        "id": {
+          "kind": "primitive",
+          "type": "string",
+          "format": "uuid"
+        },
+        "is_public": {
+          "kind": "primitive",
+          "type": "boolean",
+          "default": false
+        },
+        "kind": {
+          "kind": "enum",
+          "values": [
+            "system",
+            "user"
+          ],
+          "default": "user"
+        },
+        "name": {
+          "kind": "primitive",
+          "type": "string"
+        },
+        "owner_email": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        },
+        "query": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "enum",
+              "values": [
+                "new",
+                "top_month",
+                "top_week"
+              ]
+            },
+            {
+              "kind": "primitive",
+              "type": "null"
+            }
+          ]
+        },
+        "song_count": {
+          "kind": "primitive",
+          "type": "integer",
+          "default": 0
+        }
+      }
+    },
+    "PlaylistSystemCreate": {
+      "kind": "object",
+      "required": [
+        "name",
+        "query"
+      ],
+      "properties": {
+        "description": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        },
+        "name": {
+          "kind": "primitive",
+          "type": "string"
+        },
+        "query": {
+          "kind": "enum",
+          "values": [
+            "new",
+            "top_month",
+            "top_week"
+          ]
+        }
+      }
+    },
+    "PlaylistSystemQuery": {
+      "kind": "enum",
+      "values": [
+        "new",
+        "top_month",
+        "top_week"
+      ]
+    },
+    "PlaylistUpdate": {
+      "kind": "object",
+      "required": [],
+      "properties": {
+        "cover_key": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        },
+        "description": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        },
+        "is_public": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "boolean"
+            },
+            {
+              "kind": "primitive",
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    "PresignRequest": {
+      "kind": "object",
+      "required": [
+        "content_type",
+        "filename",
+        "size"
+      ],
+      "properties": {
+        "content_type": {
+          "kind": "primitive",
+          "type": "string"
+        },
+        "filename": {
+          "kind": "primitive",
+          "type": "string"
+        },
+        "size": {
+          "kind": "primitive",
+          "type": "integer"
+        }
+      }
+    },
+    "PresignResponse": {
+      "kind": "object",
+      "required": [
+        "content_type",
+        "expires_in",
+        "object_key",
+        "url"
+      ],
+      "properties": {
+        "content_type": {
+          "kind": "primitive",
+          "type": "string"
+        },
+        "expires_in": {
+          "kind": "primitive",
+          "type": "integer"
+        },
+        "object_key": {
+          "kind": "primitive",
+          "type": "string"
+        },
+        "url": {
+          "kind": "primitive",
+          "type": "string"
+        }
+      }
+    },
+    "RecentlyPlayedSong": {
+      "kind": "object",
+      "required": [
+        "artist",
+        "created_at",
+        "id",
+        "object_key",
+        "title"
+      ],
+      "properties": {
+        "album": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "ref",
+              "ref": "AlbumRead"
+            }
+          ]
+        },
+        "artist": {
+          "kind": "ref",
+          "ref": "ArtistRead"
+        },
+        "collaborators": {
+          "kind": "array",
+          "items": {
+            "kind": "ref",
+            "ref": "ArtistRead"
+          }
+        },
+        "cover_url": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        },
+        "created_at": {
+          "kind": "primitive",
+          "type": "string",
+          "format": "date-time"
+        },
+        "duration_seconds": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "integer"
+            },
+            {
+              "kind": "primitive",
+              "type": "null"
+            }
+          ]
+        },
+        "genres": {
+          "kind": "array",
+          "items": {
+            "kind": "enum",
+            "values": [
+              "classical",
+              "electronic",
+              "folk",
+              "hip-hop",
+              "indie",
+              "jazz",
+              "latin",
+              "metal",
+              "pop",
+              "r&b",
+              "reggaeton",
+              "rock"
+            ]
+          }
+        },
+        "id": {
+          "kind": "primitive",
+          "type": "string",
+          "format": "uuid"
+        },
+        "lyrics": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        },
+        "object_key": {
+          "kind": "primitive",
+          "type": "string"
+        },
+        "play_count": {
+          "kind": "primitive",
+          "type": "integer",
+          "default": 0
+        },
+        "stream_url": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        },
+        "title": {
+          "kind": "primitive",
+          "type": "string"
+        },
+        "user_play_count": {
+          "kind": "primitive",
+          "type": "integer",
+          "default": 0
+        }
+      }
+    },
+    "SongCreate": {
+      "kind": "object",
+      "required": [
+        "album_id",
+        "object_key",
+        "title"
+      ],
+      "properties": {
+        "album_id": {
+          "kind": "primitive",
+          "type": "string",
+          "format": "uuid"
+        },
+        "artist_id": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string",
+              "format": "uuid"
+            }
+          ]
+        },
+        "artist_name": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        },
+        "collaborator_ids": {
+          "kind": "array",
+          "items": {
+            "kind": "primitive",
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "duration_seconds": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "integer"
+            },
+            {
+              "kind": "primitive",
+              "type": "null"
+            }
+          ]
+        },
+        "genres": {
+          "kind": "array",
+          "items": {
+            "kind": "enum",
+            "values": [
+              "classical",
+              "electronic",
+              "folk",
+              "hip-hop",
+              "indie",
+              "jazz",
+              "latin",
+              "metal",
+              "pop",
+              "r&b",
+              "reggaeton",
+              "rock"
+            ]
+          }
+        },
+        "lyrics": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        },
+        "object_key": {
+          "kind": "primitive",
+          "type": "string"
+        },
+        "title": {
+          "kind": "primitive",
+          "type": "string"
+        }
+      }
+    },
+    "SongGenre": {
+      "kind": "enum",
+      "values": [
+        "classical",
+        "electronic",
+        "folk",
+        "hip-hop",
+        "indie",
+        "jazz",
+        "latin",
+        "metal",
+        "pop",
+        "r&b",
+        "reggaeton",
+        "rock"
+      ]
+    },
+    "SongRead": {
+      "kind": "object",
+      "required": [
+        "artist",
+        "created_at",
+        "id",
+        "object_key",
+        "title"
+      ],
+      "properties": {
+        "album": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "ref",
+              "ref": "AlbumRead"
+            }
+          ]
+        },
+        "artist": {
+          "kind": "ref",
+          "ref": "ArtistRead"
+        },
+        "collaborators": {
+          "kind": "array",
+          "items": {
+            "kind": "ref",
+            "ref": "ArtistRead"
+          }
+        },
+        "cover_url": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        },
+        "created_at": {
+          "kind": "primitive",
+          "type": "string",
+          "format": "date-time"
+        },
+        "duration_seconds": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "integer"
+            },
+            {
+              "kind": "primitive",
+              "type": "null"
+            }
+          ]
+        },
+        "genres": {
+          "kind": "array",
+          "items": {
+            "kind": "enum",
+            "values": [
+              "classical",
+              "electronic",
+              "folk",
+              "hip-hop",
+              "indie",
+              "jazz",
+              "latin",
+              "metal",
+              "pop",
+              "r&b",
+              "reggaeton",
+              "rock"
+            ]
+          }
+        },
+        "id": {
+          "kind": "primitive",
+          "type": "string",
+          "format": "uuid"
+        },
+        "lyrics": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        },
+        "object_key": {
+          "kind": "primitive",
+          "type": "string"
+        },
+        "play_count": {
+          "kind": "primitive",
+          "type": "integer",
+          "default": 0
+        },
+        "stream_url": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        },
+        "title": {
+          "kind": "primitive",
+          "type": "string"
+        }
+      }
+    },
+    "SongUpdate": {
+      "kind": "object",
+      "required": [],
+      "properties": {
+        "album_id": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string",
+              "format": "uuid"
+            }
+          ]
+        },
+        "artist_id": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string",
+              "format": "uuid"
+            }
+          ]
+        },
+        "collaborator_ids": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "array",
+              "items": {
+                "kind": "primitive",
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            {
+              "kind": "primitive",
+              "type": "null"
+            }
+          ]
+        },
+        "duration_seconds": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "integer"
+            },
+            {
+              "kind": "primitive",
+              "type": "null"
+            }
+          ]
+        },
+        "genres": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "array",
+              "items": {
+                "kind": "enum",
+                "values": [
+                  "classical",
+                  "electronic",
+                  "folk",
+                  "hip-hop",
+                  "indie",
+                  "jazz",
+                  "latin",
+                  "metal",
+                  "pop",
+                  "r&b",
+                  "reggaeton",
+                  "rock"
+                ]
+              }
+            },
+            {
+              "kind": "primitive",
+              "type": "null"
+            }
+          ]
+        },
+        "lyrics": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        },
+        "title": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    "SongWithPlays": {
+      "kind": "object",
+      "required": [
+        "artist",
+        "created_at",
+        "id",
+        "object_key",
+        "title"
+      ],
+      "properties": {
+        "album": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "ref",
+              "ref": "AlbumRead"
+            }
+          ]
+        },
+        "artist": {
+          "kind": "ref",
+          "ref": "ArtistRead"
+        },
+        "collaborators": {
+          "kind": "array",
+          "items": {
+            "kind": "ref",
+            "ref": "ArtistRead"
+          }
+        },
+        "cover_url": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        },
+        "created_at": {
+          "kind": "primitive",
+          "type": "string",
+          "format": "date-time"
+        },
+        "duration_seconds": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "integer"
+            },
+            {
+              "kind": "primitive",
+              "type": "null"
+            }
+          ]
+        },
+        "genres": {
+          "kind": "array",
+          "items": {
+            "kind": "enum",
+            "values": [
+              "classical",
+              "electronic",
+              "folk",
+              "hip-hop",
+              "indie",
+              "jazz",
+              "latin",
+              "metal",
+              "pop",
+              "r&b",
+              "reggaeton",
+              "rock"
+            ]
+          }
+        },
+        "id": {
+          "kind": "primitive",
+          "type": "string",
+          "format": "uuid"
+        },
+        "lyrics": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        },
+        "object_key": {
+          "kind": "primitive",
+          "type": "string"
+        },
+        "play_count": {
+          "kind": "primitive",
+          "type": "integer",
+          "default": 0
+        },
+        "stream_url": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        },
+        "title": {
+          "kind": "primitive",
+          "type": "string"
+        }
+      }
+    },
+    "UserRead": {
+      "kind": "object",
+      "required": [
+        "email",
+        "id"
+      ],
+      "properties": {
+        "cover_key": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        },
+        "cover_url": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        },
+        "email": {
+          "kind": "primitive",
+          "type": "string",
+          "format": "email"
+        },
+        "id": {
+          "kind": "primitive",
+          "type": "string",
+          "format": "uuid"
+        },
+        "is_active": {
+          "kind": "primitive",
+          "type": "boolean",
+          "default": true
+        },
+        "is_superuser": {
+          "kind": "primitive",
+          "type": "boolean",
+          "default": false
+        },
+        "is_verified": {
+          "kind": "primitive",
+          "type": "boolean",
+          "default": false
+        },
+        "role": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "enum",
+              "values": [
+                "admin"
+              ]
+            },
+            {
+              "kind": "primitive",
+              "type": "null"
+            }
+          ]
+        },
+        "total_plays": {
+          "kind": "primitive",
+          "type": "integer",
+          "default": 0
+        },
+        "username": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "null"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    "UserRole": {
+      "kind": "enum",
+      "values": [
+        "admin"
+      ]
+    },
+    "UserRoleUpdate": {
+      "kind": "object",
+      "required": [
+        "role"
+      ],
+      "properties": {
+        "role": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "enum",
+              "values": [
+                "admin"
+              ]
+            },
+            {
+              "kind": "primitive",
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "ValidationError": {
+      "kind": "object",
+      "required": [
+        "loc",
+        "msg",
+        "type"
+      ],
+      "properties": {
+        "ctx": {
+          "kind": "object",
+          "required": [],
+          "properties": {}
+        },
+        "input": {
+          "kind": "any"
+        },
+        "loc": {
+          "kind": "array",
+          "items": {
+            "kind": "union",
+            "of": [
+              {
+                "kind": "primitive",
+                "type": "integer"
+              },
+              {
+                "kind": "primitive",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "msg": {
+          "kind": "primitive",
+          "type": "string"
+        },
+        "type": {
+          "kind": "primitive",
+          "type": "string"
+        }
+      }
+    },
+    "ZipImportIssue": {
+      "kind": "object",
+      "required": [
+        "name",
+        "reason"
+      ],
+      "properties": {
+        "name": {
+          "kind": "primitive",
+          "type": "string"
+        },
+        "reason": {
+          "kind": "primitive",
+          "type": "string"
+        }
+      }
+    },
+    "ZipImportResult": {
+      "kind": "object",
+      "required": [],
+      "properties": {
+        "failed": {
+          "kind": "array",
+          "items": {
+            "kind": "ref",
+            "ref": "ZipImportIssue"
+          }
+        },
+        "imported": {
+          "kind": "array",
+          "items": {
+            "kind": "ref",
+            "ref": "SongRead"
+          }
+        },
+        "skipped": {
+          "kind": "array",
+          "items": {
+            "kind": "ref",
+            "ref": "ZipImportIssue"
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/admin/users": {
+      "get": {
+        "statuses": [
+          200,
+          422
+        ],
+        "refs": {
+          "200": null,
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      }
+    },
+    "/admin/users/{user_id}": {
+      "delete": {
+        "statuses": [
+          204,
+          422
+        ],
+        "refs": {
+          "204": null,
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      }
+    },
+    "/admin/users/{user_id}/role": {
+      "patch": {
+        "statuses": [
+          200,
+          422
+        ],
+        "refs": {
+          "200": "#/components/schemas/UserRead",
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      }
+    },
+    "/albums": {
+      "get": {
+        "statuses": [
+          200,
+          422
+        ],
+        "refs": {
+          "200": "#/components/schemas/Page_AlbumRead_",
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      },
+      "post": {
+        "statuses": [
+          201,
+          422
+        ],
+        "refs": {
+          "201": "#/components/schemas/AlbumDetail",
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      }
+    },
+    "/albums/{album_id}": {
+      "get": {
+        "statuses": [
+          200,
+          422
+        ],
+        "refs": {
+          "200": "#/components/schemas/AlbumDetail",
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      },
+      "delete": {
+        "statuses": [
+          204,
+          422
+        ],
+        "refs": {
+          "204": null,
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      },
+      "patch": {
+        "statuses": [
+          200,
+          422
+        ],
+        "refs": {
+          "200": "#/components/schemas/AlbumDetail",
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      }
+    },
+    "/albums/{album_id}/import-zip": {
+      "post": {
+        "statuses": [
+          200,
+          422
+        ],
+        "refs": {
+          "200": "#/components/schemas/ZipImportResult",
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      }
+    },
+    "/artists": {
+      "get": {
+        "statuses": [
+          200,
+          422
+        ],
+        "refs": {
+          "200": "#/components/schemas/Page_ArtistRead_",
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      },
+      "post": {
+        "statuses": [
+          201,
+          422
+        ],
+        "refs": {
+          "201": "#/components/schemas/ArtistRead",
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      }
+    },
+    "/artists/{artist_id}": {
+      "get": {
+        "statuses": [
+          200,
+          422
+        ],
+        "refs": {
+          "200": "#/components/schemas/ArtistRead",
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      },
+      "delete": {
+        "statuses": [
+          204,
+          422
+        ],
+        "refs": {
+          "204": null,
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      },
+      "patch": {
+        "statuses": [
+          200,
+          422
+        ],
+        "refs": {
+          "200": "#/components/schemas/ArtistRead",
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      }
+    },
+    "/auth/forgot-password": {
+      "post": {
+        "statuses": [
+          202,
+          422
+        ],
+        "refs": {
+          "202": null,
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "statuses": [
+          204,
+          422
+        ],
+        "refs": {
+          "204": null,
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "statuses": [
+          204
+        ],
+        "refs": {
+          "204": null
+        }
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "statuses": [
+          201,
+          400,
+          422
+        ],
+        "refs": {
+          "201": "#/components/schemas/UserRead",
+          "400": "#/components/schemas/ErrorModel",
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      }
+    },
+    "/auth/request-verify-token": {
+      "post": {
+        "statuses": [
+          202,
+          422
+        ],
+        "refs": {
+          "202": null,
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      }
+    },
+    "/auth/reset-password": {
+      "post": {
+        "statuses": [
+          200,
+          400,
+          422
+        ],
+        "refs": {
+          "200": null,
+          "400": "#/components/schemas/ErrorModel",
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      }
+    },
+    "/auth/verify": {
+      "post": {
+        "statuses": [
+          200,
+          400,
+          422
+        ],
+        "refs": {
+          "200": "#/components/schemas/UserRead",
+          "400": "#/components/schemas/ErrorModel",
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      }
+    },
+    "/genres": {
+      "get": {
+        "statuses": [
+          200
+        ],
+        "refs": {
+          "200": null
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "statuses": [
+          200
+        ],
+        "refs": {
+          "200": null
+        }
+      }
+    },
+    "/me/favorites": {
+      "get": {
+        "statuses": [
+          200,
+          422
+        ],
+        "refs": {
+          "200": "#/components/schemas/Page_SongRead_",
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      }
+    },
+    "/me/favorites/albums": {
+      "get": {
+        "statuses": [
+          200,
+          422
+        ],
+        "refs": {
+          "200": "#/components/schemas/Page_AlbumRead_",
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      }
+    },
+    "/me/favorites/albums/ids": {
+      "get": {
+        "statuses": [
+          200
+        ],
+        "refs": {
+          "200": null
+        }
+      }
+    },
+    "/me/favorites/albums/{album_id}": {
+      "put": {
+        "statuses": [
+          204,
+          422
+        ],
+        "refs": {
+          "204": null,
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      },
+      "delete": {
+        "statuses": [
+          204,
+          422
+        ],
+        "refs": {
+          "204": null,
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      }
+    },
+    "/me/favorites/ids": {
+      "get": {
+        "statuses": [
+          200
+        ],
+        "refs": {
+          "200": null
+        }
+      }
+    },
+    "/me/favorites/playlists": {
+      "get": {
+        "statuses": [
+          200,
+          422
+        ],
+        "refs": {
+          "200": "#/components/schemas/Page_PlaylistRead_",
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      }
+    },
+    "/me/favorites/playlists/ids": {
+      "get": {
+        "statuses": [
+          200
+        ],
+        "refs": {
+          "200": null
+        }
+      }
+    },
+    "/me/favorites/playlists/{playlist_id}": {
+      "put": {
+        "statuses": [
+          204,
+          422
+        ],
+        "refs": {
+          "204": null,
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      },
+      "delete": {
+        "statuses": [
+          204,
+          422
+        ],
+        "refs": {
+          "204": null,
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      }
+    },
+    "/me/favorites/{song_id}": {
+      "put": {
+        "statuses": [
+          204,
+          422
+        ],
+        "refs": {
+          "204": null,
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      },
+      "delete": {
+        "statuses": [
+          204,
+          422
+        ],
+        "refs": {
+          "204": null,
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      }
+    },
+    "/me/library/ids": {
+      "get": {
+        "statuses": [
+          200
+        ],
+        "refs": {
+          "200": null
+        }
+      }
+    },
+    "/me/listens": {
+      "post": {
+        "statuses": [
+          201,
+          422
+        ],
+        "refs": {
+          "201": "#/components/schemas/ListenRead",
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      }
+    },
+    "/me/playlists": {
+      "get": {
+        "statuses": [
+          200
+        ],
+        "refs": {
+          "200": null
+        }
+      }
+    },
+    "/me/playlists/page": {
+      "get": {
+        "statuses": [
+          200,
+          422
+        ],
+        "refs": {
+          "200": "#/components/schemas/Page_MyPlaylistRead_",
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      }
+    },
+    "/me/recently-played": {
+      "get": {
+        "statuses": [
+          200,
+          422
+        ],
+        "refs": {
+          "200": "#/components/schemas/Page_RecentlyPlayedSong_",
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      }
+    },
+    "/playlists": {
+      "get": {
+        "statuses": [
+          200,
+          422
+        ],
+        "refs": {
+          "200": null,
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      },
+      "post": {
+        "statuses": [
+          201,
+          422
+        ],
+        "refs": {
+          "201": "#/components/schemas/PlaylistDetail",
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      }
+    },
+    "/playlists/public": {
+      "get": {
+        "statuses": [
+          200,
+          422
+        ],
+        "refs": {
+          "200": "#/components/schemas/Page_PlaylistRead_",
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      }
+    },
+    "/playlists/system": {
+      "post": {
+        "statuses": [
+          201,
+          422
+        ],
+        "refs": {
+          "201": "#/components/schemas/PlaylistDetail",
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      }
+    },
+    "/playlists/system/{playlist_id}/refresh": {
+      "post": {
+        "statuses": [
+          200,
+          422
+        ],
+        "refs": {
+          "200": "#/components/schemas/PlaylistDetail",
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      }
+    },
+    "/playlists/{playlist_id}": {
+      "get": {
+        "statuses": [
+          200,
+          422
+        ],
+        "refs": {
+          "200": "#/components/schemas/PlaylistDetail",
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      },
+      "delete": {
+        "statuses": [
+          204,
+          422
+        ],
+        "refs": {
+          "204": null,
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      },
+      "patch": {
+        "statuses": [
+          200,
+          422
+        ],
+        "refs": {
+          "200": "#/components/schemas/PlaylistDetail",
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      }
+    },
+    "/playlists/{playlist_id}/songs": {
+      "post": {
+        "statuses": [
+          200,
+          422
+        ],
+        "refs": {
+          "200": "#/components/schemas/PlaylistDetail",
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      }
+    },
+    "/playlists/{playlist_id}/songs/{song_id}": {
+      "delete": {
+        "statuses": [
+          200,
+          422
+        ],
+        "refs": {
+          "200": "#/components/schemas/PlaylistDetail",
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      }
+    },
+    "/songs": {
+      "get": {
+        "statuses": [
+          200,
+          422
+        ],
+        "refs": {
+          "200": "#/components/schemas/Page_SongRead_",
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      },
+      "post": {
+        "statuses": [
+          201,
+          422
+        ],
+        "refs": {
+          "201": "#/components/schemas/SongRead",
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      }
+    },
+    "/songs/popular": {
+      "get": {
+        "statuses": [
+          200,
+          422
+        ],
+        "refs": {
+          "200": null,
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      }
+    },
+    "/songs/{song_id}": {
+      "get": {
+        "statuses": [
+          200,
+          422
+        ],
+        "refs": {
+          "200": "#/components/schemas/SongRead",
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      },
+      "delete": {
+        "statuses": [
+          204,
+          422
+        ],
+        "refs": {
+          "204": null,
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      },
+      "patch": {
+        "statuses": [
+          200,
+          422
+        ],
+        "refs": {
+          "200": "#/components/schemas/SongRead",
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      }
+    },
+    "/uploads/presign": {
+      "post": {
+        "statuses": [
+          200,
+          422
+        ],
+        "refs": {
+          "200": "#/components/schemas/PresignResponse",
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      }
+    },
+    "/uploads/presign-cover": {
+      "post": {
+        "statuses": [
+          200,
+          422
+        ],
+        "refs": {
+          "200": "#/components/schemas/PresignResponse",
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      }
+    },
+    "/users/me": {
+      "get": {
+        "statuses": [
+          200,
+          401
+        ],
+        "refs": {
+          "200": "#/components/schemas/UserRead",
+          "401": null
+        }
+      },
+      "patch": {
+        "statuses": [
+          200,
+          400,
+          401,
+          422
+        ],
+        "refs": {
+          "200": "#/components/schemas/UserRead",
+          "400": "#/components/schemas/ErrorModel",
+          "401": null,
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      }
+    },
+    "/users/{id}": {
+      "get": {
+        "statuses": [
+          200,
+          401,
+          403,
+          404,
+          422
+        ],
+        "refs": {
+          "200": "#/components/schemas/UserRead",
+          "401": null,
+          "403": null,
+          "404": null,
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      },
+      "delete": {
+        "statuses": [
+          204,
+          401,
+          403,
+          404,
+          422
+        ],
+        "refs": {
+          "204": null,
+          "401": null,
+          "403": null,
+          "404": null,
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      },
+      "patch": {
+        "statuses": [
+          200,
+          400,
+          401,
+          403,
+          404,
+          422
+        ],
+        "refs": {
+          "200": "#/components/schemas/UserRead",
+          "400": "#/components/schemas/ErrorModel",
+          "401": null,
+          "403": null,
+          "404": null,
+          "422": "#/components/schemas/HTTPValidationError"
+        }
+      }
+    }
+  },
+  "pythonOnly": []
+}
