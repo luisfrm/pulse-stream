@@ -68,6 +68,9 @@ export function testBindings(overrides: Partial<Bindings> = {}): Bindings {
   return {
     ...(env as unknown as Bindings),
     ENV: "local",
+    // better-auth firma la sesión con AUTH_SECRET. En CI no existe `.dev.vars`,
+    // así que sin este default `register` devuelve 500.
+    AUTH_SECRET: env.AUTH_SECRET ?? "test-auth-secret",
     COOKIE_DOMAIN: "",
     DATABASE_URL: TEST_DATABASE_URL,
     RATE_LIMIT_DISABLED: "true",

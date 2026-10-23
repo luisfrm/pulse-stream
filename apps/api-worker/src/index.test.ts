@@ -5,7 +5,7 @@
  * (gate de paridad contra el OpenAPI de Pydantic).
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type { Bindings } from "@/env";
 import { app } from "@/index";
@@ -62,11 +62,16 @@ describe("GET /openapi.json", () => {
   });
 
   it("en prod con la config incompleta responde 500 (fail-fast)", async () => {
+    // El 500 es el comportamiento esperado. Se silencia el `console.error` del
+    // handler para no ensuciar la salida del job (y se verifica que loguee).
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
     const prodEnv: Bindings = { ...env, ENV: "prod" };
 
     const res = await app.request("/health", undefined, prodEnv);
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({ detail: "Error interno" });
+    expect(consoleError).toHaveBeenCalled();
+    consoleError.mockRestore();
   });
 });
 
