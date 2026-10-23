@@ -25,7 +25,6 @@ export interface Bindings {
    */
   API_URL?: string;
   DATABASE_URL?: string;
-  DATABASE_URL_DIRECT?: string;
   TEST_DATABASE_URL?: string;
   R2_ACCOUNT_ID?: string;
   R2_ACCESS_KEY_ID?: string;
@@ -100,7 +99,6 @@ export interface AppConfig {
   authSecret: string | undefined;
   /** `undefined` si el binding no está: validar con `requireDatabaseUrl`. */
   databaseUrl: string | undefined;
-  databaseUrlDirect: string | undefined;
   corsOriginRegex: string;
   rateLimits: {
     login: string;
@@ -223,7 +221,6 @@ export function createConfig(env: Bindings): AppConfig {
     apiUrl: optional(env.API_URL) ?? DEFAULT_API_URL,
     authSecret: optional(env.AUTH_SECRET),
     databaseUrl: optional(env.DATABASE_URL),
-    databaseUrlDirect: optional(env.DATABASE_URL_DIRECT),
     corsOriginRegex,
     rateLimits: {
       login: optional(env.RATE_LIMIT_LOGIN) ?? DEFAULT_RATE_LIMITS.login,

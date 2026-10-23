@@ -108,15 +108,18 @@ que sirve `/openapi.json`. En CI el archivo generado está *pinneado*:
 
 Pasos:
 
-1. Frenar la API Python (nada más debe escribir en la base con el esquema
-   viejo).
-2. Deployar el Worker (`pnpm --filter @pulse-stream/api-worker deploy`) con
-   todos los secretos (`ENV=prod` hace fail-fast: sin `AUTH_SECRET`,
-   `DATABASE_URL`, `CORS_ORIGIN_REGEX` real ni las 5 de R2 no arranca).
-3. Apuntar `apps/web` al Worker (`NEXT_PUBLIC_API_URL`) y deployar el web.
+1. Mergear la rama a `main` (el deploy del Worker se dispara con push a main).
+2. Deployar el Worker con el workflow **Deploy API Worker** (o a mano con
+   `pnpm --filter @pulse-stream/api-worker deploy`). El job corre migraciones,
+   publica con `wrangler deploy`, sincroniza los 4 secrets de runtime desde
+   GitHub y hace smoke de `/health`, `/genres` y `/artists`.
+3. Verificar el smoke y recién entonces apuntar `apps/web` al Worker
+   (`NEXT_PUBLIC_API_URL` + `ENV=prod` + `COOKIE_DOMAIN` en Vercel) y redeployar
+   el web. Si cambiás la env antes de que el Worker esté arriba, el sitio queda
+   apuntando a una API inexistente.
 4. Resetear las passwords legacy, una por una:
    `pnpm --filter @pulse-stream/api-worker user:set-password -- --email ...`.
-5. Smoke: login, dashboard, play (contadores), like, playlist, búsqueda,
+5. Smoke E2E: login, dashboard, play (contadores), like, playlist, búsqueda,
    settings, logout.
 
 **Cookies viejas.** Un usuario con el JWT de fastapi-users todavía en el
@@ -139,6 +142,29 @@ pnpm typecheck
 pnpm test        # tests del worker (requieren TEST_DATABASE_URL)
 pnpm gen:types:worker
 ```
+
+## CI/CD
+
+| Workflow | Dispara | Qué corre | Secrets |
+|---|---|---|---|
+| `Tests` | **pull_request** | unitarios: worker `test:unit` (194) + web vitest (47). Sin red ni DB | ninguno |
+| `CI (integración)` | **push a main** / manual | pytest + vitest de integración con Neon, typecheck/lint/build del web, dry-run del worker y `generated.ts` pinneado | repository: `TEST_DATABASE_URL`, `TEST_DATABASE_URL_WORKER` |
+| `Deploy API Worker` | **push a main** (paths del worker) / manual | typecheck + unit + migraciones + `wrangler deploy` + sync de secrets + smoke | environment `production`: `CLOUDFLARE_API_TOKEN`, `MIGRATE_DATABASE_URL`, `DATABASE_URL`, `AUTH_SECRET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`; variable `CLOUDFLARE_ACCOUNT_ID` |
+
+**El web lo deploya Vercel** con su integración de Git; no hay workflow de deploy
+web. Variables en Vercel (Production): `NEXT_PUBLIC_API_URL`,
+`ENV=prod`, `COOKIE_DOMAIN`, `COOKIE_SAMESITE`.
+
+**Config del Worker**: lo no secreto (`ENV`, `API_URL`, `CORS_ORIGIN_REGEX`,
+`COOKIE_*`, `SESSION_COOKIE_NAME`, `R2_ACCOUNT_ID`, `R2_BUCKET_NAME`,
+`R2_PUBLIC_BASE_URL`) vive en `apps/api-worker/wrangler.jsonc` (`vars` + `routes`
+del custom domain). Los secretos de runtime los sincroniza el workflow con
+`wrangler secret bulk` en cada deploy: GitHub es la fuente de verdad, así rotar
+un secreto es cambiarlo en GitHub y volver a deployar.
+
+Dos bases de test, a propósito: pytest hace `drop_all/create_all` (esquema
+Alembic) y el Worker hace `TRUNCATE` sobre el esquema con better-auth; en la
+misma base se rompen mutuamente.
 
 ## Variables de entorno
 
@@ -163,14 +189,19 @@ pnpm gen:types:worker
 
 | Variable | Obligatoria | Descripción |
 |---|---|---|
-| `NEXT_PUBLIC_API_URL` | no (default `http://localhost:8000`) | URL base de la API (`http://localhost:8787` con el Worker) |
+| `NEXT_PUBLIC_API_URL` | sí en deploy | URL base de la API (`http://localhost:8787` en local; `https://pulse-stream-api.luisrivas.site` en prod). Se inlinea en build |
+| `ENV` | no (default `local`) | `prod` en Vercel: la cookie de logout va con `Secure` |
+| `COOKIE_DOMAIN` | en prod con subdominios | Dominio registrable (`luisrivas.site`) para que el borrado del logout matchee al del Worker |
+| `COOKIE_SAMESITE` | no (default `lax`) | `none` solo si web y API están en dominios distintos |
 
 ### `apps/api-worker/.dev.vars`
 
 Copia de `.dev.vars.example`. Claves: `ENV`, `AUTH_SECRET`, `DATABASE_URL`
-(pooled), `DATABASE_URL_DIRECT` (migraciones), `TEST_DATABASE_URL`,
-`MIGRATE_DATABASE_URL`, `R2_*`, `COOKIE_*`, `RATE_LIMIT_*`, `API_URL`
-(`http://localhost:8787`). En deploy van con `wrangler secret put <NOMBRE>`.
+(pooled, runtime), `TEST_DATABASE_URL_WORKER` (base de test propia),
+`MIGRATE_DATABASE_URL` (Neon **directa**, único nombre que lee `db:migrate`),
+`R2_*`, `COOKIE_*`, `RATE_LIMIT_*`, `API_URL` (`http://localhost:8787`).
+En deploy los secretos van por el workflow (ver CI/CD); lo no secreto está en
+`wrangler.jsonc`.
 
 ## Estado del proyecto
 

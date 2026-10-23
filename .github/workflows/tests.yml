@@ -1,0 +1,41 @@
+name: Tests
+
+# Solo tests unitarios: no tocan red ni base de datos (worker: `src/**`;
+# web: vitest con jsdom). La integración con Neon corre en `ci.yml` sobre main.
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.5.3
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # `vitest run src` excluye `tests/**` (integración con DB): no necesita
+      # TEST_DATABASE_URL ni dispara el guard de CI.
+      - name: Worker unit tests
+        run: pnpm --filter @pulse-stream/api-worker test:unit
+
+      - name: Web unit tests
+        run: pnpm --filter @pulse-stream/web test

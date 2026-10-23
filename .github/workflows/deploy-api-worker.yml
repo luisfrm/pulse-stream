@@ -1,0 +1,101 @@
+name: Deploy API Worker
+
+# CD del backend sobre Cloudflare Workers. El web lo deploya Vercel con su
+# integración de Git (no hay workflow de deploy web).
+#
+# Requiere el environment `production` con los secrets:
+#   CLOUDFLARE_API_TOKEN, MIGRATE_DATABASE_URL, DATABASE_URL, AUTH_SECRET,
+#   R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY
+# y la variable CLOUDFLARE_ACCOUNT_ID (environment o repositorio).
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/api-worker/**"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/deploy-api-worker.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-api-worker
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to Cloudflare Workers
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Sin `environment` los secrets de environment no existen para el job.
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.5.3
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # `wrangler deploy` bundlea con esbuild (no typechequea): el chequeo va
+      # antes para no publicar una versión rota.
+      - name: Typecheck
+        run: pnpm --filter @pulse-stream/api-worker typecheck
+
+      - name: Unit tests
+        run: pnpm --filter @pulse-stream/api-worker test:unit
+
+      # Migraciones con el endpoint DIRECTO de Neon (el pooled es solo para el
+      # runtime). `CONFIRM_TARGET=yes` es obligatorio fuera de la base de test.
+      - name: Migraciones (Neon directa)
+        working-directory: apps/api-worker
+        env:
+          MIGRATE_DATABASE_URL: ${{ secrets.MIGRATE_DATABASE_URL }}
+          CONFIRM_TARGET: "yes"
+        run: pnpm db:migrate
+
+      - name: Deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: apps/api-worker
+          command: deploy
+
+      # GitHub es la fuente de verdad de los secrets de runtime: se pisan en
+      # cada deploy (idempotente) y así rotar es cambiar el secret + push.
+      # `jq` arma el JSON para no romper con comillas/backslashes en la URL.
+      - name: Sync Worker secrets
+        working-directory: apps/api-worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: |
+          for v in AUTH_SECRET DATABASE_URL R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY; do
+            [ -n "${!v}" ] || { echo "::error::Falta el secret $v"; exit 1; }
+          done
+          jq -n --arg a "$AUTH_SECRET" --arg d "$DATABASE_URL" \
+                --arg i "$R2_ACCESS_KEY_ID" --arg s "$R2_SECRET_ACCESS_KEY" \
+                '{AUTH_SECRET:$a, DATABASE_URL:$d, R2_ACCESS_KEY_ID:$i, R2_SECRET_ACCESS_KEY:$s}' > secrets.json
+          npx wrangler secret bulk secrets.json
+          rm -f secrets.json
+
+      # `/health` valida el fail-fast de config (ENV=prod exige todos los
+      # secretos) y `/artists` valida la conexión a Neon.
+      - name: Smoke
+        run: |
+          curl -fsS --retry 5 --retry-delay 3 https://pulse-stream-api.luisrivas.site/health
+          curl -fsS --retry 5 --retry-delay 3 https://pulse-stream-api.luisrivas.site/genres > /dev/null
+          curl -fsS --retry 5 --retry-delay 3 "https://pulse-stream-api.luisrivas.site/artists?limit=1" > /dev/null

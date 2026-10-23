@@ -13,7 +13,23 @@
     // implementación de referencia y ya no corre en el flujo del monorepo.
     "port": 8787
   },
-  // Los secretos viven en .dev.vars (local) y en `wrangler secret put` (prod).
-  // No agregar vars sensibles acá: este archivo se commitea.
-  "vars": {}
+  // Dominio de producción (Cloudflare crea DNS + certificado en el primer
+  // deploy). La zona `luisrivas.site` tiene que estar en la misma cuenta.
+  "routes": [
+    { "pattern": "pulse-stream-api.luisrivas.site", "custom_domain": true }
+  ],
+  // Config NO secreta y versionada. Los secretos (AUTH_SECRET, DATABASE_URL,
+  // R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY) los sincroniza el workflow
+  // `Deploy API Worker` desde GitHub; en local los pisa `.dev.vars`.
+  "vars": {
+    "ENV": "prod",
+    "API_URL": "https://pulse-stream-api.luisrivas.site",
+    "CORS_ORIGIN_REGEX": "https://([a-zA-Z0-9-]+\\.)?luisrivas\\.site",
+    "COOKIE_DOMAIN": "luisrivas.site",
+    "COOKIE_SAMESITE": "lax",
+    "SESSION_COOKIE_NAME": "session",
+    "R2_ACCOUNT_ID": "1b3a3982280061d5b7e98c97f210afb3",
+    "R2_BUCKET_NAME": "pulsestream",
+    "R2_PUBLIC_BASE_URL": "https://pulsestreambucket.luisrivas.site"
+  }
 }

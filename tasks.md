@@ -270,3 +270,13 @@ están documentados en el gate de contrato.
 | 11–21 | Fase 3b resuelta | Ver sección anterior |
 | 16 | CRUD de usuarios en el panel | Backend listo (`/admin/users`, `PATCH role`); falta pantalla |
 | 31 | Bugs funcionales | Al cargar un nuevo album y subirlo, no se elimina el preview, no se cierra el form y no se hace refetch
+
+## CI/CD del rewrite (F9)
+
+| Item | Alcance | Estado |
+|---|---|---|
+| **Tests** | `.github/workflows/tests.yml`: solo unitarios (worker `test:unit` + web vitest) en cada `pull_request`, sin DB ni secrets | Hecho |
+| **CI (integracion)** | `ci.yml` pasa a `push: main` + `workflow_dispatch`: pytest, vitest con Neon, typecheck/lint/build del web y `generated.ts` pinneado | Hecho |
+| **Deploy API Worker** | `.github/workflows/deploy-api-worker.yml`: migraciones con la URL directa, `wrangler deploy`, `wrangler secret bulk` desde GitHub, smoke `/health`/`/genres`/`/artists`; environment `production` | Hecho |
+| **Config del Worker** | `wrangler.jsonc` con `routes` del custom domain y `vars` no secretas; secretos de runtime solo en GitHub (fuente de verdad) | Hecho |
+| **Deploy web** | Vercel con su integracion de Git (sin workflow); envs `NEXT_PUBLIC_API_URL`, `ENV=prod`, `COOKIE_DOMAIN`, `COOKIE_SAMESITE` | Manual (dashboard) |
