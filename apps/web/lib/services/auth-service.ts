@@ -41,5 +41,16 @@ export const authService = {
       }),
     }),
 
+  /**
+   * Pide el mail de reset. Responde 202 SIEMPRE (no revela si el email
+   * existe), así que el mensaje de la UI es condicional.
+   */
+  forgotPassword: (email: string) =>
+    api<null>("/auth/forgot-password", { method: "POST", body: { email } }),
+
+  /** Canjea el token del mail (`/reset-password?token=...`) por una nueva password. */
+  resetPassword: (token: string, password: string) =>
+    api<null>("/auth/reset-password", { method: "POST", body: { token, password } }),
+
   logout: () => api<void>("/auth/logout", { method: "POST" }),
 };

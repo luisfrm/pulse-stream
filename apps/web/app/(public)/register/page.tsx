@@ -12,7 +12,7 @@ import { BrandLogo } from "@/components/brand-logo";
 import { Input } from "@/components/ui";
 import { toast } from "sonner";
 
-const MIN_PASSWORD = 3;
+const MIN_PASSWORD = 8;
 
 function PasswordInput({
   label,

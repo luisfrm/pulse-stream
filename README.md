@@ -111,7 +111,7 @@ Pasos:
 1. Mergear la rama a `master` (el deploy del Worker se dispara con push a master).
 2. Deployar el Worker con el workflow **Deploy API Worker** (o a mano con
    `pnpm --filter @pulse-stream/api-worker deploy`). El job corre migraciones,
-   publica con `wrangler deploy`, sincroniza los 4 secrets de runtime desde
+   publica con `wrangler deploy`, sincroniza los 5 secrets de runtime desde
    GitHub y hace smoke de `/health`, `/genres` y `/artists`.
 3. Verificar el smoke y recién entonces apuntar `apps/web` al Worker
    (`NEXT_PUBLIC_API_URL` + `ENV=prod` + `COOKIE_DOMAIN` en Vercel) y redeployar
@@ -149,7 +149,7 @@ pnpm gen:types:worker
 |---|---|---|---|
 | `Tests` | **pull_request** | unitarios: worker `test:unit` (194) + web vitest (47). Sin red ni DB | ninguno |
 | `CI (integración)` | **push a master** / manual | pytest + vitest de integración con Neon, typecheck/lint/build del web, dry-run del worker y `generated.ts` pinneado | repository: `TEST_DATABASE_URL`, `TEST_DATABASE_URL_WORKER` |
-| `Deploy API Worker` | **push a master** (paths del worker) / manual | typecheck + unit + migraciones + `wrangler deploy` + sync de secrets + smoke | environment `production`: `CLOUDFLARE_API_TOKEN`, `MIGRATE_DATABASE_URL`, `DATABASE_URL`, `AUTH_SECRET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`; variable `CLOUDFLARE_ACCOUNT_ID` |
+| `Deploy API Worker` | **push a master** (paths del worker) / manual | typecheck + unit + migraciones + `wrangler deploy` + sync de secrets + smoke | environment `production`: `CLOUDFLARE_API_TOKEN`, `MIGRATE_DATABASE_URL`, `DATABASE_URL`, `AUTH_SECRET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `RESEND_API_KEY`; variable `CLOUDFLARE_ACCOUNT_ID` |
 
 **El web lo deploya Vercel** con su integración de Git; no hay workflow de deploy
 web. Variables en Vercel (Production): `NEXT_PUBLIC_API_URL`,
@@ -157,10 +157,11 @@ web. Variables en Vercel (Production): `NEXT_PUBLIC_API_URL`,
 
 **Config del Worker**: lo no secreto (`ENV`, `API_URL`, `CORS_ORIGIN_REGEX`,
 `COOKIE_*`, `SESSION_COOKIE_NAME`, `R2_ACCOUNT_ID`, `R2_BUCKET_NAME`,
-`R2_PUBLIC_BASE_URL`) vive en `apps/api-worker/wrangler.jsonc` (`vars` + `routes`
-del custom domain). Los secretos de runtime los sincroniza el workflow con
-`wrangler secret bulk` en cada deploy: GitHub es la fuente de verdad, así rotar
-un secreto es cambiarlo en GitHub y volver a deployar.
+`R2_PUBLIC_BASE_URL`, `EMAIL_FROM`, `WEB_APP_URL`) vive en
+`apps/api-worker/wrangler.jsonc` (`vars` + `routes` del custom domain). Los
+secretos de runtime los sincroniza el workflow con `wrangler secret bulk` en
+cada deploy: GitHub es la fuente de verdad, así rotar un secreto es cambiarlo en
+GitHub y volver a deployar.
 
 Dos bases de test, a propósito: pytest hace `drop_all/create_all` (esquema
 Alembic) y el Worker hace `TRUNCATE` sobre el esquema con better-auth; en la
@@ -202,6 +203,40 @@ Copia de `.dev.vars.example`. Claves: `ENV`, `AUTH_SECRET`, `DATABASE_URL`
 `R2_*`, `COOKIE_*`, `RATE_LIMIT_*`, `API_URL` (`http://localhost:8787`).
 En deploy los secretos van por el workflow (ver CI/CD); lo no secreto está en
 `wrangler.jsonc`.
+
+Email (reset de contraseña):
+
+| Variable | Obligatoria en prod | Descripción |
+|---|---|---|
+| `RESEND_API_KEY` | **sí** (secret) | API key de Resend. Sin ella, en local el link de reset se loguea (`password_reset_link_local`) y no se manda mail |
+| `EMAIL_FROM` | **sí** (var en `wrangler.jsonc`) | Remitente (`Pulse Stream <no-reply@luisrivas.site>`). El dominio tiene que estar **verificado** en Resend |
+| `WEB_APP_URL` | **sí** (var en `wrangler.jsonc`) | Origin del web que arma el link `/reset-password?token=…` (default local: `http://localhost:3000`) |
+| `RATE_LIMIT_FORGOT_PASSWORD` | no | Límite del envío de mails (default `5/hour`) |
+
+### Recuperación de contraseña
+
+`/login` tiene el botón **¿Olvidaste tu contraseña?**: usa el email del
+formulario, llama a `POST /auth/forgot-password` y muestra un aviso con copy
+condicional ("si existe una cuenta con…"). El endpoint responde **202 siempre**,
+así que no se puede enumerar usuarios.
+
+El mail (enviado por el Worker con **Resend REST**) apunta a
+`https://<web>/reset-password?token=<token>`. El token de better-auth:
+
+- vence a la **hora**;
+- es de **un solo uso**;
+- se **invalida el anterior** cada vez que se pide uno nuevo
+  (`reset-password:%` en `verification`);
+- al resetear se **revocan todas las sesiones** del usuario.
+
+No hay endpoint de validación de token: si venció o ya se usó, el 400
+`RESET_PASSWORD_BAD_TOKEN` aparece al enviar el formulario. La página manda
+`Referrer-Policy: no-referrer` y `Cache-Control: no-store` (el token no debe
+viajar en el `Referer` ni quedar cacheado).
+
+Ojo con Resend: si el dominio de `EMAIL_FROM` no está verificado, el Worker
+responde 202 igual y loguea `resend_failed` (no hay mail). En local, sin
+`RESEND_API_KEY`, el link aparece en el log del worker.
 
 ## Estado del proyecto
 

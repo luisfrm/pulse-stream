@@ -19,8 +19,8 @@
     { "pattern": "pulse-stream-api.luisrivas.site", "custom_domain": true }
   ],
   // Config NO secreta y versionada. Los secretos (AUTH_SECRET, DATABASE_URL,
-  // R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY) los sincroniza el workflow
-  // `Deploy API Worker` desde GitHub; en local los pisa `.dev.vars`.
+  // R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, RESEND_API_KEY) los sincroniza el
+  // workflow `Deploy API Worker` desde GitHub; en local los pisa `.dev.vars`.
   "vars": {
     "ENV": "prod",
     "API_URL": "https://pulse-stream-api.luisrivas.site",
@@ -30,6 +30,10 @@
     "SESSION_COOKIE_NAME": "session",
     "R2_ACCOUNT_ID": "1b3a3982280061d5b7e98c97f210afb3",
     "R2_BUCKET_NAME": "pulsestream",
-    "R2_PUBLIC_BASE_URL": "https://pulsestreambucket.luisrivas.site"
+    "R2_PUBLIC_BASE_URL": "https://pulsestreambucket.luisrivas.site",
+    // Mail de reset (el worker exige las dos en prod). El API key es un
+    // secret y lo sincroniza el workflow de deploy.
+    "WEB_APP_URL": "https://pulse-stream.luisrivas.site",
+    "EMAIL_FROM": "Pulse Stream <no-reply@luisrivas.site>"
   }
 }

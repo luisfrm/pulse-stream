@@ -22,6 +22,9 @@ const PROD: Bindings = {
   R2_SECRET_ACCESS_KEY: "secret-key",
   R2_BUCKET_NAME: "bucket",
   R2_PUBLIC_BASE_URL: "https://cdn.pulse.com",
+  RESEND_API_KEY: "re_test",
+  EMAIL_FROM: "Pulse Stream <no-reply@pulse.com>",
+  WEB_APP_URL: "https://pulse.com",
 };
 
 function expectMissing(overrides: Partial<Bindings>, fragment: string): void {
@@ -67,6 +70,12 @@ describe("assertProdConfig", () => {
     ] as const) {
       expectMissing({ [key]: "" }, key);
     }
+  });
+
+  it("exige la config de email (sin ella el reset de password no manda el mail)", () => {
+    expectMissing({ RESEND_API_KEY: "" }, "RESEND_API_KEY");
+    expectMissing({ EMAIL_FROM: "" }, "EMAIL_FROM");
+    expectMissing({ WEB_APP_URL: "" }, "WEB_APP_URL");
   });
 
   it("lista TODO lo que falta en un solo mensaje", () => {

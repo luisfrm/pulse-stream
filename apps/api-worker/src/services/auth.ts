@@ -26,6 +26,7 @@ import {
   findUserByUsername,
 } from "@/repositories/users";
 import { deleteSessionByToken } from "@/repositories/sessions";
+import { deletePasswordResetTokens } from "@/repositories/verifications";
 import type { UserCreate } from "@/schemas";
 import { MIN_PASSWORD_LENGTH } from "@/services/users";
 
@@ -252,13 +253,28 @@ export async function register(
 
 /**
  * `POST /auth/forgot-password`: 202 SIEMPRE (no revela si el email existe).
- * El envío real del mail es un no-op log-only, igual que en Python.
+ *
+ * Flujo:
+ *   1. si el usuario existe, se borran sus tokens de reset previos (best
+ *      effort: si el DELETE falla, se loguea y se sigue) para que solo el
+ *      último link sirva;
+ *   2. better-auth genera el token de 1 hora y `sendResetPassword` manda el
+ *      mail por Resend.
  */
 export async function requestPasswordReset(
   config: AppConfig,
   email: string,
 ): Promise<void> {
   try {
+    const user = await findUserByEmail(config, email);
+    if (user) {
+      try {
+        await deletePasswordResetTokens(config, user.id);
+      } catch (error) {
+        logAuthFailure("forgot_password_cleanup_failed", error);
+      }
+    }
+
     await getAuth(config).api.requestPasswordReset({ body: { email } });
   } catch (error) {
     // Nunca filtrar al cliente si el email existe o no. Sin el objeto crudo:

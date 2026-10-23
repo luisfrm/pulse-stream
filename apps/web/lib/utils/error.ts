@@ -6,8 +6,27 @@ const ERROR_MESSAGES: Record<string, string> = {
   // El backend lo usa también para username duplicado (mismo código).
   REGISTER_USER_ALREADY_EXISTS:
     "Ya existe una cuenta con ese email o nombre de usuario.",
-  REGISTER_INVALID_PASSWORD: "La contraseña no es válida (mínimo 3 caracteres).",
+  REGISTER_INVALID_PASSWORD: "La contraseña no es válida (mínimo 8 caracteres).",
+  RESET_PASSWORD_BAD_TOKEN: "El enlace venció o ya se usó. Pedí uno nuevo.",
+  RESET_PASSWORD_INVALID_PASSWORD:
+    "La contraseña no es válida (mínimo 8 caracteres).",
 };
+
+/**
+ * Código de error de la API.
+ *
+ * `fastapi-users` usa dos shapes: `{"detail": "CODE"}` (login, reset con token
+ * inválido) y `{"detail": {"code": "CODE", "reason": "..."}}` (passwords
+ * inválidas). El segundo se resuelve por `code` con el mismo mapa.
+ */
+function errorCode(detail: unknown): string | undefined {
+  if (typeof detail === "string") return detail;
+  if (typeof detail === "object" && detail !== null && "code" in detail) {
+    const code = detail.code;
+    return typeof code === "string" ? code : undefined;
+  }
+  return undefined;
+}
 
 /**
  * Extrae el mensaje de error de la API desde un FetchError de ofetch.
@@ -16,8 +35,8 @@ const ERROR_MESSAGES: Record<string, string> = {
 export function formatApiErrorMessage(error: unknown): string | null {
   if (error instanceof FetchError) {
     const data = error.data as { detail?: unknown } | undefined;
-    const detail = typeof data?.detail === "string" ? data.detail : undefined;
-    if (detail) return ERROR_MESSAGES[detail] ?? detail;
+    const code = errorCode(data?.detail);
+    if (code) return ERROR_MESSAGES[code] ?? code;
   }
   return null;
 }

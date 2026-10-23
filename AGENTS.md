@@ -423,6 +423,21 @@ fail-fast de la config de producci�n (CORS real, R2, `AUTH_SECRET`,
 (`pnpm gen:types:worker && git diff --exit-code`), generado desde
 `apps/api-worker/openapi.json` sin server corriendo.
 
+**Recuperación de contraseña**: el mail lo manda el Worker por **Resend REST**
+(`lib/email.ts`, `fetch` nativo; `RESEND_API_KEY` es secret y `EMAIL_FROM` /
+`WEB_APP_URL` van en `vars`). No hay SDK: el token lo genera better-auth
+(`resetPasswordTokenExpiresIn` 1 h, `revokeSessionsOnPasswordReset`) y el link
+apunta a `/reset-password?token=…` del web. Al pedir uno nuevo se borran los
+tokens previos del usuario (`reset-password:%` en `verification`,
+`repositories/verifications.ts`) y el endpoint responde 202 siempre (sin
+enumeración), con rate limit `5/hour`. **Shim de transacciones (crítico)**: Neon
+HTTP no soporta `db.transaction()`; el adapter de Drizzle lo usa en
+`consumeOne`/`incrementOne`, así que `auth/auth.ts` los quita del adapter
+devuelto y better-auth cae a su fallback atómico (una sentencia). El test de
+integración `tests/auth-password-reset.test.ts` cubre el reset con token válido
+(si alguien revierte el shim, ese test es el que rompe). Sin `RESEND_API_KEY` en
+local el link se loguea y no se manda mail.
+
 **CI/CD**: `Tests` (solo unitarios, en cada PR), `CI (integracion)` (pytest +
 vitest con Neon, push a master) y `Deploy API Worker` (migraciones + `wrangler
 deploy` + `wrangler secret bulk` + smoke, environment `production`). El web lo
