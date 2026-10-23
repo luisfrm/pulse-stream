@@ -16,12 +16,16 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next") ?? "/dashboard";
+  // `/login?reset=1`: el formulario de reset terminó bien y redirigió acá.
+  const justReset = searchParams.get("reset") === "1";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(true);
   const [pending, setPending] = useState(false);
+  const [sendingReset, setSendingReset] = useState(false);
+  const [resetSentTo, setResetSentTo] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -34,6 +38,24 @@ function LoginForm() {
       toast.error(friendlyError(err));
     } finally {
       setPending(false);
+    }
+  }
+
+  async function onForgotPassword() {
+    const target = email.trim();
+    if (!target) {
+      toast.error("Escribí tu email para enviarte el enlace.");
+      return;
+    }
+
+    setSendingReset(true);
+    try {
+      await authService.forgotPassword(target);
+      setResetSentTo(target);
+    } catch (err) {
+      toast.error(friendlyError(err));
+    } finally {
+      setSendingReset(false);
     }
   }
 
@@ -51,6 +73,29 @@ function LoginForm() {
           <p className="mt-2 text-center text-sm text-text-subdued">
             Iniciá sesión para seguir escuchando.
           </p>
+
+          {justReset ? (
+            <p
+              role="status"
+              className="mt-6 rounded-xl border border-brand-400/40 bg-brand-400/10 px-4 py-3 text-sm text-text-primary"
+            >
+              Contraseña actualizada. Iniciá sesión con la nueva.
+            </p>
+          ) : null}
+
+          {resetSentTo ? (
+            <p
+              role="status"
+              className="mt-6 rounded-xl border border-bg-highlight bg-bg-elevated px-4 py-3 text-sm text-text-subdued"
+            >
+              Si existe una cuenta con{" "}
+              <strong className="font-semibold text-text-primary">
+                {resetSentTo}
+              </strong>
+              , te enviamos un correo para restablecer tu contraseña. Revisá
+              también la carpeta de spam; el enlace vence en 1 hora.
+            </p>
+          ) : null}
 
           <form onSubmit={onSubmit} className="mt-8 flex flex-col gap-5">
             <Input
@@ -82,6 +127,17 @@ function LoginForm() {
                 </button>
               }
             />
+
+          <div className="-mt-2 flex justify-end">
+            <button
+              type="button"
+              onClick={onForgotPassword}
+              disabled={sendingReset || pending}
+              className="text-sm font-medium text-brand-400 transition-colors hover:text-brand-200 hover:underline disabled:opacity-60 disabled:no-underline"
+            >
+              {sendingReset ? "Enviando…" : "¿Olvidaste tu contraseña?"}
+            </button>
+          </div>
 
           <label className="flex cursor-pointer select-none items-center gap-2.5 text-sm text-text-subdued">
             <Checkbox

@@ -229,7 +229,11 @@ export function registerAuthRoutes(app: OpenAPIHono<AppEnv>): void {
 
   app.openapi(forgotPasswordRoute, async (c) => {
     const config = c.get("config");
-    await requestPasswordReset(config, c.req.valid("json").email);
+    // Validar PRIMERO (422 sin tocar la DB) y rate-limitar después.
+    const { email } = c.req.valid("json");
+    await enforceRateLimit(c, "forgot-password", config.rateLimits.forgotPassword);
+
+    await requestPasswordReset(config, email);
     return c.json(null, 202);
   });
 

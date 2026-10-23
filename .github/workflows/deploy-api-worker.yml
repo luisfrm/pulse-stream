@@ -5,7 +5,7 @@ name: Deploy API Worker
 #
 # Requiere el environment `production` con los secrets:
 #   CLOUDFLARE_API_TOKEN, MIGRATE_DATABASE_URL, DATABASE_URL, AUTH_SECRET,
-#   R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY
+#   R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, RESEND_API_KEY
 # y la variable CLOUDFLARE_ACCOUNT_ID (environment o repositorio).
 on:
   push:
@@ -62,6 +62,21 @@ jobs:
           CONFIRM_TARGET: "yes"
         run: pnpm db:migrate
 
+      # Con `ENV=prod` el worker hace fail-fast si falta configuración y
+      # responde 500 en todos los endpoints. Mejor no publicar que dejar el
+      # sitio caído por un secret olvidado.
+      - name: Preflight secrets
+        env:
+          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: |
+          for v in AUTH_SECRET DATABASE_URL R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY RESEND_API_KEY; do
+            [ -n "${!v}" ] || { echo "::error::Falta el secret $v"; exit 1; }
+          done
+
       - name: Deploy
         uses: cloudflare/wrangler-action@v3
         with:
@@ -82,13 +97,15 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
         run: |
-          for v in AUTH_SECRET DATABASE_URL R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY; do
+          for v in AUTH_SECRET DATABASE_URL R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY RESEND_API_KEY; do
             [ -n "${!v}" ] || { echo "::error::Falta el secret $v"; exit 1; }
           done
           jq -n --arg a "$AUTH_SECRET" --arg d "$DATABASE_URL" \
                 --arg i "$R2_ACCESS_KEY_ID" --arg s "$R2_SECRET_ACCESS_KEY" \
-                '{AUTH_SECRET:$a, DATABASE_URL:$d, R2_ACCESS_KEY_ID:$i, R2_SECRET_ACCESS_KEY:$s}' > secrets.json
+                --arg r "$RESEND_API_KEY" \
+                '{AUTH_SECRET:$a, DATABASE_URL:$d, R2_ACCESS_KEY_ID:$i, R2_SECRET_ACCESS_KEY:$s, RESEND_API_KEY:$r}' > secrets.json
           npx wrangler secret bulk secrets.json
           rm -f secrets.json
 

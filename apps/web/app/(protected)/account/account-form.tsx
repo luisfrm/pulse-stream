@@ -11,7 +11,7 @@ import { authService } from "@/lib/services/auth-service";
 import type { User } from "@/lib/services/types";
 import { friendlyError } from "@/lib/utils/error";
 
-const MIN_PASSWORD = 3;
+const MIN_PASSWORD = 8;
 
 export function AccountForm({ user }: { user: User }) {
   const router = useRouter();

@@ -29,6 +29,19 @@ const nextConfig: NextConfig = {
       static: 600,
     },
   },
+  async headers() {
+    return [
+      {
+        // El token del mail no debe viajar en el `Referer` (fuga a terceros)
+        // ni quedar cacheado (CDN/browser sirviendo un link usado).
+        source: "/reset-password",
+        headers: [
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "Cache-Control", value: "no-store" },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;
