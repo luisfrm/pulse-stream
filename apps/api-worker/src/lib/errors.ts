@@ -146,8 +146,7 @@ export class InvalidUploadError extends AppError {
 
 export class R2NotConfiguredError extends AppError {
   static override readonly STATUS = 503;
-  static override readonly DETAIL =
-    "El storage (R2) no está configurado. Completá las env vars R2_* en el .env de apps/api.";
+  static readonly DETAIL = "El storage (R2) no está configurado. Completá las env vars R2_* en el .dev.vars de apps/api-worker (local) o con `wrangler secret put` (deploy).";
 }
 
 export class PlaylistNotFoundError extends NotFoundError {

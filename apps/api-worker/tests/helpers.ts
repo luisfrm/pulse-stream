@@ -93,10 +93,29 @@ export interface TestClient {
   postJson(path: string, body: unknown): Promise<Response>;
   patchJson(path: string, body: unknown): Promise<Response>;
   postForm(path: string, body: Record<string, string>): Promise<Response>;
+  /** `multipart/form-data` (import por ZIP). */
+  postFormData(path: string, form: FormData): Promise<Response>;
 }
 
-/** Cliente HTTP con cookie jar (simula al navegador). */
-export function createClient(bindings: Bindings = testBindings()): TestClient {
+/** Subconjunto de la app que usa el cliente (permite `createApp(deps)`). */
+export interface RequestApp {
+  request(
+    input: string,
+    init?: RequestInit,
+    env?: Bindings,
+  ): Promise<Response> | Response;
+}
+
+/**
+ * Cliente HTTP con cookie jar (simula al navegador).
+ *
+ * `appInstance` permite apuntar a una app con dependencias inyectadas
+ * (`createApp({ storage: fake })`) sin tocar la instancia de producción.
+ */
+export function createClient(
+  bindings: Bindings = testBindings(),
+  appInstance: RequestApp = app,
+): TestClient {
   const cookies = new Map<string, string>();
 
   const cookieHeader = (): string | undefined => {
@@ -112,7 +131,11 @@ export function createClient(bindings: Bindings = testBindings()): TestClient {
     const cookie = cookieHeader();
     if (cookie) headers.set("cookie", cookie);
 
-    const response = await app.request(path, { ...init, headers }, bindings);
+    const response = await appInstance.request(
+      path,
+      { ...init, headers },
+      bindings,
+    );
     storeCookies(response.headers, cookies);
     return response;
   };
@@ -142,6 +165,7 @@ export function createClient(bindings: Bindings = testBindings()): TestClient {
         body: new URLSearchParams(body).toString(),
         headers: { "content-type": "application/x-www-form-urlencoded" },
       }),
+    postFormData: (path, form) => request(path, { method: "POST", body: form }),
   };
 }
 

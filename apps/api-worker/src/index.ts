@@ -3,7 +3,10 @@
  *
  * F0: CORS con credenciales, error handler con el body de FastAPI,
  * `/health`, `/openapi.json` y `/docs` (solo en local), 404 JSON.
- * Los 64 endpoints se montan en fases posteriores sobre este mismo `app`.
+ * F3: auth + usuarios. F4: catálogo. F5: uploads (presign + import por ZIP).
+ *
+ * `createApp(deps)` permite inyectar el storage (R2) en los tests; `app` es la
+ * instancia de producción con las dependencias reales.
  */
 
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
@@ -14,6 +17,7 @@ import { ZodError } from "zod";
 
 import { createConfig, DEFAULT_SESSION_COOKIE_NAME, type AppConfig, type Bindings } from "@/env";
 import type { UserRow } from "@/db/schema";
+import type { AppDeps } from "@/deps";
 import { AppError, CodedAppError, isAppError } from "@/lib/errors";
 import { isAllowedOrigin } from "@/lib/cors";
 import { OPENAPI_VERSION, openApiInfo, registerOpenApiComponents } from "@/lib/openapi";
@@ -25,6 +29,7 @@ import { registerArtistRoutes } from "@/routes/artists";
 import { registerAuthRoutes } from "@/routes/auth";
 import { registerGenreRoutes } from "@/routes/genres";
 import { registerSongRoutes } from "@/routes/songs";
+import { registerUploadRoutes } from "@/routes/uploads";
 import { registerUserRoutes } from "@/routes/users";
 
 export interface AppEnv {
@@ -110,7 +115,7 @@ function applySessionCookieName(document: unknown, name: string): void {
   (scheme as { name?: string }).name = name;
 }
 
-export function createApp() {
+export function createApp(deps: AppDeps = {}) {
   const app = new OpenAPIHono<AppEnv>({ defaultHook: fastApiValidationHook });
 
   registerOpenApiComponents(app.openAPIRegistry);
@@ -161,9 +166,12 @@ export function createApp() {
   // F4: catálogo (artistas, álbumes, canciones, géneros). Mismo orden que
   // `app.include_router(...)` en `apps/api/app/main.py`.
   registerArtistRoutes(app);
-  registerAlbumRoutes(app);
+  registerAlbumRoutes(app, deps);
   registerSongRoutes(app);
   registerGenreRoutes(app);
+
+  // F5: uploads (presign de audio/covers + import por ZIP de un álbum).
+  registerUploadRoutes(app, deps);
 
   // /openapi.json y /docs existen solo en local (igual que `docs_url` en la
   // API Python); fuera de local caen al 404 JSON del `notFound`.
@@ -221,6 +229,7 @@ export function createApp() {
   return app;
 }
 
+/** Instancia de producción: storage real (R2) armado por request. */
 export const app = createApp();
 
 export default app;

@@ -11,6 +11,34 @@
  * de `cause` en lugar de mirar solo el primer nivel.
  */
 
+/**
+ * `true` si el error (o alguno de sus `cause`) viene de Postgres/Drizzle.
+ *
+ * Los errores del driver traen un `code` con el SQLSTATE (`23505`, `23503`,
+ * `42P01`...); Drizzle los envuelve en un `DrizzleQueryError` con el original
+ * en `cause`. Se camina la cadena igual que `isUniqueViolation`, con una
+ * profundidad acotada.
+ */
+export function isDatabaseError(error: unknown): boolean {
+  let current: unknown = error;
+
+  for (let depth = 0; depth < 5; depth += 1) {
+    if (typeof current !== "object" || current === null) return false;
+
+    const { name, code, cause } = current as {
+      name?: unknown;
+      code?: unknown;
+      cause?: unknown;
+    };
+    if (name === "DrizzleQueryError") return true;
+    if (typeof code === "string" && /^[0-9A-Z]{5}$/.test(code)) return true;
+
+    current = cause;
+  }
+
+  return false;
+}
+
 /** `unique_violation` de Postgres. */
 const UNIQUE_VIOLATION = "23505";
 

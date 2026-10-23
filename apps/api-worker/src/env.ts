@@ -131,7 +131,9 @@ function optional(value: string | undefined | null): string | undefined {
 
 function intOrDefault(value: string | undefined, fallback: number): number {
   const parsed = Number.parseInt(value ?? "", 10);
-  return Number.isFinite(parsed) ? parsed : fallback;
+  // `<= 0` es un valor inválido (un tope de 0 bytes bloquearía todo): se usa el
+  // default en vez de propagar una config rota.
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
 /** `ENV` inválido es un error de configuración, no un default silencioso. */
@@ -203,9 +205,23 @@ export function createConfig(env: Bindings): AppConfig {
         optional(env.R2_MAX_UPLOAD_BYTES),
         50 * MB,
       ),
+      /**
+       * DESVIACIÓN deliberada del backend Python (512 MB): el body de un
+       * request en Workers está capado (~100 MB en el plan pago), así que un
+       * ZIP de 512 MB no puede ni llegar. 40 MB deja margen para el overhead
+       * de multipart y cubre un álbum completo típico.
+       *
+       * PERFIL DE MEMORIA: el runtime YA tiene el body entero en memoria; el
+       * parseo de `multipart/form-data` arma una copia de la parte del archivo
+       * y `File.arrayBuffer()` devuelve ese mismo buffer (se envuelve en una
+       * vista, sin copiarlo). En el peor caso se trabaja con ~2× el tamaño del
+       * ZIP (body + parte descomprimida del multipart) más el archivo actual
+       * descomprimido (tope por canción). Con 40 MB eso queda dentro del límite
+       * de memoria del Worker (128 MB).
+       */
       maxZipImportBytes: intOrDefault(
         optional(env.R2_MAX_ZIP_IMPORT_BYTES),
-        512 * MB,
+        40 * MB,
       ),
     },
   };

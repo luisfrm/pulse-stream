@@ -237,6 +237,18 @@ export async function findSongsByIds(
   return loadSongRelations(config, rows);
 }
 
+/** Títulos de las canciones del álbum (dedupe del import por ZIP). */
+export async function findSongTitlesByAlbumId(
+  config: AppConfig,
+  albumId: string,
+): Promise<string[]> {
+  const rows = await createDb(config)
+    .select({ title: songs.title })
+    .from(songs)
+    .where(eq(songs.albumId, albumId));
+  return rows.map((row) => row.title);
+}
+
 /**
  * Canciones de un álbum en orden de creación (detalle de álbum), con desempate
  * por `id` para que el detalle sea determinista (Python no lo tenía).
