@@ -12,6 +12,18 @@ import { AlbumReadSchema } from "./albums";
 import { ArtistReadSchema } from "./artists";
 import { SongGenreEnum } from "./genres";
 
+/**
+ * Tope de colaboradores por canción.
+ *
+ * No es un límite de negocio: acota el tamaño del body (y de la validación
+ * `inArray`) para que un cliente no mande miles de ids. Python no lo tenía;
+ * se documenta acá y se replica en el esquema de update.
+ */
+export const MAX_SONG_COLLABORATORS = 50;
+
+const collaboratorIdsSchema = () =>
+  z.array(UuidSchema).max(MAX_SONG_COLLABORATORS);
+
 const SongCreateBase = z.object({
   title: z.string().min(1).max(255),
   // Se manda artist_id (existente) o artist_name (se crea inline).
@@ -23,7 +35,7 @@ const SongCreateBase = z.object({
   lyrics: z.string().nullable().optional(),
   object_key: z.string().min(1).max(1024),
   duration_seconds: IntSchema.min(0).nullable().optional(),
-  collaborator_ids: z.array(UuidSchema).optional(),
+  collaborator_ids: collaboratorIdsSchema().optional(),
 });
 
 export const SongCreateSchema = SongCreateBase.refine(
@@ -40,7 +52,8 @@ export const SongUpdateSchema = z
     genres: z.array(SongGenreEnum).nullable().optional(),
     lyrics: z.string().nullable().optional(),
     duration_seconds: IntSchema.min(0).nullable().optional(),
-    collaborator_ids: z.array(UuidSchema).nullable().optional(),
+    // `null` explícito limpia el set (misma semántica que `[]` en Python).
+    collaborator_ids: collaboratorIdsSchema().nullable().optional(),
   })
   .openapi("SongUpdate");
 

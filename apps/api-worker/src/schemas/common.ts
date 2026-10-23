@@ -4,6 +4,8 @@
 
 import { z } from "@hono/zod-openapi";
 
+import { CANONICAL_UUID_REGEX, normalizeUuid } from "@/lib/uuid";
+
 /**
  * Key de un cover emitida por el presign (`covers/{uuid}.webp`).
  * Única fuente: artists/albums/playlists/users la reusan para rechazar el
@@ -18,7 +20,20 @@ export const COVER_KEY_REGEX = /^covers\/[0-9a-f-]+\.webp$/;
  */
 export const USERNAME_REGEX = /^[\p{L}\p{N}_.\- ]+$/u;
 
-export const UuidSchema = z.uuid();
+/**
+ * UUID con la semántica de `uuid.UUID()` de Python (no la estricta de zod:
+ * Python acepta 32 hex sin guiones, llaves y `urn:uuid:`).
+ *
+ * `z.preprocess` canonicaliza la entrada a minúsculas con guiones; el
+ * `z.stringFormat("uuid", ...)` de adentro conserva `format: uuid` en el
+ * OpenAPI (el contrato del web) y emite `uuid_parsing` en el 422. Un valor que
+ * no es uuid pasa tal cual y falla el formato, igual que Pydantic.
+ */
+export const UuidSchema = z.preprocess(
+  (value) =>
+    typeof value === "string" ? (normalizeUuid(value) ?? value) : value,
+  z.stringFormat("uuid", CANONICAL_UUID_REGEX),
+);
 export const DateTimeSchema = z.iso.datetime();
 export const IntSchema = z.int();
 

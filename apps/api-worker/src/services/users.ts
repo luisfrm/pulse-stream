@@ -18,6 +18,7 @@ import {
   UserRoleCannotChangeSelfError,
 } from "@/lib/errors";
 import { isUniqueViolation } from "@/lib/postgres";
+import { normalizeUuid } from "@/lib/uuid";
 import {
   deleteUserById,
   findUserByEmail,
@@ -45,29 +46,14 @@ export function listAllUsers(
 }
 
 /**
- * Normaliza un id a la forma canónica de uuid.
+ * Parser de ids de usuario: la MISMA semántica de `uuid.UUID()` que usa el
+ * resto de las rutas con path params (`lib/uuid.normalizeUuid`).
  *
  * Python usa `uuid.UUID(id)` (`user_manager.parse_id`), que acepta la forma
- * con guiones, 32 hex sin guiones, `{...}` y `urn:uuid:...`. Postgres solo
- * acepta la canónica (o 32 hex), así que se normaliza acá para que esas formas
- * encuentren al usuario en vez de romper el cast. `null` = id inválido.
+ * canónica, 32 hex sin guiones, `{...}` y `urn:uuid:...`; Postgres solo acepta
+ * la canónica (o 32 hex). `null` = id inválido.
  */
-export function normalizeUserId(raw: string): string | null {
-  const value = raw.trim();
-  const withoutUrn = /^urn:uuid:/i.test(value) ? value.slice("urn:uuid:".length) : value;
-  const unwrapped = withoutUrn.replace(/^\{/, "").replace(/\}$/, "");
-  const hex = unwrapped.replace(/-/g, "");
-  if (!/^[0-9a-f]{32}$/i.test(hex)) return null;
-
-  const groups = [
-    hex.slice(0, 8),
-    hex.slice(8, 12),
-    hex.slice(12, 16),
-    hex.slice(16, 20),
-    hex.slice(20, 32),
-  ];
-  return groups.join("-").toLowerCase();
-}
+export const normalizeUserId = normalizeUuid;
 
 /**
  * `GET/PATCH/DELETE /users/{id}`: id inexistente o malformado -> 404 con el

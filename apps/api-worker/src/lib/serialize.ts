@@ -20,6 +20,7 @@ import type {
   UserRow,
 } from "@/db/schema";
 import type {
+  AlbumDetail,
   AlbumRead,
   ArtistRead,
   ListenRead,
@@ -28,6 +29,7 @@ import type {
   PlaylistRead,
   SongGenre,
   SongRead,
+  SongWithPlays,
   UserRead,
 } from "@/schemas";
 import { SongGenreEnum } from "@/schemas";
@@ -108,8 +110,12 @@ export interface AlbumInput extends AlbumRow {
   artist: ArtistRow;
   /** COUNT calculado en la query (listados). */
   songCount?: number;
-  /** Detalle: filas de canciones ya cargadas (fallback de song_count). */
-  songs?: readonly unknown[];
+  /**
+   * Detalle: las canciones ya cargadas. Acá solo se usa el largo (fallback de
+   * `song_count`), así que el tipo mínimo es "algo con id" y no obliga a
+   * levantar `SongRead` completo.
+   */
+  songs?: readonly { id: string }[];
 }
 
 export function toAlbumDto(row: AlbumInput, config: AppConfig): AlbumRead {
@@ -124,6 +130,23 @@ export function toAlbumDto(row: AlbumInput, config: AppConfig): AlbumRead {
   };
 }
 
+/**
+ * `AlbumDetail` = `AlbumRead` + canciones.
+ *
+ * `song_count` sale de las canciones cargadas (`songs.length`), igual que el
+ * `get_album` de Python (que setea `album.song_count = len(album.songs)`).
+ */
+export function toAlbumDetailDto(
+  row: AlbumInput,
+  config: AppConfig,
+  songs: readonly SongRead[],
+): AlbumDetail {
+  return {
+    ...toAlbumDto({ ...row, songs }, config),
+    songs: [...songs],
+  };
+}
+
 // --- Canciones --------------------------------------------------------------
 
 export interface SongInput extends SongRow {
@@ -131,7 +154,7 @@ export interface SongInput extends SongRow {
   artist: ArtistRow;
   /**
    * Relación eager-loaded OBLIGATORIA (`null` explícito si no hay álbum): así
-   * olvidarse el `selectinload(Song.album)` es un error de compilación y no un
+   * olvidarse de cargar `album` en la query es un error de compilación y no un
    * DTO con `cover_url` en null. El álbum trae su `artist` (AlbumRead.artist).
    */
   album: AlbumInput | null;
@@ -164,7 +187,7 @@ export function toSongWithPlaysDto(
   row: SongInput,
   config: AppConfig,
   plays: number,
-): SongRead {
+): SongWithPlays {
   return { ...toSongDto(row, config), play_count: plays };
 }
 

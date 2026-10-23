@@ -155,7 +155,10 @@ describe("toAlbumDto", () => {
   });
 
   it("cae a songs.length cuando no hay COUNT", () => {
-    const dto = toAlbumDto({ ...albumRow, artist: artistRow, songs: [1, 2] }, config);
+    const dto = toAlbumDto(
+      { ...albumRow, artist: artistRow, songs: [{ id: "s1" }, { id: "s2" }] },
+      config,
+    );
     expect(dto.song_count).toBe(2);
   });
 });

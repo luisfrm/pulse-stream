@@ -51,6 +51,11 @@ export default defineConfig({
     // Los suites de integración comparten UNA base de test y cada uno hace
     // `TRUNCATE` en `beforeEach`: en paralelo se borran los datos entre sí.
     fileParallelism: false,
+    // Neon HTTP: cada query es un round-trip (~50-150 ms). Un test de catálogo
+    // hace 15-30 requests (auth + altas + asserts), muy por encima del default
+    // de 5 s. El timeout no oculta un cuelgue: sigue siendo finito.
+    testTimeout: 20_000,
+    hookTimeout: 20_000,
     env: {
       ...devVars,
       // Los tests apuntan SIEMPRE a la base de test: nunca a `DATABASE_URL`

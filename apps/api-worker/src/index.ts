@@ -20,7 +20,11 @@ import { OPENAPI_VERSION, openApiInfo, registerOpenApiComponents } from "@/lib/o
 import { fastApiValidationHook, toFastApiValidationError } from "@/lib/validate";
 import { requireTrustedOrigin } from "@/middleware/origin";
 import { registerAdminUserRoutes } from "@/routes/admin-users";
+import { registerAlbumRoutes } from "@/routes/albums";
+import { registerArtistRoutes } from "@/routes/artists";
 import { registerAuthRoutes } from "@/routes/auth";
+import { registerGenreRoutes } from "@/routes/genres";
+import { registerSongRoutes } from "@/routes/songs";
 import { registerUserRoutes } from "@/routes/users";
 
 export interface AppEnv {
@@ -153,6 +157,13 @@ export function createApp() {
   registerAuthRoutes(app);
   registerUserRoutes(app);
   registerAdminUserRoutes(app);
+
+  // F4: catálogo (artistas, álbumes, canciones, géneros). Mismo orden que
+  // `app.include_router(...)` en `apps/api/app/main.py`.
+  registerArtistRoutes(app);
+  registerAlbumRoutes(app);
+  registerSongRoutes(app);
+  registerGenreRoutes(app);
 
   // /openapi.json y /docs existen solo en local (igual que `docs_url` en la
   // API Python); fuera de local caen al 404 JSON del `notFound`.
