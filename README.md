@@ -108,7 +108,7 @@ que sirve `/openapi.json`. En CI el archivo generado está *pinneado*:
 
 Pasos:
 
-1. Mergear la rama a `main` (el deploy del Worker se dispara con push a main).
+1. Mergear la rama a `master` (el deploy del Worker se dispara con push a master).
 2. Deployar el Worker con el workflow **Deploy API Worker** (o a mano con
    `pnpm --filter @pulse-stream/api-worker deploy`). El job corre migraciones,
    publica con `wrangler deploy`, sincroniza los 4 secrets de runtime desde
@@ -148,8 +148,8 @@ pnpm gen:types:worker
 | Workflow | Dispara | Qué corre | Secrets |
 |---|---|---|---|
 | `Tests` | **pull_request** | unitarios: worker `test:unit` (194) + web vitest (47). Sin red ni DB | ninguno |
-| `CI (integración)` | **push a main** / manual | pytest + vitest de integración con Neon, typecheck/lint/build del web, dry-run del worker y `generated.ts` pinneado | repository: `TEST_DATABASE_URL`, `TEST_DATABASE_URL_WORKER` |
-| `Deploy API Worker` | **push a main** (paths del worker) / manual | typecheck + unit + migraciones + `wrangler deploy` + sync de secrets + smoke | environment `production`: `CLOUDFLARE_API_TOKEN`, `MIGRATE_DATABASE_URL`, `DATABASE_URL`, `AUTH_SECRET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`; variable `CLOUDFLARE_ACCOUNT_ID` |
+| `CI (integración)` | **push a master** / manual | pytest + vitest de integración con Neon, typecheck/lint/build del web, dry-run del worker y `generated.ts` pinneado | repository: `TEST_DATABASE_URL`, `TEST_DATABASE_URL_WORKER` |
+| `Deploy API Worker` | **push a master** (paths del worker) / manual | typecheck + unit + migraciones + `wrangler deploy` + sync de secrets + smoke | environment `production`: `CLOUDFLARE_API_TOKEN`, `MIGRATE_DATABASE_URL`, `DATABASE_URL`, `AUTH_SECRET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`; variable `CLOUDFLARE_ACCOUNT_ID` |
 
 **El web lo deploya Vercel** con su integración de Git; no hay workflow de deploy
 web. Variables en Vercel (Production): `NEXT_PUBLIC_API_URL`,

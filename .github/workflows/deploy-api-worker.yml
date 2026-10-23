@@ -9,7 +9,7 @@ name: Deploy API Worker
 # y la variable CLOUDFLARE_ACCOUNT_ID (environment o repositorio).
 on:
   push:
-    branches: [main]
+    branches: [master]
     paths:
       - "apps/api-worker/**"
       - "pnpm-lock.yaml"

@@ -424,7 +424,7 @@ fail-fast de la config de producci�n (CORS real, R2, `AUTH_SECRET`,
 `apps/api-worker/openapi.json` sin server corriendo.
 
 **CI/CD**: `Tests` (solo unitarios, en cada PR), `CI (integracion)` (pytest +
-vitest con Neon, push a main) y `Deploy API Worker` (migraciones + `wrangler
+vitest con Neon, push a master) y `Deploy API Worker` (migraciones + `wrangler
 deploy` + `wrangler secret bulk` + smoke, environment `production`). El web lo
 deploya Vercel. La config NO secreta del Worker vive en `wrangler.jsonc`
 (`vars` + `routes`); los secretos de runtime se sincronizan desde GitHub en cada

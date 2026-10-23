@@ -1,11 +1,11 @@
 name: CI (integración)
 
 # Los tests unitarios corren en cada PR (`tests.yml`). Este workflow usa bases
-# de datos reales (Neon) y corre solo sobre main (o a mano con workflow_dispatch)
+# de datos reales (Neon) y corre solo sobre master (o a mano con workflow_dispatch)
 # para no consumir la DB de test en cada PR.
 on:
   push:
-    branches: [main]
+    branches: [master]
   workflow_dispatch:
 
 jobs:
