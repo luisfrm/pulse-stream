@@ -2,6 +2,7 @@
 description: Revisa código sin modificar archivos. Busca bugs, regresiones, seguridad y malas implementaciones.
 mode: subagent
 temperature: 0.1
+model: opencode-go/deepseek-v4.1-flash
 permission:
   edit: deny
   bash:

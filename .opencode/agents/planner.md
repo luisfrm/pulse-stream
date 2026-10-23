@@ -2,6 +2,7 @@
 description: Desglosa features en tareas accionables para tasks.md y plan-implementacion.md
 mode: subagent
 temperature: 0.3
+model: opencode-go/deepseek-v4.1-flash
 permission:
   edit: allow
   bash:
