@@ -149,11 +149,58 @@ function parseEnvironment(value: string | undefined): Environment {
 }
 
 /**
+ * Valida la configuración OBLIGATORIA de producción (fail-fast).
+ *
+ * Sin esto, un deploy con envs incompletos arranca y falla más tarde de forma
+ * confusa (CORS rechazando todo, el player sin covers, sesiones sin firmar).
+ * Acá se corta en el PRIMER request con un mensaje en español que lista TODO lo
+ * que falta; el `onError` lo loguea (redactado) y responde 500.
+ *
+ * En `local`/`dev` no se valida (los tests y el dev server corren sin R2).
+ */
+export function assertProdConfig(environment: Environment, env: Bindings): void {
+  if (environment !== "prod") return;
+
+  const missing: string[] = [];
+
+  if (!optional(env.AUTH_SECRET)) missing.push("AUTH_SECRET");
+  if (!optional(env.DATABASE_URL)) missing.push("DATABASE_URL");
+
+  const corsOriginRegex = optional(env.CORS_ORIGIN_REGEX);
+  if (!corsOriginRegex) {
+    missing.push("CORS_ORIGIN_REGEX");
+  } else if (corsOriginRegex.includes("tudominio")) {
+    // El default del repo es `...tudominio\.com...` (punto escapado en el
+    // regex): se busca el dominio sin el escape para cubrir ambas formas.
+    missing.push("CORS_ORIGIN_REGEX (sigue con el placeholder 'tudominio.com')");
+  }
+
+  for (const key of [
+    "R2_ACCOUNT_ID",
+    "R2_ACCESS_KEY_ID",
+    "R2_SECRET_ACCESS_KEY",
+    "R2_BUCKET_NAME",
+    "R2_PUBLIC_BASE_URL",
+  ] as const) {
+    if (!optional(env[key])) missing.push(key);
+  }
+
+  if (missing.length > 0) {
+    throw new Error(
+      "Configuración de producción incompleta: faltan o son inválidas " +
+        `${missing.join(", ")}. Configuralas con \`wrangler secret put\` ` +
+        "antes de deployar (ver .dev.vars.example).",
+    );
+  }
+}
+
+/**
  * Construye la configuración normalizada a partir de los bindings.
  * Réplica exacta de `Settings._normalize_for_env`.
  */
 export function createConfig(env: Bindings): AppConfig {
   const environment = parseEnvironment(env.ENV);
+  assertProdConfig(environment, env);
   const isLocal = environment === "local";
 
   // `cookie_domain` vacío -> undefined; en local SIEMPRE host-only (un Domain

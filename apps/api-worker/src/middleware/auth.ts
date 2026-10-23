@@ -11,7 +11,7 @@ import type { Context, MiddlewareHandler } from "hono";
 
 import { getAuth } from "@/auth/auth";
 import { createDb } from "@/db/client";
-import type { UserRow } from "@/db/schema";
+import { session, users, verification, type UserRow } from "@/db/schema";
 import type { AppConfig } from "@/env";
 import type { AppEnv } from "@/index";
 import {
@@ -99,6 +99,41 @@ async function cleanupStaleRateLimits(config: AppConfig): Promise<void> {
   }
 }
 
+/** Ventana mínima entre limpiezas de sesiones (barato: 1 chequeo en memoria). */
+const AUTH_CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
+let lastAuthCleanupAt = 0;
+
+/**
+ * Limpieza oportunista de `session` y `verification` vencidas.
+ *
+ * better-auth deja las filas al expirar (no las borra): sin esto la tabla
+ * `session` crece para siempre. Se hace como máximo una vez cada
+ * `AUTH_CLEANUP_INTERVAL_MS` (contador en memoria por isolate, sin queries
+ * extra) y NUNCA bloquea la request: se dispara y se ignora cualquier error
+ * (la sesión vencida se rechaza igual porque `getSession` valida `expiresAt`).
+ *
+ * Las dos sentencias van en un `db.batch` (una transacción del lado de Neon).
+ */
+export function cleanupStaleAuthRows(config: AppConfig): void {
+  const now = Date.now();
+  if (now - lastAuthCleanupAt < AUTH_CLEANUP_INTERVAL_MS) return;
+  lastAuthCleanupAt = now;
+
+  void (async () => {
+    try {
+      const db = createDb(config);
+      await db.batch([
+        db.delete(session).where(sql`${session.expiresAt} < now()`),
+        db.delete(verification).where(sql`${verification.expiresAt} < now()`),
+      ] as const);
+    } catch (error) {
+      console.warn("auth_cleanup_failed", {
+        name: error instanceof Error ? error.name : typeof error,
+      });
+    }
+  })();
+}
+
 /**
  * Ventana fija en `rate_limits` con UNA sola sentencia atómica
  * (`INSERT ... ON CONFLICT DO UPDATE ... RETURNING count`): el driver HTTP de
@@ -170,13 +205,17 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  */
 export async function resolveUser(c: Context<AppEnv>): Promise<UserRow> {
   const config: AppConfig = c.get("config");
-  const session = await getAuth(config).api.getSession({
+  const authSession = await getAuth(config).api.getSession({
     headers: c.req.raw.headers,
   });
 
-  if (!session) throw new UnauthorizedError();
+  if (!authSession) throw new UnauthorizedError();
 
-  const user = await findUserById(config, session.user.id);
+  // Oportunista y sin bloquear la respuesta: barre sesiones/verificaciones
+  // vencidas como mucho una vez cada 5 minutos por isolate.
+  cleanupStaleAuthRows(config);
+
+  const user = await findUserById(config, authSession.user.id);
   if (!user || !user.isActive) throw new UnauthorizedError();
 
   return user;

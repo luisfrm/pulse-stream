@@ -58,9 +58,13 @@ export default defineConfig({
     hookTimeout: 20_000,
     env: {
       ...devVars,
-      // Los tests apuntan SIEMPRE a la base de test: nunca a `DATABASE_URL`
-      // (que en `.dev.vars` es la de desarrollo/producción).
-      DATABASE_URL: devVars.TEST_DATABASE_URL ?? "",
+      // Los tests apuntan SIEMPRE a la base de test del worker: nunca a
+      // `DATABASE_URL` (que en `.dev.vars` es la de desarrollo/producción).
+      // `TEST_DATABASE_URL_WORKER` es la base propia del rewrite (esquema de
+      // Drizzle); `TEST_DATABASE_URL` queda para el backend Python, cuyo
+      // `drop_all` no convive con las tablas del worker.
+      DATABASE_URL:
+        devVars.TEST_DATABASE_URL_WORKER ?? devVars.TEST_DATABASE_URL ?? "",
     },
   },
 });

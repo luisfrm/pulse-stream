@@ -16,6 +16,7 @@
 
 import type { z } from "@hono/zod-openapi";
 
+import type { AppConfig } from "@/env";
 import { openApiComponents } from "@/schemas";
 
 /** Metadatos del documento (mismos que `FastAPI(title=..., version=...)`). */
@@ -109,4 +110,78 @@ export function registerOpenApiComponents(registry: SchemaRegistry): void {
   for (const [name, schema] of openApiComponents) {
     registry.register(name, schema);
   }
+}
+
+/**
+ * Fija el nombre de la cookie del esquema `APIKeyCookie` del documento.
+ * El registry es estático (se arma al crear la app) y `SESSION_COOKIE_NAME` es
+ * por request, así que se ajusta al generar el documento.
+ */
+function applySessionCookieName(document: Record<string, unknown>, name: string): void {
+  const components = document.components;
+  if (!isJsonObject(components)) return;
+  const schemes = components.securitySchemes;
+  if (!isJsonObject(schemes)) return;
+  const scheme = schemes.APIKeyCookie;
+  if (!isJsonObject(scheme)) return;
+
+  scheme.name = name;
+}
+
+/**
+ * Ordena `components.schemas` alfabéticamente.
+ *
+ * Pydantic/FastAPI emite los componentes ordenados por nombre; el registry de
+ * `@hono/zod-openapi` los deja en orden de registro/dependencias y
+ * `openapi-typescript` vuelca el documento tal cual, así que sin esto el
+ * `generated.ts` sale distinto aunque las definiciones sean idénticas.
+ */
+function sortComponentSchemas(document: Record<string, unknown>): void {
+  const components = document.components;
+  if (!isJsonObject(components)) return;
+  const schemas = components.schemas;
+  if (!isJsonObject(schemas)) return;
+
+  const sorted: Record<string, unknown> = {};
+  for (const key of Object.keys(schemas).sort()) {
+    sorted[key] = schemas[key];
+  }
+  components.schemas = sorted;
+}
+
+/** Lo mínimo que necesitamos de la app para generar el documento. */
+export interface OpenApiDocumentApp {
+  getOpenAPI31Document(config: {
+    openapi: string;
+    info: { title: string; version: string };
+  }): unknown;
+}
+
+/**
+ * Documento OpenAPI tal cual lo consume `openapi-typescript`, con TODAS las
+ * normalizaciones de paridad aplicadas.
+ *
+ * ÚNICA fuente: lo usan `/openapi.json` y `scripts/export-openapi.ts`, así el
+ * archivo generado desde el server y desde el script es byte-idéntico (el gate
+ * de CI compara el archivo generado contra el commiteado).
+ */
+export function buildOpenApiDocument(
+  app: OpenApiDocumentApp,
+  config: AppConfig,
+): Record<string, unknown> {
+  const document = asDocument(app.getOpenAPI31Document({
+    openapi: OPENAPI_VERSION,
+    info: openApiInfo,
+  }));
+
+  applySessionCookieName(document, config.cookie.name);
+  applyPydanticTitles(document);
+  sortComponentSchemas(document);
+
+  return document;
+}
+
+/** El documento de Hono es `OpenAPIObject` (sin índice string): se normaliza. */
+function asDocument(value: unknown): Record<string, unknown> {
+  return isJsonObject(value) ? value : {};
 }

@@ -49,14 +49,24 @@ describe("GET /openapi.json", () => {
   });
 
   it("no expone docs fuera de local", async () => {
-    const prodEnv: Bindings = { ...env, ENV: "prod" };
+    // `dev` (no `prod`): en prod `createConfig` hace fail-fast de la config y
+    // este test no quiere depender de todos los secretos de producción.
+    const devEnv: Bindings = { ...env, ENV: "dev" };
 
-    const res = await app.request("/openapi.json", undefined, prodEnv);
+    const res = await app.request("/openapi.json", undefined, devEnv);
     expect(res.status).toBe(404);
     expect(await res.json()).toEqual({ detail: "Not Found" });
 
-    const docs = await app.request("/docs", undefined, prodEnv);
+    const docs = await app.request("/docs", undefined, devEnv);
     expect(docs.status).toBe(404);
+  });
+
+  it("en prod con la config incompleta responde 500 (fail-fast)", async () => {
+    const prodEnv: Bindings = { ...env, ENV: "prod" };
+
+    const res = await app.request("/health", undefined, prodEnv);
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ detail: "Error interno" });
   });
 });
 

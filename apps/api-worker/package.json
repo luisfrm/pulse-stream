@@ -14,7 +14,8 @@
     "db:check": "drizzle-kit check",
     "db:migrate": "tsx scripts/migrate.ts",
     "user:set-password": "tsx scripts/set-password.ts",
-    "gen:contract": "tsx scripts/gen-contract-fixture.ts"
+    "gen:contract": "tsx scripts/gen-contract-fixture.ts",
+    "export:openapi": "tsx scripts/export-openapi.ts"
   },
   "dependencies": {
     "@hono/zod-openapi": "^1.6.3",

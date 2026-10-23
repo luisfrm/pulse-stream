@@ -55,6 +55,15 @@ if (shared.length === 0) {
   throw new Error("La intersección de componentes quedó vacía: revisá el JSON.");
 }
 
+/**
+ * Componentes que existen en Python y NO en el Worker (sin contar las
+ * desviaciones deliberadas). El test exige que esté vacío: si un componente
+ * desaparece del Worker, el fixture cambia y CI lo detecta.
+ */
+const pythonOnly = Object.keys(pythonSchemas)
+  .filter((name) => !ours.has(name) && !deviations.has(name))
+  .sort();
+
 const selected: Record<string, unknown> = {};
 for (const name of shared) {
   selected[name] = pythonSchemas[name];
@@ -63,6 +72,7 @@ for (const name of shared) {
 const fixture = {
   components: normalizeComponents(selected),
   paths: normalizePaths(pythonDoc.paths ?? {}),
+  pythonOnly,
 };
 
 mkdirSync(dirname(outputPath), { recursive: true });
@@ -74,5 +84,6 @@ writeFileSync(
 
 console.log(
   `Fixture escrito en ${outputPath} (${shared.length} componentes, ` +
-    `${Object.keys(fixture.paths).length} paths).`,
+    `${Object.keys(fixture.paths).length} paths, ` +
+    `${pythonOnly.length} componentes solo en Python).`,
 );

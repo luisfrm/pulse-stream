@@ -4,8 +4,9 @@
  * SOLO se usa `MIGRATE_DATABASE_URL` (sin fallback a `DATABASE_URL`): así un
  * `.dev.vars` con la URL de producción no migra prod por accidente.
  *
- * Guard de destino: si el host/base no coincide con `TEST_DATABASE_URL`
- * (también de `.dev.vars`), hace falta `CONFIRM_TARGET=yes` explícito.
+ * Guard de destino: si el host/base no coincide con la base de test del worker
+ * (`TEST_DATABASE_URL_WORKER`, con fallback a `TEST_DATABASE_URL`), hace falta
+ * `CONFIRM_TARGET=yes` explícito.
  *
  * Antes de aplicar, aborta si hay usernames duplicados case-insensitive: el
  * índice único de `0002_user_uniqueness` fallaría a mitad de camino.
@@ -57,8 +58,8 @@ if (!target) {
 }
 
 const testTarget = parseTarget(
-  process.env.TEST_DATABASE_URL,
-  "TEST_DATABASE_URL",
+  process.env.TEST_DATABASE_URL_WORKER ?? process.env.TEST_DATABASE_URL,
+  "TEST_DATABASE_URL_WORKER",
 );
 
 // Mismo endpoint de Neon + misma base = es el destino de test. El pooler
@@ -82,7 +83,7 @@ if (!matchesTest) {
 
   if (process.env.CONFIRM_TARGET !== "yes") {
     throw new Error(
-      "El destino de MIGRATE_DATABASE_URL NO coincide con TEST_DATABASE_URL. " +
+      "El destino de MIGRATE_DATABASE_URL NO coincide con la base de test del worker. " +
         "Si realmente querés migrar ese host, corré con CONFIRM_TARGET=yes.",
     );
   }

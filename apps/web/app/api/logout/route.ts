@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+import { clearedSessionCookies, resolveNextPath } from "./session-cookie";
+
 /**
  * Logout del lado del servidor web.
  *
@@ -10,42 +12,37 @@ import type { NextRequest } from "next/server";
  * browser y puede no aplicarse; acá el WEB emite el borrado en una respuesta
  * same-origin, que el browser procesa sí o sí.
  *
- * No llama a la API: el JWT es stateless, borrar la cookie ES cerrar sesión.
- * Los atributos del Set-Cookie deben reflejar los que la API usa al setearla:
- *   ENV           -> Secure (solo si ENV != local)
- *   COOKIE_DOMAIN -> Domain (comparte la cookie entre subdominios)
- *   COOKIE_SAMESITE -> SameSite (default lax)
- * Se emiten DOS variantes (host-only y con Domain) para cubrir cookies
- * seteadas con y sin Domain según el entorno.
+ * No llama a la API: la sesión es stateless, borrar la cookie ES cerrar sesión.
+ * Los atributos del Set-Cookie salen de `clearedSessionCookies` (espejo de los
+ * que usa la API al setearla).
+ *
+ * `GET` existe para CORTAR EL LOOP de cookies viejas: un usuario con un JWT de
+ * fastapi-users (7 días) hace que `proxy.ts` lo mande a `/dashboard`, el layout
+ * pide `/users/me`, recibe 401 y redirige acá. Esta respuesta borra la cookie y
+ * manda a `/login`, así el siguiente request ya no la tiene (antes: redirect a
+ * `/login` → el proxy veía la cookie → `/dashboard` → ERR_TOO_MANY_REDIRECTS).
  */
-export async function POST(request: NextRequest) {
-  // Espejo del backend (apps/api/app/core/config.py): ENV es autoritativo.
-  // En local la cookie es host-only (sin Domain) y SameSite=lax, así que un
-  // COOKIE_DOMAIN / COOKIE_SAMESITE=none heredado del .env de prod debe
-  // ignorarse aquí también o el borrado no matchea.
-  const isLocal = (process.env.ENV ?? "local") === "local";
-  const rawSamesite = process.env.COOKIE_SAMESITE ?? "";
-  const samesite = isLocal
-    ? "lax"
-    : ["lax", "strict", "none"].includes(rawSamesite)
-      ? rawSamesite!
-      : "lax";
-  const secure = !isLocal;
-  const rawDomain = process.env.COOKIE_DOMAIN;
-  const domain =
-    isLocal || !rawDomain || rawDomain.trim() === ""
-      ? undefined
-      : rawDomain;
 
-  const base = `session=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=${samesite}${secure ? "; Secure" : ""}`;
-
+function logoutResponse(request: NextRequest, next?: string | null) {
   const response = NextResponse.redirect(
-    new URL("/login", request.url),
-    303
+    new URL(resolveNextPath(next), request.url),
+    303,
   );
-  response.headers.append("Set-Cookie", base);
-  if (domain) {
-    response.headers.append("Set-Cookie", `${base}; Domain=${domain}`);
+  for (const cookie of clearedSessionCookies()) {
+    response.headers.append("Set-Cookie", cookie);
   }
   return response;
+}
+
+/** Botón de logout (`<form method="POST" action="/api/logout">`). */
+export async function POST(request: NextRequest) {
+  return logoutResponse(request);
+}
+
+/**
+ * GET de limpieza: lo usan los layouts cuando `getSession()` devuelve null
+ * (cookie vencida o de otro backend). Acepta `?next=/ruta-local`.
+ */
+export async function GET(request: NextRequest) {
+  return logoutResponse(request, request.nextUrl.searchParams.get("next"));
 }

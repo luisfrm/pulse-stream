@@ -35,9 +35,11 @@ const ourPaths = normalizePaths((document.paths ?? {}) as Record<string, unknown
 const fixture = pydanticContract as {
   components: NormalizedComponents;
   paths: NormalizedPaths;
+  pythonOnly: string[];
 };
 const expected = fixture.components;
 const expectedPaths = fixture.paths;
+const expectedPythonOnly = fixture.pythonOnly;
 
 /** Nombres que `apps/web/lib/services/types.ts` importa del contrato. */
 const WEB_CONSUMED_COMPONENTS = [

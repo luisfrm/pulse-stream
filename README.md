@@ -93,6 +93,42 @@ el contrato que consume el web); las únicas diferencias documentadas son
 seguridad) y `PlaylistRead.kind` (enum inline equivalente al `$ref`, porque
 zod no puede emitir `$ref` + `default`).
 
+`gen:types:worker` ya **no necesita un server corriendo**: exporta el OpenAPI a
+`apps/api-worker/openapi.json` (git-ignored) con el mismo `buildOpenApiDocument`
+que sirve `/openapi.json`. En CI el archivo generado está *pinneado*:
+`pnpm gen:types:worker && git diff --exit-code packages/api-types/src/generated.ts`.
+
+## Cutover y rollback (Python → Worker)
+
+**Corte duro, sin dual-run.** Los dos backends no comparten formato de usuario:
+
+- los usuarios creados por Python **no tienen fila en `account`** (better-auth
+  no puede autenticarlos) y los creados por el Worker tienen
+  `hashed_password = NULL` (fastapi-users no puede autenticarlos).
+
+Pasos:
+
+1. Frenar la API Python (nada más debe escribir en la base con el esquema
+   viejo).
+2. Deployar el Worker (`pnpm --filter @pulse-stream/api-worker deploy`) con
+   todos los secretos (`ENV=prod` hace fail-fast: sin `AUTH_SECRET`,
+   `DATABASE_URL`, `CORS_ORIGIN_REGEX` real ni las 5 de R2 no arranca).
+3. Apuntar `apps/web` al Worker (`NEXT_PUBLIC_API_URL`) y deployar el web.
+4. Resetear las passwords legacy, una por una:
+   `pnpm --filter @pulse-stream/api-worker user:set-password -- --email ...`.
+5. Smoke: login, dashboard, play (contadores), like, playlist, búsqueda,
+   settings, logout.
+
+**Cookies viejas.** Un usuario con el JWT de fastapi-users todavía en el
+navegador ya **no queda en loop**: el proxy ve la cookie, el layout recibe 401 y
+redirige a `/api/logout`, que borra la cookie en una respuesta same-origin y
+manda a `/login`.
+
+**Rollback.** Volver a Python exige re-hashear cada usuario creado después del
+corte (su password vive en `account.password`, no en `hashed_password`): es un
+script de migración de datos, no un simple redeploy. Planificá el corte con una
+ventana y un backup.
+
 ### Scripts raíz
 
 ```bash

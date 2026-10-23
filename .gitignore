@@ -43,3 +43,10 @@ Thumbs.db
 # Cloudflare Workers
 .wrangler/
 worker-configuration.d.ts
+
+# OpenAPI exportado por apps/api-worker (generado, no se commitea)
+apps/api-worker/openapi.json
+
+# Playwright MCP artifacts
+.playwright-mcp/
+

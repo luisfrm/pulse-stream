@@ -413,3 +413,12 @@ audio validado con un parser propio). Los covers se firman con
 **Tests**: `tests/*.test.ts` son de integración contra `TEST_DATABASE_URL`
 (sin la variable las suites se saltean, salvo en CI donde
 `tests/ci-guard.test.ts` falla a propósito).
+
+**Cierre del rewrite (F8)**: los tests de integración del Worker usan su PROPIA
+base (`TEST_DATABASE_URL_WORKER`, con fallback a `TEST_DATABASE_URL`); en CI el
+job del worker corre Alembic (esquema de referencia) + `db:migrate` (Drizzle),
+y falla si `CI=true` sin base (`tests/ci-guard.test.ts`). `createConfig` hace
+fail-fast de la config de producción (CORS real, R2, `AUTH_SECRET`,
+`DATABASE_URL`) y `generated.ts` está pinneado en CI
+(`pnpm gen:types:worker && git diff --exit-code`), generado desde
+`apps/api-worker/openapi.json` sin server corriendo.

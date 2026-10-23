@@ -20,12 +20,8 @@ import type { UserRow } from "@/db/schema";
 import type { AppDeps } from "@/deps";
 import { AppError, CodedAppError, isAppError } from "@/lib/errors";
 import { isAllowedOrigin } from "@/lib/cors";
-import {
-  OPENAPI_VERSION,
-  applyPydanticTitles,
-  openApiInfo,
-  registerOpenApiComponents,
-} from "@/lib/openapi";
+import { buildOpenApiDocument, registerOpenApiComponents } from "@/lib/openapi";
+import { toSafeErrorLog } from "@/lib/log";
 import { fastApiValidationHook, toFastApiValidationError } from "@/lib/validate";
 import { requireTrustedOrigin } from "@/middleware/origin";
 import { registerAdminUserRoutes } from "@/routes/admin-users";
@@ -105,49 +101,6 @@ function docsHtml(openApiUrl: string): string {
 </html>`;
 }
 
-/**
- * Fija el nombre de la cookie del esquema `APIKeyCookie` del documento
- * OpenAPI. El registry de `@hono/zod-openapi` es estático (se arma al crear la
- * app) y `SESSION_COOKIE_NAME` es por request, así que se ajusta acá.
- */
-function applySessionCookieName(document: unknown, name: string): void {  if (typeof document !== "object" || document === null) return;
-  if (!("components" in document)) return;
-  const components: unknown = document.components;
-  if (typeof components !== "object" || components === null) return;
-  if (!("securitySchemes" in components)) return;
-  const schemes: unknown = components.securitySchemes;
-  if (typeof schemes !== "object" || schemes === null) return;
-  if (!("APIKeyCookie" in schemes)) return;
-  const scheme: unknown = schemes.APIKeyCookie;
-  if (typeof scheme !== "object" || scheme === null) return;
-
-  (scheme as { name?: string }).name = name;
-}
-
-/**
- * Ordena `components.schemas` alfabéticamente.
- *
- * Pydantic/FastAPI emite los componentes ordenados por nombre; el registry de
- * `@hono/zod-openapi` los deja en orden de registro/dependencias y
- * `openapi-typescript` vuelca el documento tal cual, así que sin esto el
- * `generated.ts` sale distinto aunque las definiciones sean idénticas.
- */
-function sortComponentSchemas(document: unknown): void {
-  if (typeof document !== "object" || document === null) return;
-  if (!("components" in document)) return;
-  const components = (document as { components?: unknown }).components;
-  if (typeof components !== "object" || components === null) return;
-  if (!("schemas" in components)) return;
-  const schemas = (components as { schemas?: unknown }).schemas;
-  if (typeof schemas !== "object" || schemas === null) return;
-
-  const sorted: Record<string, unknown> = {};
-  for (const key of Object.keys(schemas).sort()) {
-    sorted[key] = (schemas as Record<string, unknown>)[key];
-  }
-  (components as { schemas: Record<string, unknown> }).schemas = sorted;
-}
-
 export function createApp(deps: AppDeps = {}) {
   const app = new OpenAPIHono<AppEnv>({ defaultHook: fastApiValidationHook });
 
@@ -224,15 +177,9 @@ export function createApp(deps: AppDeps = {}) {
       return c.json({ detail: "Not Found" }, 404);
     }
 
-    const document = app.getOpenAPI31Document({
-      openapi: OPENAPI_VERSION,
-      info: openApiInfo,
-    });
-    // El nombre de la cookie de sesión sale de `SESSION_COOKIE_NAME`, no de
-    // una constante: el registry es estático y el env es por request.
-    applySessionCookieName(document, config.cookie.name);
-    applyPydanticTitles(document);
-    sortComponentSchemas(document);
+    // Documento compartido con `scripts/export-openapi.ts` (títulos de
+    // Pydantic, orden alfabético y nombre de la cookie de sesión).
+    const document = buildOpenApiDocument(app, config);
     return c.json(document);
   });
 
@@ -267,7 +214,9 @@ export function createApp(deps: AppDeps = {}) {
     }
 
     // Nunca filtrar detalles internos al cliente (mismo contrato que Python).
-    console.error("unhandled_error", error);
+    // El log va REDACTADO: Drizzle/Neon incluyen SQL + params en el error y
+    // better-auth trae `body` con credenciales.
+    console.error("unhandled_error", toSafeErrorLog(error));
     return c.json({ detail: AppError.DETAIL }, 500);
   });
 

@@ -1,9 +1,13 @@
 /**
  * Helpers de los tests de integración (espejo de `apps/api/tests/helpers.py`).
  *
- * Los tests corren contra una Postgres REAL apuntada por `TEST_DATABASE_URL`
- * (inyectada por `vitest.config.ts` desde `.dev.vars`). Sin esa variable los
- * suites se saltean con `describeDb` (nunca se corre contra `DATABASE_URL`).
+ * Los tests corren contra una Postgres REAL apuntada por
+ * `TEST_DATABASE_URL_WORKER` (o `TEST_DATABASE_URL` como fallback), inyectada
+ * por `vitest.config.ts` desde `.dev.vars`. Sin ninguna de las dos los suites
+ * se saltean con `describeDb` (nunca se corre contra `DATABASE_URL`).
+ *
+ * La base del worker es PROPIA: el backend Python usa `TEST_DATABASE_URL` y su
+ * `drop_all` no convive con las tablas del rewrite.
  *
  * El cliente envuelve `app.request()` con un cookie jar: la sesión viaja en la
  * cookie HttpOnly `session`, así que cada `Set-Cookie` se guarda y se reenvía
@@ -26,14 +30,27 @@ export const PASSWORD = "Str0ng-Pass!-42";
 /** Bindings completos que inyecta `vitest.config.ts` desde `.dev.vars`. */
 const env = process.env;
 
-export const TEST_DATABASE_URL = (env.TEST_DATABASE_URL ?? "").trim();
+/**
+ * URL de la base de tests del WORKER.
+ *
+ * Preferencia: `TEST_DATABASE_URL_WORKER` (base del rewrite, esquema Drizzle).
+ * Fallback: `TEST_DATABASE_URL` (para entornos viejos). NUNCA `DATABASE_URL`.
+ */
+export const TEST_DATABASE_URL = (
+  env.TEST_DATABASE_URL_WORKER ??
+  env.TEST_DATABASE_URL ??
+  ""
+).trim();
 
 export const hasDatabase = TEST_DATABASE_URL.length > 0;
 
 /** `describe` que se saltea (con motivo visible) si no hay base de test. */
 export function describeDb(name: string, fn: () => void): void {
   if (!hasDatabase) {
-    describe.skip(`${name} — omitido: falta TEST_DATABASE_URL en .dev.vars`, fn);
+    describe.skip(
+      `${name} — omitido: falta TEST_DATABASE_URL_WORKER (o TEST_DATABASE_URL) en .dev.vars`,
+      fn,
+    );
     return;
   }
   describe(name, fn);
@@ -57,7 +74,6 @@ export function testBindings(overrides: Partial<Bindings> = {}): Bindings {
     ...overrides,
   };
 }
-
 export function testConfig(overrides: Partial<Bindings> = {}): AppConfig {
   return createConfig(testBindings(overrides));
 }

@@ -24,8 +24,8 @@ jobs:
 
       - name: Run tests
         env:
-          # Opcional: una branch efímera de Neon (plan sección 7). Sin ella, los
-          # tests de integración se saltan con un mensaje claro.
+          # Base PROPIA del backend Python: su `drop_all` no convive con las
+          # tablas del Worker (que usa TEST_DATABASE_URL_WORKER).
           TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
         run: uv run pytest
 
@@ -71,20 +71,54 @@ jobs:
           node-version: 24
           cache: pnpm
 
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.11.x"
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Sync Python dependencies (schema de referencia)
+        working-directory: apps/api
+        run: uv sync --all-groups
+
+      # El esquema base lo define el backend Python (Alembic); el Worker suma
+      # sus propias migraciones Drizzle (better-auth) encima.
+      - name: Python schema (Alembic, base de referencia)
+        working-directory: apps/api
+        env:
+          RAW_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL_WORKER }}
+        run: |
+          export DATABASE_URL_DIRECT="$(printf '%s' "$RAW_DATABASE_URL" | sed -E 's#^postgresql(\+asyncpg)?://#postgresql+asyncpg://#')"
+          export DATABASE_URL="$DATABASE_URL_DIRECT"
+          uv run alembic upgrade head
+
+      - name: Worker migrations (Drizzle)
+        env:
+          RAW_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL_WORKER }}
+          CONFIRM_TARGET: "yes"
+        run: |
+          export MIGRATE_DATABASE_URL="$(printf '%s' "$RAW_DATABASE_URL" | sed -E 's#^postgresql\+asyncpg://#postgresql://#')"
+          export TEST_DATABASE_URL_WORKER="$MIGRATE_DATABASE_URL"
+          pnpm --filter @pulse-stream/api-worker db:migrate
 
       - name: Typecheck
         run: pnpm --filter @pulse-stream/api-worker typecheck
 
-      # Los tests incluyen las suites de integración (F3..F7): sin DB se
-      # saltean y el job quedaría verde sin probar nada. El guard
-      # `tests/ci-guard.test.ts` falla si CI=true y falta la variable.
+      # Las suites de integración (F3..F7) corren contra la base del worker; el
+      # guard `tests/ci-guard.test.ts` falla si CI=true y falta la variable.
       - name: Test
         env:
-          TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+          TEST_DATABASE_URL_WORKER: ${{ secrets.TEST_DATABASE_URL_WORKER }}
           CI: "true"
         run: pnpm --filter @pulse-stream/api-worker test
 
       - name: Build (wrangler deploy --dry-run)
         run: pnpm --filter @pulse-stream/api-worker build
+
+      # `generated.ts` está pinneado: el Worker debe generar exactamente el
+      # archivo commiteado (sin server corriendo, vía export:openapi).
+      - name: Generated types are pinned
+        run: |
+          pnpm gen:types:worker
+          git diff --exit-code packages/api-types/src/generated.ts
