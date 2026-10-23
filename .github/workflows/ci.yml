@@ -15,6 +15,11 @@ jobs:
     defaults:
       run:
         working-directory: apps/api
+    env:
+      # `Settings` (pydantic) exige estos dos al importar; el `.env` local está
+      # git-ignored y en CI no existe. Los tests usan TEST_DATABASE_URL.
+      AUTH_SECRET: ci-not-a-secret
+      DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
     steps:
       - uses: actions/checkout@v4
 
@@ -95,6 +100,8 @@ jobs:
         working-directory: apps/api
         env:
           RAW_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL_WORKER }}
+          # `Settings` exige AUTH_SECRET al importar (aunque Alembic no lo use).
+          AUTH_SECRET: ci-not-a-secret
         run: |
           export DATABASE_URL_DIRECT="$(printf '%s' "$RAW_DATABASE_URL" | sed -E 's#^postgresql(\+asyncpg)?://#postgresql+asyncpg://#')"
           export DATABASE_URL="$DATABASE_URL_DIRECT"
