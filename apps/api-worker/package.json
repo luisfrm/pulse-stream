@@ -12,6 +12,7 @@
     "db:generate": "drizzle-kit generate",
     "db:check": "drizzle-kit check",
     "db:migrate": "tsx scripts/migrate.ts",
+    "user:set-password": "tsx scripts/set-password.ts",
     "gen:contract": "tsx scripts/gen-contract-fixture.ts"
   },
   "dependencies": {

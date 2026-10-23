@@ -61,6 +61,10 @@ export const users = pgTable(
   (table) => [
     uniqueIndex("ix_users_email").on(table.email),
     uniqueIndex("ix_users_username").on(table.username),
+    // Unicidad de username case-insensitive: Python la validaba en la capa de
+    // aplicación (carrera incluida); acá la garantiza la DB (migración 0002).
+    // `lower(NULL)` es NULL y los NULL no colisionan entre sí.
+    uniqueIndex("ux_users_username_lower").on(sql`lower(${table.username})`),
   ],
 );
 
@@ -291,7 +295,12 @@ export const account = pgTable(
     createdAt: timestamptz("created_at").notNull().defaultNow(),
     updatedAt: timestamptz("updated_at").notNull().defaultNow(),
   },
-  (table) => [index("ix_account_user_id").on(table.userId)],
+  (table) => [
+    index("ix_account_user_id").on(table.userId),
+    // Una sola credencial por usuario y provider: `setUserPassword` hace
+    // `ON CONFLICT (user_id, provider_id)` sobre este índice (migración 0002).
+    uniqueIndex("ux_account_user_provider").on(table.userId, table.providerId),
+  ],
 );
 
 export const verification = pgTable("verification", {

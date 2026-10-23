@@ -11,6 +11,11 @@ import type { z } from "@hono/zod-openapi";
 import { AlbumCreateSchema, AlbumReadSchema, AlbumUpdateSchema } from "./albums";
 import { AlbumDetailSchema } from "./album-detail";
 import { ArtistCreateSchema, ArtistReadSchema, ArtistUpdateSchema } from "./artists";
+import {
+  ErrorModelSchema,
+  HTTPValidationErrorSchema,
+  ValidationErrorSchema,
+} from "./errors";
 import { SongGenreEnum } from "./genres";
 import {
   ListenCreateSchema,
@@ -59,7 +64,9 @@ import {
 export * from "./albums";
 export * from "./album-detail";
 export * from "./artists";
+export * from "./auth";
 export * from "./common";
+export * from "./errors";
 export * from "./genres";
 export * from "./listens";
 export * from "./pages";
@@ -77,6 +84,8 @@ export const openApiComponents: Array<readonly [string, z.ZodType]> = [
   ["ArtistCreate", ArtistCreateSchema],
   ["ArtistRead", ArtistReadSchema],
   ["ArtistUpdate", ArtistUpdateSchema],
+  ["ErrorModel", ErrorModelSchema],
+  ["HTTPValidationError", HTTPValidationErrorSchema],
   ["ListenCreate", ListenCreateSchema],
   ["ListenRead", ListenReadSchema],
   ["MyPlaylistRead", MyPlaylistReadSchema],
@@ -107,6 +116,7 @@ export const openApiComponents: Array<readonly [string, z.ZodType]> = [
   ["UserRole", UserRoleEnum],
   ["UserRoleUpdate", UserRoleUpdateSchema],
   ["UserUpdate", UserUpdateSchema],
+  ["ValidationError", ValidationErrorSchema],
   ["ZipImportIssue", ZipImportIssueSchema],
   ["ZipImportResult", ZipImportResultSchema],
 ];

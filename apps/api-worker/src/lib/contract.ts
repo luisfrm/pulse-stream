@@ -23,6 +23,7 @@ export type NormalizedSchema =
   | { kind: "enum"; values: string[]; default?: unknown }
   | { kind: "union"; of: NormalizedSchema[]; default?: unknown }
   | { kind: "array"; items: NormalizedSchema; default?: unknown }
+  | { kind: "any"; default?: unknown }
   | {
       kind: "object";
       required: string[];
@@ -157,6 +158,13 @@ function normalizeNode(
   if (typeof raw.type === "string") {
     const format = typeof raw.format === "string" ? raw.format : undefined;
     return withDefault(primitive(raw.type, format), raw);
+  }
+
+  // `Any` de Pydantic (`{"title": "Input"}`) y `{}` de zod: sin restricciones.
+  // Pydantic lo usa en `ValidationError.input`; compararlo como nodo "any"
+  // mantiene el gate útil (nombres/required/defaults) sin ruido.
+  if (raw.type === undefined && raw.properties === undefined) {
+    return withDefault({ kind: "any" }, raw);
   }
 
   throw new Error(`Schema sin \`type\` en ${path}: ${JSON.stringify(raw)}`);

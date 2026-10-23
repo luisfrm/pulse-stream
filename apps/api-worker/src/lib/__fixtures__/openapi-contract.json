@@ -349,6 +349,41 @@
       }
     }
   },
+  "ErrorModel": {
+    "kind": "object",
+    "required": [
+      "detail"
+    ],
+    "properties": {
+      "detail": {
+        "kind": "union",
+        "of": [
+          {
+            "kind": "object",
+            "required": [],
+            "properties": {}
+          },
+          {
+            "kind": "primitive",
+            "type": "string"
+          }
+        ]
+      }
+    }
+  },
+  "HTTPValidationError": {
+    "kind": "object",
+    "required": [],
+    "properties": {
+      "detail": {
+        "kind": "array",
+        "items": {
+          "kind": "ref",
+          "ref": "ValidationError"
+        }
+      }
+    }
+  },
   "ListenCreate": {
     "kind": "object",
     "required": [
@@ -1871,6 +1906,48 @@
             "type": "null"
           }
         ]
+      }
+    }
+  },
+  "ValidationError": {
+    "kind": "object",
+    "required": [
+      "loc",
+      "msg",
+      "type"
+    ],
+    "properties": {
+      "ctx": {
+        "kind": "object",
+        "required": [],
+        "properties": {}
+      },
+      "input": {
+        "kind": "any"
+      },
+      "loc": {
+        "kind": "array",
+        "items": {
+          "kind": "union",
+          "of": [
+            {
+              "kind": "primitive",
+              "type": "integer"
+            },
+            {
+              "kind": "primitive",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "msg": {
+        "kind": "primitive",
+        "type": "string"
+      },
+      "type": {
+        "kind": "primitive",
+        "type": "string"
       }
     }
   },

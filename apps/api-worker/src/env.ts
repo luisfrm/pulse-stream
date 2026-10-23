@@ -18,6 +18,12 @@ const ENVIRONMENTS: readonly Environment[] = ["local", "dev", "prod"];
 export interface Bindings {
   ENV?: Environment;
   AUTH_SECRET?: string;
+  /**
+   * Origin público de la API. better-auth lo necesita como `baseURL` para
+   * firmar URLs internas (no se expone ningún endpoint suyo). Default:
+   * `http://localhost:8001` (el puerto del worker en local).
+   */
+  API_URL?: string;
   DATABASE_URL?: string;
   DATABASE_URL_DIRECT?: string;
   TEST_DATABASE_URL?: string;
@@ -36,6 +42,11 @@ export interface Bindings {
   RATE_LIMIT_LOGIN?: string;
   RATE_LIMIT_REGISTER?: string;
   RATE_LIMIT_PRESIGN?: string;
+  /**
+   * Apaga el rate limiting SOLO fuera de prod (tests). En prod se ignora:
+   * un flag de entorno no puede desactivar una defensa en producción.
+   */
+  RATE_LIMIT_DISABLED?: string;
 }
 
 /** Regex CORS autoritativo en local (mismo valor que el backend Python). */
@@ -54,6 +65,12 @@ export const DEFAULT_RATE_LIMITS = {
 
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7; // 7 días
 
+/** Nombre por defecto de la cookie de sesión (el que lee `apps/web/proxy.ts`). */
+export const DEFAULT_SESSION_COOKIE_NAME = "session";
+
+/** Puerto del worker en local (`wrangler dev --port 8001`). */
+const DEFAULT_API_URL = "http://localhost:8001";
+
 const MB = 1024 * 1024;
 
 export interface R2Config {
@@ -71,6 +88,8 @@ export interface AppConfig {
   isLocal: boolean;
   /** Swagger/Scalar habilitados solo en local (igual que FastAPI). */
   docsEnabled: boolean;
+  /** `baseURL` de better-auth (nunca se monta su router HTTP). */
+  apiUrl: string;
   /**
    * `undefined` si el binding no está: validar con `requireAuthSecret`.
    * TODO(better-auth): al montar el auth real, better-auth DEBE usar
@@ -88,6 +107,8 @@ export interface AppConfig {
     register: string;
     presign: string;
   };
+  /** `true` solo fuera de prod (tests): apaga slowapi y better-auth. */
+  rateLimitDisabled: boolean;
   cookie: {
     name: string;
     /** SameSite efectivo (en local nunca es "none"). */
@@ -150,6 +171,7 @@ export function createConfig(env: Bindings): AppConfig {
     env: environment,
     isLocal,
     docsEnabled: isLocal,
+    apiUrl: optional(env.API_URL) ?? DEFAULT_API_URL,
     authSecret: optional(env.AUTH_SECRET),
     databaseUrl: optional(env.DATABASE_URL),
     databaseUrlDirect: optional(env.DATABASE_URL_DIRECT),
@@ -159,8 +181,10 @@ export function createConfig(env: Bindings): AppConfig {
       register: optional(env.RATE_LIMIT_REGISTER) ?? DEFAULT_RATE_LIMITS.register,
       presign: optional(env.RATE_LIMIT_PRESIGN) ?? DEFAULT_RATE_LIMITS.presign,
     },
+    // En prod SIEMPRE false: el flag existe solo para tests.
+    rateLimitDisabled: environment !== "prod" && env.RATE_LIMIT_DISABLED === "true",
     cookie: {
-      name: optional(env.SESSION_COOKIE_NAME) ?? "session",
+      name: optional(env.SESSION_COOKIE_NAME) ?? DEFAULT_SESSION_COOKIE_NAME,
       sameSite,
       domain: cookieDomain,
       // SameSite=None exige Secure=True por spec; en local corremos en http.

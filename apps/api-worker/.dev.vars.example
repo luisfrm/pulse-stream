@@ -50,3 +50,10 @@ SESSION_COOKIE_NAME=session
 RATE_LIMIT_LOGIN=5/minute
 RATE_LIMIT_REGISTER=3/hour
 RATE_LIMIT_PRESIGN=10/minute
+
+# Apaga el rate limiting SOLO fuera de prod (tests). En prod se ignora.
+# RATE_LIMIT_DISABLED=true
+
+# Origin público de la API. better-auth lo usa como `baseURL` para firmar URLs
+# internas (su router HTTP no se monta). Default: http://localhost:8001.
+# API_URL=http://localhost:8001

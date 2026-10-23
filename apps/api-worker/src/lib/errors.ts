@@ -28,11 +28,59 @@ export class NotFoundError extends AppError {
   static override readonly DETAIL = "No encontrado";
 }
 
+/** 400 con `detail` literal (códigos de fastapi-users y validaciones). */
+export class BadRequestError extends AppError {
+  static override readonly STATUS = 400;
+}
+
 export class UserNotFoundError extends NotFoundError {
   constructor(userId: string) {
     super(`Usuario ${userId} no existe`);
   }
 }
+
+/**
+ * 404 "pelado" de fastapi-users (`/users/{id}` con un id inexistente):
+ * el detail es literalmente `Not Found`, no el `No encontrado` de dominio.
+ */
+export class FastApiNotFoundError extends AppError {
+  static override readonly STATUS = 404;
+  static override readonly DETAIL = "Not Found";
+}
+
+/**
+ * `{"detail": {"code": "...", "reason": "..."}}` — shape de
+ * `fastapi_users.router.common.ErrorCode` (passwords inválidas).
+ */
+export class CodedAppError extends AppError {
+  static override readonly STATUS = 400;
+
+  readonly code: string;
+  readonly reason: string;
+
+  constructor(code: string, reason: string) {
+    super(code);
+    this.code = code;
+    this.reason = reason;
+  }
+
+  /** Body exacto que devuelve fastapi-users para estos errores. */
+  toBody(): { detail: { code: string; reason: string } } {
+    return { detail: { code: this.code, reason: this.reason } };
+  }
+}
+
+/** Códigos de `fastapi_users.router.common.ErrorCode` que replicamos. */
+export const AUTH_ERROR_CODES = {
+  loginBadCredentials: "LOGIN_BAD_CREDENTIALS",
+  registerUserAlreadyExists: "REGISTER_USER_ALREADY_EXISTS",
+  registerInvalidPassword: "REGISTER_INVALID_PASSWORD",
+  resetPasswordBadToken: "RESET_PASSWORD_BAD_TOKEN",
+  resetPasswordInvalidPassword: "RESET_PASSWORD_INVALID_PASSWORD",
+  verifyUserBadToken: "VERIFY_USER_BAD_TOKEN",
+  updateUserEmailAlreadyExists: "UPDATE_USER_EMAIL_ALREADY_EXISTS",
+  updateUserInvalidPassword: "UPDATE_USER_INVALID_PASSWORD",
+} as const;
 
 export class UserCannotDeleteSelfError extends AppError {
   static override readonly STATUS = 400;
