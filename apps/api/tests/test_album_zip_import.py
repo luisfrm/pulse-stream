@@ -5,6 +5,7 @@ inyecta por dependency_overrides con el mismo session de la base de tests.
 """
 
 import io
+import struct
 import uuid
 import zipfile
 
@@ -68,6 +69,46 @@ def _mp3_no_id3_bytes() -> bytes:
     """MP3 sin tags ID3: mutagen lo parsea pero no trae metadatos útiles."""
     frame = b"\xff\xfb\x90\x00" + b"\x00" * 413
     return frame * 2
+
+
+def _m4a_container(seconds: int = 2, handler: bytes = b"soun") -> bytes:
+    """MP4 mínimo: `ftyp` + `moov` con `mvhd` y UN track (`hdlr` + `mdhd`).
+
+    `handler` es el tipo de track: `b"soun"` (audio) o `b"vide"` (video). Con
+    track `soun` la duración sale del `mdhd` (igual que mutagen y que el probe
+    del Worker); sin él mutagen cae al `mvhd` y el probe rechaza el archivo
+    (MP4 sin pista de audio). `mvhd` y `mdhd` llevan la MISMA duración para que
+    el fixture sea realista.
+    """
+
+    def box(name: bytes, payload: bytes) -> bytes:
+        return struct.pack(">I", 8 + len(payload)) + name + payload
+
+    def media_header(name: bytes) -> bytes:
+        # Full atom v0: version+flags (4), creation (4), modification (4),
+        # timescale (4) y duration (4) + reservado en ceros (24 bytes).
+        payload = bytearray(24)
+        struct.pack_into(">I", payload, 12, 1000)
+        struct.pack_into(">I", payload, 16, seconds * 1000)
+        return box(name, bytes(payload))
+
+    ftyp = box(b"ftyp", b"M4A " + b"\x00\x00\x00\x00" + b"M4A " + b"mp42")
+    # `hdlr`: version+flags (4), pre_defined (4), handler type (4) + reservado.
+    hdlr_payload = bytearray(24)
+    hdlr_payload[8:12] = handler
+    mdia = box(b"mdia", box(b"hdlr", bytes(hdlr_payload)) + media_header(b"mdhd"))
+    return ftyp + box(b"moov", media_header(b"mvhd") + box(b"trak", mdia))
+
+
+def _m4a_bytes(seconds: int = 2) -> bytes:
+    """M4A (audio) mínimo legible por mutagen: `ftyp` + `moov` con track
+    `soun` (`mvhd` + `trak/mdia/hdlr` + `mdhd`)."""
+    return _m4a_container(seconds, b"soun")
+
+
+def _m4a_video_bytes(seconds: int = 2) -> bytes:
+    """MP4 de VIDEO (track `vide`, sin `soun`): el import debe rechazarlo."""
+    return _m4a_container(seconds, b"vide")
 
 
 def _zip_bytes(entries: dict[str, bytes] | list[tuple[str, bytes]]) -> bytes:
@@ -307,6 +348,56 @@ async def test_import_zip_accepts_aac_extension(import_client, session):
     assert data["imported"][0]["title"] == "track"
     assert len(storage.objects) == 1
     assert storage.objects[0][2] == "audio/aac"
+
+
+async def test_import_zip_accepts_m4a_extension(import_client, session):
+    client, storage = import_client
+    await register_and_login(client, admin=True, session=session)
+    _, album = await _create_album(client)
+
+    resp = await client.post(
+        f"/albums/{album['id']}/import-zip",
+        files={
+            "file": (
+                "album.zip",
+                _zip_bytes({"track.m4a": _m4a_bytes(3)}),
+                "application/zip",
+            )
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["imported"][0]["title"] == "track"
+    assert data["imported"][0]["duration_seconds"] == 3
+    assert len(storage.objects) == 1
+    assert storage.objects[0][2] == "audio/mp4"
+    assert storage.objects[0][0].endswith(".m4a")
+
+
+async def test_import_zip_rejects_video_renamed_to_m4a(import_client, session):
+    """Un MP4 sin track de audio (`hdlr` = `vide`) no es un M4A válido."""
+    client, storage = import_client
+    await register_and_login(client, admin=True, session=session)
+    _, album = await _create_album(client)
+
+    resp = await client.post(
+        f"/albums/{album['id']}/import-zip",
+        files={
+            "file": (
+                "album.zip",
+                _zip_bytes({"video.m4a": _m4a_video_bytes(3)}),
+                "application/zip",
+            )
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["imported"] == []
+    assert len(data["failed"]) == 1
+    assert data["failed"][0]["name"] == "video.m4a"
+    assert "no es un audio válido" in data["failed"][0]["reason"].lower()
+    # Nada se sube a R2 para esa entrada.
+    assert storage.objects == []
 
 
 async def test_import_zip_skips_oversized_file(import_client, session):

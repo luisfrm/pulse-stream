@@ -88,10 +88,11 @@ async def import_album_zip(
 ) -> ZipImportResult:
     """Importa un álbum completo desde un ZIP (admin only).
 
-    Cada archivo .mp3/.aac del ZIP se sube a R2 y se crea como canción del
-    álbum (mismo artista y cover del álbum). El título y la duración se leen
-    de los tags ID3 (fallback: nombre del archivo). Los archivos que no
-    cumplen los requisitos se reportan en la respuesta, sin abortar el resto.
+    Cada archivo .mp3/.aac/.m4a del ZIP se sube a R2 y se crea como canción del
+    álbum (mismo artista y cover del álbum). El título sale del nombre del
+    archivo (los tags se ignoran); la duración se lee del audio. Los archivos
+    que no cumplen los requisitos se reportan en la respuesta, sin abortar el
+    resto.
     """
     data = await file.read()
     return await service.import_album_zip(album_id, data, file.filename or "album.zip")

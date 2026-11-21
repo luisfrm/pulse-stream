@@ -58,8 +58,8 @@ export const albumsService = {
     await api(`/albums/${id}`, { method: "DELETE" });
   },
 
-  /** Importa un álbum completo desde un ZIP (admin): cada .mp3/.aac del ZIP
-   *  se sube a R2 y se crea como canción del álbum (mismo cover). */
+  /** Importa un álbum completo desde un ZIP (admin): cada .mp3/.aac/.m4a del
+   *  ZIP se sube a R2 y se crea como canción del álbum (mismo cover). */
   async importZip(albumId: string, file: File): Promise<ZipImportResult> {
     const form = new FormData();
     form.append("file", file);

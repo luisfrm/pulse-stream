@@ -198,10 +198,11 @@ const importAlbumZipRoute = createRoute({
   operationId: "import_album_zip_albums__album_id__import_zip_post",
   description:
     "Importa un álbum completo desde un ZIP (admin only).\n\n" +
-    "Cada archivo .mp3/.aac del ZIP se sube a R2 y se crea como canción del\n" +
-    "álbum (mismo artista y cover del álbum). El título y la duración se leen\n" +
-    "de los tags ID3 (fallback: nombre del archivo). Los archivos que no\n" +
-    "cumplen los requisitos se reportan en la respuesta, sin abortar el resto.",
+    "Cada archivo .mp3/.aac/.m4a del ZIP se sube a R2 y se crea como canción del\n" +
+    "álbum (mismo artista y cover del álbum). El título sale del nombre del\n" +
+    "archivo (los tags se ignoran); la duración se lee del audio. Los archivos\n" +
+    "que no cumplen los requisitos se reportan en la respuesta, sin abortar el\n" +
+    "resto.",
   middleware: [requireAdmin, requireMultipart] as const,
   request: {
     params: albumParams,

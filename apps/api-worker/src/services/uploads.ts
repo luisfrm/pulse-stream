@@ -26,7 +26,7 @@ function megabytes(bytes: number): number {
   return Math.floor(bytes / (1024 * 1024));
 }
 
-/** `POST /uploads/presign`: URL firmada para AUDIO (mp3/aac). */
+/** `POST /uploads/presign`: URL firmada para AUDIO (mp3/aac/m4a). */
 export async function presignAudioUpload(
   config: AppConfig,
   storage: R2Storage,
@@ -35,8 +35,8 @@ export async function presignAudioUpload(
   if (!isAudioContentType(payload.content_type)) {
     throw new InvalidUploadError(
       `Tipo de archivo no permitido: ${payload.content_type}. ` +
-        "Solo se aceptan archivos de audio MP3 o AAC " +
-        "(audio/mpeg, audio/aac).",
+        "Solo se aceptan archivos de audio MP3, AAC o M4A " +
+        "(audio/mpeg, audio/aac, audio/mp4).",
     );
   }
 

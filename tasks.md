@@ -168,6 +168,12 @@ están documentados en el gate de contrato.
 |---|---|---|
 | 63 | **Verificación Fase 7** | `uv run pytest` = **111 passed** · `uv run alembic upgrade head` (0009 en dev) · web typecheck/lint/**40 tests**/build OK · regen tipos · E2E API (422/400/400/400+presign firmado + limpieza) y browser (dedup 26 imgs→7 URLs, panel sin cover en songs, copy WebP/256KB/800×800, 0 errores consola) OK |
 
+## ✅ Resueltas (M4A en el panel — subida e import ZIP)
+
+| # | Tarea | Resolución |
+|---|---|---|
+| 64 | **M4A end-to-end + probe con pista de audio** | El presign acepta `audio/mp4`, `audio/x-m4a` y `audio/m4a` (→ `object_key` `.m4a`) y el import por ZIP acepta `.m4a` (se guarda como `audio/mp4`), en Python y en el Worker. El probe MP4 EXIGE al menos una pista de audio (`moov/trak/mdia/hdlr` = `soun`) en ambos backends — Worker en `lib/audio.ts`, Python con `mutagen.mp4.Atoms` — así un MP4 **sin pista de audio** se rechaza (`failed`, "no es un audio válido") en vez de importarse (un video con pista AAC sí pasa: es audio). Paridad con mutagen: la duración sale del `mdhd` de esa pista (el `mvhd` no se usa; `duration = 0` → `None` pero reconocido), `ftyp` no tiene que ser la primera caja y el redondeo es half-to-even. Tests en ambos lados (`test_presign_m4a`, `test_import_zip_accepts_m4a_extension`, `test_import_zip_rejects_video_renamed_to_m4a`, `test_audio_probe.py`, `audio.test.ts`, `album-zip-import.test.ts`) con fixtures M4A compartidos (`src/lib/__fixtures__/mp4.ts`) que incluyen `trak/mdia/hdlr` + `mdhd` |
+
 **Detalle por tarea (archivos · criterio de "hecho" · dependencias):**
 
 - **52** — `apps/api/app/features/playlists/{repository,service,router}.py` +

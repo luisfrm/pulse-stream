@@ -12,6 +12,7 @@ import { artistsService } from "@/lib/services/artists-service";
 import { songsService } from "@/lib/services/songs-service";
 import type { Album, Artist } from "@/lib/services/types";
 import {
+  uploadContentType,
   uploadsService,
   uploadToR2,
 } from "@/lib/services/uploads-service";
@@ -101,7 +102,7 @@ export function NewSongForm({
     setError(null);
 
     if (!title.trim()) return setError("Falta el título.");
-    if (!file) return setError("Elegí un archivo .mp3 para subir.");
+    if (!file) return setError("Elegí un archivo .mp3, .aac o .m4a para subir.");
 
     const artistSpec = createNewArtist
       ? { artist_name: newArtistName.trim() }
@@ -135,9 +136,10 @@ export function NewSongForm({
       }
 
       // 1) Presign + subida directa a R2 (el audio no pasa por la API)
+      const contentType = uploadContentType(file);
       const presign = await uploadsService.presignUpload(
         file.name,
-        file.type || "audio/mpeg",
+        contentType,
         file.size,
       );
       await uploadToR2(presign.url, file);
@@ -340,13 +342,13 @@ export function NewSongForm({
 
         <div className="flex flex-col gap-1.5">
           <FileInput
-          label="Archivo de audio (.mp3, .aac)"
-          icon={<Music2 size={16} />}
-          accept="audio/mpeg,.mp3,audio/aac,audio/vnd.dlna.adts,.aac"
-          value={file}
-          onChange={setFile}
-          hint="Formatos MP3 o AAC · máximo 50 MB"
-        />
+            label="Archivo de audio (.mp3, .aac, .m4a)"
+            icon={<Music2 size={16} />}
+            accept="audio/mpeg,.mp3,audio/aac,audio/x-hx-aac-adts,audio/vnd.dlna.adts,.aac,audio/mp4,audio/x-m4a,audio/m4a,.m4a"
+            value={file}
+            onChange={setFile}
+            hint="Formatos MP3, AAC o M4A · máximo 50 MB"
+          />
         </div>
 
         {error && (

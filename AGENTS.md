@@ -133,9 +133,11 @@ stateless: borrar la cookie ES cerrar sesión). CSRF del logout = solo molesto
   excepción deliberada a "el audio nunca pasa por FastAPI" — el ZIP viaja por
   la API (carga masiva), pero cada audio se guarda en R2 con PUT server-side
   (`R2Storage.put_object`, mismas credenciales que firman). `ZipImportService`
-  (uploads feature, orquesta repos de songs+albums) valida .mp3/.aac (≤ 50 MB,
-  no vacíos), lee **título + duración de los tags ID3 con `mutagen`** (fallback:
-  filename), saltea duplicados por título (case-insensitive) y no-audio, y crea
+  (uploads feature, orquesta repos de songs+albums) valida .mp3/.aac/.m4a (≤ 50 MB,
+  no vacíos), exige **track de audio** en los MP4 (mutagen: `moov/trak/mdia/hdlr`
+  = `soun`), lee la **duración del audio con `mutagen`** (MP4: `mdhd` del track)
+  y el **título sale siempre del filename** (los tags ID3 se ignoran),
+  saltea duplicados por título (case-insensitive) y no-audio, y crea
   cada canción con `artist_id`/`album_id` del álbum (el cover se hereda).
   Respuesta
   `ZipImportResult` (`imported` songs, `skipped`/`failed` issues) — un archivo
