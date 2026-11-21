@@ -12,6 +12,14 @@ import { deflateSync, zipSync } from "fflate";
 
 import { crc32 } from "@/lib/crc32";
 
+/**
+ * M4A mínimo (`ftyp` + `moov(mvhd + trak soun)`): sale del módulo compartido
+ * `src/lib/__fixtures__/mp4.ts` (mismos builders que
+ * `apps/api/tests/test_audio_probe.py`). Con `handler = "vide"` es un MP4 sin
+ * pista de audio y el import debe rechazarlo.
+ */
+export { m4aBytes } from "@/lib/__fixtures__/mp4";
+
 const encoder = new TextEncoder();
 
 /** Un frame MPEG1 Layer III de 417 bytes (128 kbps / 44100 Hz). */

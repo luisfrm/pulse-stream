@@ -67,6 +67,28 @@ async def test_presign_aac_dlna(client):
     assert resp.json()["object_key"].endswith(".aac")
 
 
+async def test_presign_m4a(client):
+    """M4A (audio/mp4 y variantes del OS) es válido y firma un key .m4a."""
+    await register_and_login(client)
+    for content_type in ("audio/mp4", "audio/x-m4a", "audio/m4a"):
+        resp = await client.post(
+            "/uploads/presign",
+            json={
+                "filename": "tema.m4a",
+                "content_type": content_type,
+                "size": 1024 * 1024,
+            },
+        )
+
+        if resp.status_code == 503:
+            assert "R2" in resp.json()["detail"]
+            return
+
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["object_key"].endswith(".m4a")
+        assert resp.json()["content_type"] == content_type
+
+
 async def test_presign_behavior(client):
     """Sin R2 configurado -> 503 con mensaje claro; con R2 -> URL firmada válida."""
     await register_and_login(client)

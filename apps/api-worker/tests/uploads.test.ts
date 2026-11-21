@@ -131,6 +131,22 @@ describeDb("uploads", () => {
     }
   });
 
+  it("M4A (audio/mp4 y variantes) firma .m4a", async () => {
+    await registerAndLogin(client);
+
+    for (const contentType of ["audio/mp4", "audio/x-m4a", "audio/m4a"]) {
+      const response = await client.postJson("/uploads/presign", {
+        filename: "tema.m4a",
+        content_type: contentType,
+        size: 1024 * 1024,
+      });
+      expect(response.status, await response.clone().text()).toBe(200);
+      const data = await readJson<PresignResponse>(response);
+      expect(data.object_key.endsWith(".m4a")).toBe(true);
+      expect(data.content_type).toBe(contentType);
+    }
+  });
+
   it("sin R2 configurado -> 503 con 'R2' en el detail", async () => {
     await registerAndLogin(unconfigured);
 

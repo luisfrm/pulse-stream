@@ -28,6 +28,7 @@ import {
   buildZip,
   buildZipEntries,
   deflate,
+  m4aBytes,
   mp3Bytes,
   mp3WithId3,
   zipFormData,
@@ -219,7 +220,7 @@ describeDb("album zip import", () => {
     const skipped = new Map(
       (data.skipped ?? []).map((item) => [item.name, item.reason]),
     );
-    expect(skipped.get("Portada.jpg")).toBe("No es un archivo .mp3 o .aac.");
+    expect(skipped.get("Portada.jpg")).toBe("No es un archivo .mp3, .aac o .m4a.");
     expect(skipped.get("Duplicado.mp3")?.toLowerCase()).toContain("ya existe");
     expect(data.failed).toEqual([]);
 
@@ -269,6 +270,44 @@ describeDb("album zip import", () => {
     expect(storage.objects).toHaveLength(1);
     expect(storage.objects[0]?.contentType).toBe("audio/aac");
     expect(storage.objects[0]?.key.endsWith(".aac")).toBe(true);
+  });
+
+  it("acepta .m4a y lo sube como audio/mp4", async () => {
+    await registerAndLogin(client, { admin: true });
+    const { album } = await createAlbumWithCover(client);
+
+    const response = await client.postFormData(
+      zipPath(album.id),
+      zipFormData(zipWith({ "track.m4a": m4aBytes(3) })),
+    );
+
+    expect(response.status, await response.clone().text()).toBe(200);
+    const data = await readJson<ZipImportResult>(response);
+    expect(data.imported?.[0]?.title).toBe("track");
+    expect(data.imported?.[0]?.duration_seconds).toBe(3);
+    expect(storage.objects).toHaveLength(1);
+    expect(storage.objects[0]?.contentType).toBe("audio/mp4");
+    expect(storage.objects[0]?.key.endsWith(".m4a")).toBe(true);
+  });
+
+  it("MP4 sin pista de audio (video renombrado a .m4a) -> failed y no sube nada", async () => {
+    await registerAndLogin(client, { admin: true });
+    const { album } = await createAlbumWithCover(client);
+
+    const response = await client.postFormData(
+      zipPath(album.id),
+      zipFormData(zipWith({ "video.m4a": m4aBytes(3, "vide") })),
+    );
+
+    expect(response.status, await response.clone().text()).toBe(200);
+    const data = await readJson<ZipImportResult>(response);
+    expect(data.imported).toEqual([]);
+    expect(data.failed).toHaveLength(1);
+    expect(data.failed?.[0]?.name).toBe("video.m4a");
+    expect(data.failed?.[0]?.reason.toLowerCase()).toContain(
+      "no es un audio válido",
+    );
+    expect(storage.objects).toEqual([]);
   });
 
   it("ZIP inválido -> 400 'no es un ZIP válido'", async () => {

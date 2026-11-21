@@ -19,6 +19,7 @@ import boto3
 import mutagen
 from botocore.config import Config
 from fastapi import Depends
+from mutagen.mp4 import Atoms, MP4
 from sqlalchemy.exc import DBAPIError, IntegrityError
 
 from app.core.config import settings
@@ -48,6 +49,11 @@ ALLOWED_CONTENT_TYPES = {
     "audio/x-hx-aac-adts",
     # Los navegadores/OS reportan .aac como ADTS (DLNA) — variante del mismo codec.
     "audio/vnd.dlna.adts",
+    # M4A: contenedor MP4 con AAC. Los navegadores/OS lo reportan con
+    # variantes no estándar (Safari usa audio/x-m4a).
+    "audio/mp4",
+    "audio/x-m4a",
+    "audio/m4a",
 }
 ALLOWED_COVER_TYPES = {"image/webp"}
 # Extensión del object_key según el content type del audio.
@@ -57,6 +63,9 @@ AUDIO_EXTENSIONS = {
     "audio/aac": ".aac",
     "audio/x-hx-aac-adts": ".aac",
     "audio/vnd.dlna.adts": ".aac",
+    "audio/mp4": ".m4a",
+    "audio/x-m4a": ".m4a",
+    "audio/m4a": ".m4a",
 }
 # Extensión del object_key según el content type del cover (solo WebP).
 COVER_EXTENSIONS = {"image/webp": ".webp"}
@@ -71,16 +80,54 @@ MAX_COVER_BYTES = 256 * 1024
 # viceversa) o R2 rechaza la firma.
 COVER_CACHE_CONTROL = "public, max-age=31536000, immutable"
 PRESIGN_EXPIRES_SECONDS = 600  # 5-10 min: ventana para subir el archivo
-# Import por ZIP de álbumes: solo MP3 y AAC (mismos codecs que /uploads/presign).
-IMPORT_EXTENSIONS = {".mp3": "audio/mpeg", ".aac": "audio/aac"}
+# Import por ZIP de álbumes: MP3, AAC y M4A (mismos formatos que
+# /uploads/presign). El M4A se guarda como audio/mp4.
+IMPORT_EXTENSIONS = {
+    ".mp3": "audio/mpeg",
+    ".aac": "audio/aac",
+    ".m4a": "audio/mp4",
+}
+
+
+def _mp4_has_audio_track(data: bytes) -> bool:
+    """True si el MP4 declara al menos un track de audio (`hdlr` = `soun`).
+
+    `mutagen.mp4.MP4Info.load` recorre los `trak` buscando el handler `soun` y,
+    si no lo encuentra, cae a la duración del `mvhd` (fallback). Ese fallback
+    deja pasar un MP4 sin pista de audio (p.ej. un video renombrado a `.m4a`),
+    así que repetimos el mismo recorrido de átomos (`moov/trak/mdia/hdlr`) para
+    EXIGIR el track.
+    """
+
+    fileobj = io.BytesIO(data)
+    try:
+        traks = Atoms(fileobj)[b"moov"].findall(b"trak")
+    except Exception:  # noqa: BLE001 — átomos rotos: no es un M4A
+        return False
+    for trak in traks:
+        try:
+            ok, payload = trak[b"mdia", b"hdlr"].read(fileobj)
+        except Exception:  # noqa: BLE001 — trak sin `hdlr`: probamos el próximo
+            continue
+        # `hdlr` es un full atom: version+flags (4), pre_defined (4) y
+        # handler type (4) → el handler vive en los bytes 8..12 del payload.
+        if ok and payload[8:12] == b"soun":
+            return True
+    return False
 
 
 def _probe_audio(data: bytes) -> tuple[int | None, bool]:
-    """Lee la duración de un MP3/AAC con mutagen.
+    """Lee la duración de un MP3/AAC/M4A con mutagen.
 
     Devuelve `(duration, recognized)`. Si `recognized` es False, mutagen
     no pudo parsear el archivo y se recomienda rechazarlo (evita subir un
     archivo renombrado que no sea audio válido).
+
+    En los M4A se exige además un track de audio (`hdlr` = `soun`): mutagen
+    cae al `mvhd` cuando no lo hay, así que un MP4 con solo pista de video
+    (que también tiene `mvhd`) pasaría como audio. La duración de un M4A sale
+    del `mdhd` de ese track y queda en `None` si es 0. MP3/ADTS no cambian
+    (`mutagen.File` ya los valida).
 
     El título NO se lee de los tags ID3: siempre sale del nombre del
     archivo (decisión de producto — el admin nombra los archivos como
@@ -91,6 +138,8 @@ def _probe_audio(data: bytes) -> tuple[int | None, bool]:
     except Exception:
         return None, False
     if audio is None:
+        return None, False
+    if isinstance(audio, MP4) and not _mp4_has_audio_track(data):
         return None, False
 
     duration: int | None = None
@@ -201,8 +250,8 @@ class UploadService:
         if payload.content_type not in ALLOWED_CONTENT_TYPES:
             raise InvalidUploadError(
                 f"Tipo de archivo no permitido: {payload.content_type}. "
-                "Solo se aceptan archivos de audio MP3 o AAC "
-                "(audio/mpeg, audio/aac)."
+                "Solo se aceptan archivos de audio MP3, AAC o M4A "
+                "(audio/mpeg, audio/aac, audio/mp4)."
             )
         if payload.size > settings.r2_max_upload_bytes:
             raise InvalidUploadError(
@@ -263,7 +312,7 @@ def get_upload_service() -> UploadService:
 class ZipImportService:
     """Import por ZIP de un álbum completo (admin).
 
-    Orquesta: descomprimir + validar (.mp3/.aac, tamaños, duplicados) →
+    Orquesta: descomprimir + validar (.mp3/.aac/.m4a, tamaños, duplicados) →
     subir a R2 (PUT server-side) → crear canciones con artista/álbum/cover
     del álbum. Los archivos que no cumplen los requisitos se reportan en
     `skipped`/`failed` sin abortar el resto.
@@ -318,7 +367,9 @@ class ZipImportService:
             ext = os.path.splitext(name)[1].lower()
             if ext not in IMPORT_EXTENSIONS:
                 skipped.append(
-                    ZipImportIssue(name=name, reason="No es un archivo .mp3 o .aac.")
+                    ZipImportIssue(
+                        name=name, reason="No es un archivo .mp3, .aac o .m4a."
+                    )
                 )
                 continue
             if info.file_size <= 0:

@@ -19,6 +19,11 @@ export const AUDIO_CONTENT_TYPES = [
   "audio/x-hx-aac-adts",
   // Los navegadores/OS reportan .aac como ADTS (DLNA) — variante del mismo codec.
   "audio/vnd.dlna.adts",
+  // M4A: contenedor MP4 con AAC. Los navegadores/OS lo reportan con
+  // variantes no estándar (Safari usa audio/x-m4a).
+  "audio/mp4",
+  "audio/x-m4a",
+  "audio/m4a",
 ] as const;
 
 export type AudioContentType = (typeof AUDIO_CONTENT_TYPES)[number];
@@ -30,6 +35,9 @@ export const AUDIO_EXTENSIONS: Readonly<Record<AudioContentType, string>> = {
   "audio/aac": ".aac",
   "audio/x-hx-aac-adts": ".aac",
   "audio/vnd.dlna.adts": ".aac",
+  "audio/mp4": ".m4a",
+  "audio/x-m4a": ".m4a",
+  "audio/m4a": ".m4a",
 };
 
 /** Covers: solo WebP (se muestran en pills/cards; el PNG/JPG no entra). */
@@ -70,10 +78,11 @@ export const COVER_CACHE_CONTROL = "public, max-age=31536000, immutable";
 /** Ventana de validez del presign (5-10 min para subir el archivo). */
 export const PRESIGN_EXPIRES_SECONDS = 600;
 
-/** Formatos aceptados por el import por ZIP (mismos codecs que el presign). */
+/** Formatos aceptados por el import por ZIP (mismos formatos que el presign). */
 export const IMPORT_EXTENSIONS: Readonly<Record<string, string>> = {
   ".mp3": "audio/mpeg",
   ".aac": "audio/aac",
+  ".m4a": "audio/mp4",
 };
 
 /** Rate limit del import por ZIP (hardcodeado igual que en `albums/router.py`). */

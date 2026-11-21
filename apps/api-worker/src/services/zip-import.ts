@@ -61,7 +61,7 @@ export const MAX_AUDIO_ENTRIES = 100;
 
 const NOT_AUDIO = "El archivo no es un audio válido.";
 const EMPTY_FILE = "El archivo está vacío.";
-const NOT_AUDIO_EXTENSION = "No es un archivo .mp3 o .aac.";
+const NOT_AUDIO_EXTENSION = "No es un archivo .mp3, .aac o .m4a.";
 const DUPLICATE_TITLE = "Ya existe una canción con ese título en el álbum.";
 const UNREADABLE_ENTRY = "No se pudo leer el archivo del ZIP.";
 const STORAGE_FAILED = "Error interno al importar el archivo.";

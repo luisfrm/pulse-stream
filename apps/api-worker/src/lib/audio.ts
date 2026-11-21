@@ -3,22 +3,33 @@
  *
  * El import por ZIP necesita saber si el archivo es audio REAL y cuánto dura.
  * Python lo resolvía con `mutagen`; en el Worker usamos un parser mínimo que
- * camina los frames de MP3 (MPEG Layer III) y de ADTS AAC, los mismos dos
- * formatos que acepta el import. Alcance deliberado:
+ * camina los frames de MP3 (MPEG Layer III) y de ADTS AAC, más el contenedor
+ * MP4 de los M4A. Alcance deliberado:
  *   - MP3: saltea el tag ID3v2 si está y camina headers de frame MPEG1/2/2.5
  *     Layer III. Otros layers (I/II) se consideran no reconocidos (un `.mp3`
  *     real es Layer III).
  *   - AAC: ADTS (con o sin el flag de CRC), frames de 1024 samples.
+ *   - M4A: MP4 con una caja `ftyp` en el top level (no necesariamente la
+ *     primera: mutagen camina desde 0) y AL MENOS UN track de audio
+ *     (`moov/trak/mdia/hdlr` con handler `soun`). Un MP4 sin pista de audio
+ *     se rechaza. La duración sale del `mdhd` de ESE track (`duration /
+ *     timescale`, igual que `MP4Info.load`); el `mvhd` no se usa porque
+ *     mutagen solo lo consulta cuando no hay track `soun`, y ese caso ya se
+ *     rechaza.
  *
- * Igual que `mutagen`, exige DOS frames consecutivos válidos para reconocer el
- * archivo: un header suelto en bytes arbitrarios no alcanza (los MP3 de verdad
- * tienen miles de frames).
+ * El redondeo imita `round()` de Python (half-to-even: 2.5 → 2, 3.5 → 4);
+ * `Math.round` redondearía siempre hacia arriba.
+ *
+ * Igual que `mutagen`, exige DOS frames consecutivos válidos para reconocer
+ * MP3/ADTS: un header suelto en bytes arbitrarios no alcanza (los MP3 de
+ * verdad tienen miles de frames).
  */
 
 export interface AudioProbe {
-  /** Duración en segundos enteros (`max(1, round(...))`), null si no se pudo. */
+  /** Duración en segundos enteros (`max(1, round(...))` de Python), null si
+   * el archivo declara 0 o no se pudo leer. */
   durationSeconds: number | null;
-  /** `false` = los bytes no son un MP3/ADTS parseable (Python: mutagen falla). */
+  /** `false` = los bytes no son un MP3/ADTS/M4A parseable (Python: mutagen falla). */
   recognized: boolean;
 }
 
@@ -27,6 +38,9 @@ const MIN_FRAMES = 2;
 
 /** Tope de frames a caminar: corta un archivo patológico sin colgar el Worker. */
 const MAX_FRAMES = 500_000;
+
+/** Tope de cajas MP4 a recorrer (evita listas patológicas de boxes). */
+const MAX_BOXES = 64;
 
 const MPEG1_LAYER3_BITRATES = [
   0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, -1,
@@ -162,22 +176,263 @@ function probeAdts(bytes: Uint8Array): AudioProbe {
   return toProbe(seconds, frames);
 }
 
+/**
+ * `round()` de Python: half-to-even (`2.5 → 2`, `3.5 → 4`).
+ *
+ * `Math.round` redondea siempre hacia arriba (`2.5 → 3`). El caso `.5` es
+ * alcanzable porque la duración de un MP4 es `duration / timescale`
+ * (2500 / 1000 = 2.5). Para negativos replica igual: `floor` + paridad.
+ */
+function pythonRound(value: number): number {
+  const floored = Math.floor(value);
+  const diff = value - floored;
+  if (diff < 0.5) return floored;
+  if (diff > 0.5) return floored + 1;
+  return floored % 2 === 0 ? floored : floored + 1;
+}
+
+function notRecognized(): AudioProbe {
+  return { durationSeconds: null, recognized: false };
+}
+
 function toProbe(seconds: number, frames: number): AudioProbe {
   if (frames < MIN_FRAMES || !Number.isFinite(seconds)) {
-    return { durationSeconds: null, recognized: false };
+    return notRecognized();
   }
   return {
-    durationSeconds: Math.max(1, Math.round(seconds)),
+    durationSeconds: Math.max(1, pythonRound(seconds)),
+    recognized: true,
+  };
+}
+
+interface Mp4Box {
+  /** Tipo de 4 caracteres ASCII (`ftyp`, `moov`, `mvhd`…). */
+  type: string;
+  /** Offset del payload (después del header de 8/16 bytes). */
+  start: number;
+  /** Offset del final de la caja. */
+  end: number;
+}
+
+/**
+ * Lee el header de una caja MP4 en `offset`.
+ *
+ * `null` = no hay caja válida que entre en `end`. Soporta tamaño de 32 bits,
+ * `size = 1` (largesize de 64 bits) y `size = 0` (hasta el final del padre).
+ */
+function readMp4Box(
+  bytes: Uint8Array,
+  view: DataView,
+  offset: number,
+  end: number,
+): Mp4Box | null {
+  if (offset + 8 > end) return null;
+
+  let size = view.getUint32(offset);
+  let header = 8;
+  if (size === 1) {
+    if (offset + 16 > end) return null;
+    const large = view.getBigUint64(offset + 8);
+    if (large > BigInt(Number.MAX_SAFE_INTEGER)) return null;
+    size = Number(large);
+    header = 16;
+  } else if (size === 0) {
+    size = end - offset;
+  }
+
+  if (size < header || offset + size > end) return null;
+
+  const type = String.fromCharCode(
+    bytes[offset + 4]!,
+    bytes[offset + 5]!,
+    bytes[offset + 6]!,
+    bytes[offset + 7]!,
+  );
+  return { type, start: offset + header, end: offset + size };
+}
+
+/** Primera caja de tipo `type` dentro de `[start, end)`; `null` si no está. */
+function findMp4Box(
+  bytes: Uint8Array,
+  view: DataView,
+  start: number,
+  end: number,
+  type: string,
+): Mp4Box | null {
+  let offset = start;
+  for (let boxes = 0; offset < end && boxes < MAX_BOXES; boxes += 1) {
+    const box = readMp4Box(bytes, view, offset, end);
+    if (!box) return null;
+    if (box.type === type) return box;
+    offset = box.end;
+  }
+  return null;
+}
+
+/** Todas las cajas de tipo `type` dentro de `[start, end)`. */
+function findMp4Boxes(
+  bytes: Uint8Array,
+  view: DataView,
+  start: number,
+  end: number,
+  type: string,
+): Mp4Box[] {
+  const found: Mp4Box[] = [];
+  let offset = start;
+  for (let boxes = 0; offset < end && boxes < MAX_BOXES; boxes += 1) {
+    const box = readMp4Box(bytes, view, offset, end);
+    if (!box) break;
+    if (box.type === type) found.push(box);
+    offset = box.end;
+  }
+  return found;
+}
+
+/**
+ * `true` si el `trak` declara un handler de audio: `mdia/hdlr` con `soun` en
+ * los bytes 8..12 del payload (mismo criterio que `mutagen.mp4.MP4Info.load`).
+ *
+ * Desviación conocida (caso exótico): si el `hdlr` está truncado mutagen
+ * aborta el archivo entero, mientras que acá se salta al próximo `trak`.
+ */
+function isMp4AudioTrak(
+  bytes: Uint8Array,
+  view: DataView,
+  trak: Mp4Box,
+): boolean {
+  const mdia = findMp4Box(bytes, view, trak.start, trak.end, "mdia");
+  if (!mdia) return false;
+  const hdlr = findMp4Box(bytes, view, mdia.start, mdia.end, "hdlr");
+  // `hdlr` es un full atom: version+flags (4), pre_defined (4) y
+  // handler type (4) → el handler vive en los bytes 8..12 del payload.
+  if (!hdlr || hdlr.start + 12 > hdlr.end) return false;
+  return (
+    bytes[hdlr.start + 8]! === 0x73 && // s
+    bytes[hdlr.start + 9]! === 0x6f && // o
+    bytes[hdlr.start + 10]! === 0x75 && // u
+    bytes[hdlr.start + 11]! === 0x6e // n
+  );
+}
+
+interface Mp4TimeHeader {
+  timescale: number;
+  duration: number;
+  /** `false` si la versión del full atom no es 0 ni 1. */
+  valid: boolean;
+}
+
+/**
+ * Lee timescale + duration de un full atom `mvhd`/`mdhd`:
+ * v0 → timescale `+12` y duration `+16` (32 bits);
+ * v1 → timescale `+20` y duration `+24` (64 bits).
+ */
+function readMp4TimeHeader(
+  bytes: Uint8Array,
+  view: DataView,
+  box: Mp4Box,
+): Mp4TimeHeader {
+  const invalid = { timescale: 0, duration: 0, valid: false };
+  const version = bytes[box.start];
+  if (version === 0) {
+    if (box.start + 20 > box.end) return invalid;
+    return {
+      timescale: view.getUint32(box.start + 12),
+      duration: view.getUint32(box.start + 16),
+      valid: true,
+    };
+  }
+  if (version === 1) {
+    if (box.start + 32 > box.end) return invalid;
+    const large = view.getBigUint64(box.start + 24);
+    if (large > BigInt(Number.MAX_SAFE_INTEGER)) return invalid;
+    return {
+      timescale: view.getUint32(box.start + 20),
+      duration: Number(large),
+      valid: true,
+    };
+  }
+  return invalid;
+}
+
+/**
+ * Probe de un contenedor MP4 (M4A).
+ *
+ * Paridad con `mutagen.mp4.MP4Info.load`:
+ *   - `ftyp` puede no ser la primera caja (mutagen camina los átomos desde 0 y
+ *     `MP4.score` solo mira los primeros 128 bytes); basura al inicio no
+ *     parsea y se rechaza.
+ *   - hace falta un track `soun`; sin él mutagen caería al `mvhd` y aceptaría
+ *     un MP4 sin pista de audio, así que se rechaza.
+ *   - la duración es la del `mdhd` del PRIMER track `soun` (no la del `mvhd`).
+ *   - `duration = 0` es válido: mutagen deja `length = 0` y el service guarda
+ *     `duration = None`, por eso `recognized` sigue en `true`.
+ */
+function probeMp4(bytes: Uint8Array): AudioProbe {
+  if (bytes.length < 8) return notRecognized();
+
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+
+  // Walk top-level desde 0 (igual que `Atoms`): `ftyp` se exige en cualquier
+  // posición y `moov` es el primero que aparezca. Una caja ilegible corta el
+  // walk (basura al inicio = no hay `ftyp` → rechazo). DESVIACIÓN deliberada:
+  // basura en la cola se tolera MÁS que mutagen (que aborta el archivo si un
+  // átomo final parsea mal o si un contenedor se rompe después del `moov`);
+  // acá conservamos lo leído — solo afecta archivos ya corruptos.
+  // Matiz del score: mutagen detecta `ftyp` dentro de los primeros 128 bytes;
+  // un `ftyp` más allá de esa ventana lo rechaza Python y acá no (irrelevante
+  // para un M4A real).
+  let sawFtyp = false;
+  let moov: Mp4Box | null = null;
+  let offset = 0;
+  for (let boxes = 0; offset < bytes.length && boxes < MAX_BOXES; boxes += 1) {
+    const box = readMp4Box(bytes, view, offset, bytes.length);
+    if (!box) break;
+    if (box.type === "ftyp") sawFtyp = true;
+    else if (box.type === "moov" && moov === null) moov = box;
+    offset = box.end;
+  }
+  if (!sawFtyp || moov === null) return notRecognized();
+
+  // Primer track de audio: mutagen corta en el primero con `hdlr` = `soun`.
+  let audioTrak: Mp4Box | null = null;
+  for (const trak of findMp4Boxes(bytes, view, moov.start, moov.end, "trak")) {
+    if (isMp4AudioTrak(bytes, view, trak)) {
+      audioTrak = trak;
+      break;
+    }
+  }
+  if (audioTrak === null) return notRecognized();
+
+  const mdia = findMp4Box(bytes, view, audioTrak.start, audioTrak.end, "mdia");
+  const mdhd =
+    mdia === null
+      ? null
+      : findMp4Box(bytes, view, mdia.start, mdia.end, "mdhd");
+  // Sin `mdhd` legible mutagen aborta el archivo (no es audio): se rechaza.
+  if (mdhd === null) return notRecognized();
+  const header = readMp4TimeHeader(bytes, view, mdhd);
+  if (!header.valid) return notRecognized();
+
+  // mutagen: `length = duration / timescale` (timescale 0 → length 0).
+  const seconds =
+    header.timescale > 0 ? header.duration / header.timescale : 0;
+  if (!Number.isFinite(seconds) || seconds <= 0) {
+    return { durationSeconds: null, recognized: true };
+  }
+  return {
+    durationSeconds: Math.max(1, pythonRound(seconds)),
     recognized: true,
   };
 }
 
 /**
  * `probeAudio(bytes)` -> duración + si es audio parseable.
- * Prueba MP3 y después ADTS AAC (los dos formatos del import).
+ * Prueba MP3, después ADTS AAC y por último el contenedor MP4 (M4A).
  */
 export function probeAudio(bytes: Uint8Array): AudioProbe {
   const mp3 = probeMp3(bytes);
   if (mp3.recognized) return mp3;
-  return probeAdts(bytes);
+  const adts = probeAdts(bytes);
+  if (adts.recognized) return adts;
+  return probeMp4(bytes);
 }
