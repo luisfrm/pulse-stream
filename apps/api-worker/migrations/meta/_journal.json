@@ -29,6 +29,13 @@
       "when": 1792890000000,
       "tag": "0004_playlists_artist_fk_cascade",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792970000000,
+      "tag": "0005_playlist_songs_position_unique",
+      "breakpoints": true
     }
   ]
 }

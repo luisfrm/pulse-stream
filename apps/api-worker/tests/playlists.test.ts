@@ -6,8 +6,12 @@
  * autor, más nuevas primero).
  */
 
+import { asc, eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 
+import { createDb } from "@/db/client";
+import { playlistSongs } from "@/db/schema";
+import { isUniqueViolation } from "@/lib/postgres";
 import type { MyPlaylistRead, PlaylistDetail, PlaylistRead, SongRead } from "@/schemas";
 import {
   createClient,
@@ -16,6 +20,7 @@ import {
   readJson,
   registerAndLogin,
   resetDb,
+  testConfig,
   type TestClient,
 } from "./helpers";
 import { createAlbum, createArtist, createSong } from "./catalog-helpers";
@@ -100,6 +105,71 @@ describeDb("playlists", () => {
     expect(await readJson(notThere)).toEqual({
       detail: `Canción ${missing} no existe`,
     });
+  });
+
+  it("posiciones 0..n-1 y el unique (playlist_id, position) las protege", async () => {
+    await registerAndLogin(client, { admin: true });
+    const artist = await createArtist(client, `Artista ${crypto.randomUUID().slice(0, 6)}`);
+    const album = await createAlbum(client, artist.id);
+    const s1 = await createSong(client, {
+      title: "Uno",
+      artistId: artist.id,
+      albumId: album.id,
+      objectKey: `songs/${crypto.randomUUID()}-p1.mp3`,
+    });
+    const s2 = await createSong(client, {
+      title: "Dos",
+      artistId: artist.id,
+      albumId: album.id,
+      objectKey: `songs/${crypto.randomUUID()}-p2.mp3`,
+    });
+    const s3 = await createSong(client, {
+      title: "Tres",
+      artistId: artist.id,
+      albumId: album.id,
+      objectKey: `songs/${crypto.randomUUID()}-p3.mp3`,
+    });
+
+    await registerAndLogin(client); // dueño de la playlist
+    const playlist = await createPlaylist(client, "Orden estable");
+
+    await addSongToPlaylist(client, playlist.id, s1!.id);
+    await addSongToPlaylist(client, playlist.id, s2!.id);
+
+    const db = createDb(testConfig());
+    const rows = await db
+      .select({
+        songId: playlistSongs.songId,
+        position: playlistSongs.position,
+      })
+      .from(playlistSongs)
+      .where(eq(playlistSongs.playlistId, playlist.id))
+      .orderBy(asc(playlistSongs.position));
+
+    expect(rows.map((row) => row.position)).toEqual([0, 1]);
+    expect(rows.map((row) => row.songId)).toEqual([s1!.id, s2!.id]);
+
+    // Otra canción con la MISMA posición choca con el índice único.
+    let duplicateError: unknown;
+    try {
+      await db.insert(playlistSongs).values({
+        playlistId: playlist.id,
+        songId: s3!.id,
+        position: 0,
+      });
+    } catch (error) {
+      duplicateError = error;
+    }
+    expect(isUniqueViolation(duplicateError)).toBe(true);
+
+    // Repetir la misma canción es un no-op: sin fila nueva.
+    const repeated = await addSongToPlaylist(client, playlist.id, s1!.id);
+    expect(repeated.song_count).toBe(2);
+    const after = await db
+      .select({ position: playlistSongs.position })
+      .from(playlistSongs)
+      .where(eq(playlistSongs.playlistId, playlist.id));
+    expect(after).toHaveLength(2);
   });
 
   it("agregar una canción inexistente -> 404", async () => {
@@ -296,7 +366,51 @@ describeDb("playlists", () => {
       "Cuatro",
       "Dos",
     ]);
-  });
+    // Timeout ampliado: este test encadena ~15 requests contra Neon remoto y
+    // con latencia alta puede superar el default de 20s (verificado: el
+    // DELETE del remove responde en ~1.3s, no es un hang).
+  }, 40_000);
+
+  it("quitar la primera canción renumera sin chocar el unique de posición", async () => {
+    // Caso de colisión transitoria que justifica el offset del remove:
+    // supervivientes en 1,2 → destinos 0,1 — sin offset, un renumerado en
+    // un solo UPDATE puede pisar `ux_playlist_songs_position` (la fila en 1
+    // todavía ocupa el destino 1 de la fila en 2).
+    await registerAndLogin(client, { admin: true });
+    const artist = await createArtist(
+      client,
+      `Offset ${crypto.randomUUID().slice(0, 6)}`,
+    );
+    const album = await createAlbum(client, artist.id, "Tres");
+    const created: SongRead[] = [];
+    for (const title of ["Uno", "Dos", "Tres"]) {
+      created.push(
+        await createSong(client, {
+          title,
+          artistId: artist.id,
+          albumId: album.id,
+          objectKey: `songs/${crypto.randomUUID()}.mp3`,
+        }),
+      );
+    }
+
+    await registerAndLogin(client);
+    const playlist = await createPlaylist(client, "Offset renumber");
+    for (const song of created) {
+      await addSongToPlaylist(client, playlist.id, song.id);
+    }
+
+    const removed = await client.del(
+      `/playlists/${playlist.id}/songs/${created[0]!.id}`,
+    );
+    expect(removed.status).toBe(200);
+
+    const detail = await readJson<PlaylistDetail>(
+      await client.get(`/playlists/${playlist.id}`),
+    );
+    expect(detail.songs?.map((song) => song.title)).toEqual(["Dos", "Tres"]);
+    expect(detail.song_count).toBe(2);
+  }, 40_000);
 
   it("el detalle expone SongRead completo (álbum y colaboradores)", async () => {
     await registerAndLogin(client, { admin: true });

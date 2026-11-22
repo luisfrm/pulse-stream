@@ -195,7 +195,15 @@ export const playlistSongs = pgTable(
     position: integer("position").notNull(),
     addedAt: timestamptz("added_at").notNull().defaultNow(),
   },
-  (table) => [primaryKey({ columns: [table.playlistId, table.songId] })],
+  (table) => [
+    primaryKey({ columns: [table.playlistId, table.songId] }),
+    // Dos adds concurrentes no pueden compartir posición (el retry del repo
+    // recalcula el count bajo un snapshot nuevo si choca).
+    uniqueIndex("ux_playlist_songs_position").on(
+      table.playlistId,
+      table.position,
+    ),
+  ],
 );
 
 export const userFavorites = pgTable(

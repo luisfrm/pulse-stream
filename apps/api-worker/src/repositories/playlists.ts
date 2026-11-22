@@ -24,6 +24,7 @@ import {
   type NewPlaylistRow,
   type PlaylistRow,
 } from "@/db/schema";
+import { isUniqueViolation } from "@/lib/postgres";
 import type { AppConfig } from "@/env";
 
 /** Cabecera de playlist + email del dueño (lo que exige `PlaylistRead`). */
@@ -294,7 +295,11 @@ export async function addSongToPlaylist(
   playlistId: string,
   songId: string,
 ): Promise<void> {
-  await createDb(config).execute(sql`
+  // 1 retry si dos adds concurrentes calcularon la misma `position`: el unique
+  // `(playlist_id, position)` lo corta y el segundo intento recalcula el count
+  // bajo un snapshot nuevo.
+  const run = () =>
+    createDb(config).execute(sql`
     INSERT INTO "playlist_songs" ("playlist_id", "song_id", "position")
     SELECT ${playlistId}::uuid, ${songId}::uuid,
            (SELECT count(*) FROM "playlist_songs"
@@ -306,14 +311,28 @@ export async function addSongToPlaylist(
     )
     ON CONFLICT ("playlist_id", "song_id") DO NOTHING
   `);
+
+  try {
+    await run();
+  } catch (error) {
+    if (!isUniqueViolation(error)) throw error;
+    await run();
+  }
 }
+
+/** Offset temporal para renumerar sin chocar con el unique (playlist_id, position). */
+const POSITION_OFFSET = 1_000_000;
 
 /**
  * Quita una canción y renumera las posiciones restantes 0..n-1.
  *
- * Ambas sentencias viajan en un `db.batch` (una transacción del lado de Neon):
+ * Las sentencias viajan en un `db.batch` (una transacción del lado de Neon):
  * si el DELETE no afectó filas, la renumeración es un no-op y se devuelve
  * `false` (el service responde 404).
+ *
+ * El UPDATE intermedio corre todas las posiciones a un offset: con el unique
+ * `(playlist_id, position)`, renumerar en un solo UPDATE puede chocar de forma
+ * transitoria (una fila aún no movida conserva la posición destino de otra).
  */
 export async function removeSongFromPlaylist(
   config: AppConfig,
@@ -332,6 +351,11 @@ export async function removeSongFromPlaylist(
         ),
       )
       .returning({ songId: playlistSongs.songId }),
+    db.execute(sql`
+      UPDATE "playlist_songs"
+      SET "position" = "position" + ${POSITION_OFFSET}
+      WHERE "playlist_id" = ${playlistId}::uuid
+    `),
     db.execute(sql`
       UPDATE "playlist_songs" AS target
       SET "position" = ranked.position - 1

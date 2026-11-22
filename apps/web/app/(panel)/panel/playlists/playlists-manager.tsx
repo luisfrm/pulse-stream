@@ -321,6 +321,7 @@ function PlaylistCuration({
   }, [debounced]);
 
   async function handleRemove(song: Song) {
+    if (pendingSongId) return;
     if (!window.confirm(`¿Quitar «${song.title}» de esta playlist?`)) return;
     setPendingSongId(song.id);
     try {
@@ -332,11 +333,12 @@ function PlaylistCuration({
     } catch (err) {
       toast.error(friendlyError(err));
     } finally {
-      setPendingSongId(null);
+      setPendingSongId((cur) => (cur === song.id ? null : cur));
     }
   }
 
   async function handleAdd(song: Song) {
+    if (pendingSongId) return;
     setPendingSongId(song.id);
     try {
       const updated = await playlistsService.addSong(playlistId, song.id);
@@ -348,7 +350,7 @@ function PlaylistCuration({
     } catch (err) {
       toast.error(friendlyError(err));
     } finally {
-      setPendingSongId(null);
+      setPendingSongId((cur) => (cur === song.id ? null : cur));
     }
   }
 
