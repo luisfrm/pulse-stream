@@ -1,5 +1,11 @@
 import { api, type ApiFetchOptions } from "@/lib/api/client";
-import type { MyPlaylist, Page, Playlist, PlaylistDetail } from "./types";
+import type {
+  MyPlaylist,
+  Page,
+  Playlist,
+  PlaylistDetail,
+  PlaylistEssentialsCreate,
+} from "./types";
 
 export interface CreatePlaylistPayload {
   name: string;
@@ -19,6 +25,14 @@ export interface CreateSystemPlaylistPayload {
   description?: string;
   query: "top_week" | "top_month" | "new";
 }
+
+/**
+ * El server aplica `limit = 20` por default, pero `defaultNonNullable` de
+ * openapi-typescript lo marca requerido en el schema. El panel puede omitirlo.
+ */
+type CreateArtistEssentialsBody = Omit<PlaylistEssentialsCreate, "limit"> & {
+  limit?: number;
+};
 
 export const playlistsService = {
   /**
@@ -51,6 +65,35 @@ export const playlistsService = {
     return await api<Page<Playlist>>("/playlists/public", {
       query: params,
       ...options,
+    });
+  },
+
+  /** Essentials del artista (lookup del panel): `null` si todavía no existe. */
+  async getArtistEssentials(
+    artistId: string,
+    options?: ApiFetchOptions,
+  ): Promise<Playlist | null> {
+    return await api<Playlist | null>("/playlists/system/essentials", {
+      query: { artist_id: artistId },
+      cache: "no-store",
+      ...options,
+    });
+  },
+
+  /** Genera las Essentials de un artista (admin). */
+  async createArtistEssentials(
+    payload: CreateArtistEssentialsBody,
+  ): Promise<PlaylistDetail> {
+    return await api<PlaylistDetail>("/playlists/system/essentials", {
+      method: "POST",
+      body: payload,
+    });
+  },
+
+  /** Re-siembra las canciones de una Essentials por el ranking actual (admin). */
+  async reseedArtistEssentials(id: string): Promise<PlaylistDetail> {
+    return await api<PlaylistDetail>(`/playlists/system/${id}/reseed`, {
+      method: "POST",
     });
   },
 

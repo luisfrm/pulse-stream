@@ -3,11 +3,21 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, Sparkles, Trash2 } from "lucide-react";
+import { ChevronDown, Loader2, Sparkles, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
-import { Button, Input, Select, Textarea, type SelectOption } from "@/components/ui";
+import {
+  Button,
+  Input,
+  Select,
+  Textarea,
+  cn,
+  type SelectOption,
+} from "@/components/ui";
+import { useDebounce } from "@/lib/hooks/use-debounce";
 import { playlistsService } from "@/lib/services/playlists-service";
-import type { Playlist } from "@/lib/services/types";
+import { songsService } from "@/lib/services/songs-service";
+import type { Playlist, PlaylistDetail, Song } from "@/lib/services/types";
 import { friendlyError } from "@/lib/utils/error";
 
 interface PlaylistsManagerProps {
@@ -48,6 +58,13 @@ export function PlaylistsManager({
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [created, setCreated] = React.useState<string | null>(null);
+  const [expandedId, setExpandedId] = React.useState<string | null>(null);
+  const [details, setDetails] = React.useState<Record<string, PlaylistDetail>>(
+    {}
+  );
+  const [loadingDetailId, setLoadingDetailId] = React.useState<string | null>(
+    null
+  );
 
   async function handleGenerate(e: React.FormEvent) {
     e.preventDefault();
@@ -86,6 +103,39 @@ export function PlaylistsManager({
     } finally {
       setDeletingId(null);
     }
+  }
+
+  async function loadDetail(id: string) {
+    setLoadingDetailId(id);
+    try {
+      const detail = await playlistsService.getPlaylistById(id);
+      setDetails((prev) => ({ ...prev, [id]: detail }));
+    } catch (err) {
+      toast.error(friendlyError(err));
+    } finally {
+      // Funcional: si el usuario expandió otra playlist mientras cargaba esta,
+      // no se limpia el indicador de la nueva.
+      setLoadingDetailId((cur) => (cur === id ? null : cur));
+    }
+  }
+
+  function toggleDetail(id: string) {
+    if (expandedId === id) {
+      setExpandedId(null);
+      return;
+    }
+    setExpandedId(id);
+    // Lazy: solo la primera vez. El detalle queda cacheado por playlist.
+    if (!details[id]) void loadDetail(id);
+  }
+
+  async function reloadDetail(id: string, detail?: PlaylistDetail) {
+    // addSong/removeSong ya devuelven el detalle actualizado: si viene, no se
+    // re-pide (ahorra un request por click de curation).
+    const fresh = detail ?? (await playlistsService.getPlaylistById(id));
+    setDetails((prev) => ({ ...prev, [id]: fresh }));
+    await onMutated();
+    router.refresh();
   }
 
   return (
@@ -151,43 +201,231 @@ export function PlaylistsManager({
           </p>
         ) : (
           <ul className="flex flex-col gap-2.5">
-            {initialPlaylists.map((pl) => (
+            {initialPlaylists.map((pl) => {
+              const songCount =
+                details[pl.id]?.song_count ?? pl.song_count;
+              return (
               <li
                 key={pl.id}
-                className="flex items-center gap-3 rounded-2xl border border-bg-highlight bg-bg-elevated p-3"
+                className="rounded-2xl border border-bg-highlight bg-bg-elevated"
               >
-                <Link
-                  href={`/playlists/${pl.id}`}
-                  className="flex min-w-0 flex-1 items-center gap-3"
-                >
-                  <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-bg-highlight bg-bg-highlight/40">
-                    {pl.cover_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={pl.cover_url} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="bg-brand-gradient flex h-full w-full items-center justify-center font-display font-extrabold text-bg-base">
-                        {pl.name.charAt(0).toUpperCase()}
-                      </div>
-                    )}
+                <div className="flex items-center gap-3 p-3">
+                  <Link
+                    href={`/playlists/${pl.id}`}
+                    className="flex min-w-0 flex-1 items-center gap-3"
+                  >
+                    <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-bg-highlight bg-bg-highlight/40">
+                      {pl.cover_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={pl.cover_url} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="bg-brand-gradient flex h-full w-full items-center justify-center font-display font-extrabold text-bg-base">
+                          {pl.name.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate font-display text-sm font-bold hover:underline">
+                        {pl.name}
+                      </p>
+                      <p className="truncate text-xs text-text-subdued">
+                        {pl.description || "Curada por el sistema"} · {songCount}{" "}
+                        {songCount === 1 ? "canción" : "canciones"}
+                      </p>
+                    </div>
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => toggleDetail(pl.id)}
+                    aria-expanded={expandedId === pl.id}
+                    className="flex shrink-0 items-center gap-1 rounded-pill px-3 py-1.5 text-xs font-medium text-text-subdued transition-colors hover:bg-bg-highlight hover:text-text-primary"
+                  >
+                    Canciones
+                    <ChevronDown
+                      size={15}
+                      aria-hidden
+                      className={cn(
+                        "transition-transform",
+                        expandedId === pl.id && "rotate-180"
+                      )}
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(pl.id)}
+                    disabled={deletingId === pl.id}
+                    aria-label={`Borrar ${pl.name}`}
+                    className="rounded-pill p-2 text-text-subdued transition-colors hover:bg-brand-900/30 hover:text-brand-200 disabled:opacity-50"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+
+                {expandedId === pl.id && (
+                  <div className="px-3 pb-3">
+                    {loadingDetailId === pl.id && !details[pl.id] ? (
+                      <p className="border-t border-bg-highlight pt-3 text-sm text-text-subdued">
+                        Cargando canciones…
+                      </p>
+                    ) : details[pl.id] ? (
+                      <PlaylistCuration
+                        playlistId={pl.id}
+                        detail={details[pl.id]}
+                        onReload={(detail) => reloadDetail(pl.id, detail)}
+                      />
+                    ) : null}
                   </div>
-                  <div className="min-w-0">
-                    <p className="truncate font-display text-sm font-bold hover:underline">
-                      {pl.name}
-                    </p>
-                    <p className="truncate text-xs text-text-subdued">
-                      {pl.description || "Curada por el sistema"} · {pl.song_count}{" "}
-                      {pl.song_count === 1 ? "canción" : "canciones"}
-                    </p>
-                  </div>
-                </Link>
+                )}
+              </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Detalle expandible: quitar/agregar canciones de una playlist del sistema. */
+function PlaylistCuration({
+  playlistId,
+  detail,
+  onReload,
+}: {
+  playlistId: string;
+  detail: PlaylistDetail;
+  onReload: (detail?: PlaylistDetail) => Promise<void>;
+}) {
+  const [search, setSearch] = React.useState("");
+  const debounced = useDebounce(search, 300);
+  const [results, setResults] = React.useState<Song[]>([]);
+  const [pendingSongId, setPendingSongId] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    const query = debounced.trim();
+    // Sin setState síncrono en el effect (regla de lint): si el query es corto
+    // el render oculta los resultados vía `activeQuery`, sin limpiar estado.
+    // El "Buscando…" se deriva de la ventana del debounce (`pending`).
+    if (query.length < 2) return;
+    let alive = true;
+    songsService
+      .getSongs({ query, limit: 10 })
+      .then((page) => {
+        if (alive) setResults(page.items);
+      })
+      .catch(() => {
+        if (alive) setResults([]);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [debounced]);
+
+  async function handleRemove(song: Song) {
+    if (!window.confirm(`¿Quitar «${song.title}» de esta playlist?`)) return;
+    setPendingSongId(song.id);
+    try {
+      // removeSong ya devuelve el detalle actualizado: se pasa directo a
+      // onReload (sin refetch).
+      const updated = await playlistsService.removeSong(playlistId, song.id);
+      toast.success(`Quitada «${song.title}»`);
+      await onReload(updated);
+    } catch (err) {
+      toast.error(friendlyError(err));
+    } finally {
+      setPendingSongId(null);
+    }
+  }
+
+  async function handleAdd(song: Song) {
+    setPendingSongId(song.id);
+    try {
+      const updated = await playlistsService.addSong(playlistId, song.id);
+      toast.success(`Agregada «${song.title}»`);
+      // No se limpia la búsqueda: la canción agregada desaparece sola de los
+      // resultados (la filtra `existingIds` del detalle recién actualizado),
+      // así se pueden agregar varias seguidas del mismo query.
+      await onReload(updated);
+    } catch (err) {
+      toast.error(friendlyError(err));
+    } finally {
+      setPendingSongId(null);
+    }
+  }
+
+  const songs = detail.songs ?? [];
+  const existingIds = new Set(songs.map((song) => song.id));
+  // Mientras el query debounced es corto (o se borró la búsqueda) no se
+  // muestran resultados viejos — derivado en el render, no con setState.
+  // Se mira TAMBIÉN el valor vivo del input: así al borrar la búsqueda los
+  // resultados desaparecen inmediato (sin esperar la ventana del debounce).
+  const activeQuery =
+    debounced.trim().length >= 2 && search.trim().length >= 2;
+  const available = activeQuery
+    ? results.filter((song) => !existingIds.has(song.id))
+    : [];
+  // Ventana del debounce: el usuario escribió pero el query aún no disparó.
+  const pending = search.trim().length >= 2 && search !== debounced;
+
+  return (
+    <div className="border-t border-bg-highlight pt-3">
+      {songs.length === 0 ? (
+        <p className="rounded-xl border border-bg-highlight bg-bg-elevated/50 px-4 py-5 text-center text-sm text-text-subdued">
+          Sin canciones todavía. Agregalas de a una o resembrá desde la página
+          del artista.
+        </p>
+      ) : (
+        <ul className="flex flex-col gap-1.5">
+          {songs.map((song) => (
+            <li
+              key={song.id}
+              className="flex items-center gap-3 rounded-lg bg-bg-elevated/60 px-3 py-2"
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm">{song.title}</span>
+                <span className="block truncate text-xs text-text-subdued">
+                  {song.artist.name}
+                </span>
+              </span>
+              <button
+                type="button"
+                onClick={() => handleRemove(song)}
+                disabled={pendingSongId === song.id}
+                className="shrink-0 rounded-pill px-3 py-1 text-xs text-text-subdued transition-colors hover:bg-brand-900/30 hover:text-brand-200 disabled:opacity-50"
+              >
+                Quitar
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="mt-4">
+        <Input
+          label="Agregar canción"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar por título…"
+        />
+        {pending && (
+          <p className="mt-2 text-xs text-text-subdued">Buscando…</p>
+        )}
+        {available.length > 0 && (
+          <ul className="mt-2 flex max-h-56 flex-col gap-1 overflow-y-auto">
+            {available.map((song) => (
+              <li key={song.id}>
                 <button
                   type="button"
-                  onClick={() => handleDelete(pl.id)}
-                  disabled={deletingId === pl.id}
-                  aria-label={`Borrar ${pl.name}`}
-                  className="rounded-pill p-2 text-text-subdued transition-colors hover:bg-brand-900/30 hover:text-brand-200 disabled:opacity-50"
+                  onClick={() => handleAdd(song)}
+                  disabled={pendingSongId === song.id}
+                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors hover:bg-bg-highlight disabled:opacity-50"
                 >
-                  <Trash2 size={16} />
+                  <span className="min-w-0 flex-1 truncate text-sm">
+                    {song.title}
+                  </span>
+                  <span className="shrink-0 text-xs text-text-subdued">
+                    {song.artist.name}
+                  </span>
                 </button>
               </li>
             ))}
