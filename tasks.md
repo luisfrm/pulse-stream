@@ -297,7 +297,7 @@ sin MCP quedó archivado en `LAYOUT_UNLOGGED_USER.md`.
 |---|---|---|
 | **F0** | Primitivas de layout: `MediaCard` (card sin caja estilo Spotify, play 48px, a11y con título en el label), `Carousel` (snap + flechas lg + ResizeObserver + reduced-motion), `Section`, `Chips` (URL-synced), `CollageCard`, skeletons (`MediaCardSkeleton` con variante `boxed`, `CarouselSkeleton`, `CollageCardSkeleton`). `SongCard` refactorizado a wrapper fino de `MediaCard` sin cambiar su API | Hecho (reviewer: approved) |
 | **F1** | `GET /me/top-songs?days=&limit=` **solo en el Worker** (Python deprecado: `apps/api/DEPRECATED.md`): ranking por usuario con 1 query + loader batcheado (4 queries, sin N+1), `SongWithPlays` reusado, desviación de contrato `WORKER_ONLY_PATHS` documentada y testeada, `generated.ts` regenerado, `listensService.getTopSongs` en el web | Hecho (reviewer: approved; 472/472 tests del worker) |
-| **F2** | Home nuevo: saludo compacto + chips `Todo·Canciones·Playlists·Álbumes` (filtro server-side pre-fetch, `?tipo=` canonizado), shortcut grid 3 columnas (medido en Spotify: 3×477px), **"Lo más escuchado por ti" (7d) con fallback "Recién subidas" en la misma ranura (nunca ambas)**, carruseles (Seguí escuchando, Tus playlists, Álbumes que te gustan, Top semana, Comunidad, Top mes), Destacados con collage (se omite sin system playlists), `ContextMediaCard` con play perezoso client-side (`queueParams`, limit 25), `PlaylistPicker` en portal con clamp/flip vertical | Hecho (reviewer: approved) |
+| **F2** | Home nuevo: saludo compacto + chips `Todo·Canciones·Playlists·Álbumes` (filtro server-side pre-fetch, `?tipo=` canonizado), shortcut grid 3 columnas (medido en Spotify: 3×477px), **"Lo más escuchado por ti" (7d) con fallback "Recién subidas" en la misma ranura (nunca ambas)**, carruseles (Seguí escuchando, Tus playlists, Álbumes que te gustan, Top semana, Comunidad, Top mes), Destacados como carrusel estándar de ContextMediaCard (se omite sin system playlists), `ContextMediaCard` con play perezoso client-side (`queueParams`, limit 25), `PlaylistPicker` en portal con clamp/flip vertical | Hecho (reviewer: approved) |
 
 Fixes de review incorporados: popover del picker sin clipping (portal), z-index
 del play bajo el popover, labels únicos por card, flip anclado al trigger (gap
@@ -322,8 +322,8 @@ essentials = una playlist por artista, sembrada con SU ranking all-time
 | **F3.2** | Panel: `/panel/artists/[id]` con lookup server-side + botón "Generar Essentials" → estado "Essentials · N canciones" + Ver + **Re-sembrar con confirmación**; `/panel/playlists` con **curation una a una** (expandible lazy, quitar por fila, agregar con búsqueda debounceada, resultados filtrados); TODA mutación purga `CACHE_TAGS.playlists` (Destacados instantáneo); borrado de artista también purga (fix post-review) | Hecho (reviewer: approved; lint sin setState síncrono en effects) |
 | **F3.3** | Generación masiva por el flujo del producto: "Bad Bunny Essentials" regenerada por el botón (20 canciones all-time, antes era un hack de `top_week` con curación por API), "Daddy Yankee Essentials" (13), Enrique Iglesias fuera (umbral ≥5), Bastille fuera (1 canción) | Hecho |
 
-Home logueado completo: "Destacados" muestra las 2 essentials en collage 2-up
-(captura `docs/spotify-auth/14-f33-destacados-essentials.png`).
+Home logueado completo: "Destacados" muestra las 2 essentials como carrusel
+estándar de cards (captura `docs/spotify-auth/14-f33-destacados-essentials.png`).
 
 Pendientes anotados de F3: refresh del listado del panel tras `confirm()` de
 borrado (DOM stale, se corrige al navegar), carrera de creación duplicada
@@ -331,3 +331,17 @@ borrado (DOM stale, se corrige al navegar), carrera de creación duplicada
 a propósito), nits 6-11 del review F3.2 (toast vs banner, 409 refetch, estado
 muerto al borrar expandida, actions.ts compartido, docstring de useDebounce,
 `no-store` explícito en loadDetail).
+
+## Pasada de nits de UI — Resuelta
+
+Reportados por el usuario con capturas y verificados en vivo: (1) la fila de
+canción sin cover no renderizaba el slot y el play se corría a la izquierda;
+(2) "Destacados" usaba cards gigantes (collage 2-up con el título fuera del
+viewport) en vez del tamaño estándar de las demás secciones.
+
+| Item | Alcance | Estado |
+|---|---|---|
+| **`NoCover` global** | `components/no-cover.tsx`: logo de Pulse Stream centrado + borde, shapes square/circle, sizes sm/md/lg. Reemplaza los fallbacks de "letra inicial" en filas (`song-item`), cards de grilla (`media-card`), player bar + fullscreen, heroes de playlist/álbum, `AlbumCard`/`PlaylistCard`, listas del panel y los swaps del review (`/playlists`, discografía del artista, `/search`). Avatares de persona y tiles de diseño propio quedan fuera a propósito | Hecho (reviewer: approved) |
+| **Destacados normalizado** | Carrusel estándar de `ContextMediaCard` (196px, idéntico al resto de las secciones). `CollageCard` y `CollageCardSkeleton` eliminados: el home tiene una sola clase de card | Hecho (reviewer: approved) |
+| **A11y** | Links de cover con `aria-label` en `song-item` y `artists-results` (eran focusables sin nombre accesible) | Hecho |
+| **Datos** | Ambas Essentials regeneradas 100% desde el panel (Bad Bunny y Daddy Yankee) | Hecho |

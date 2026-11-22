@@ -3,9 +3,10 @@
 import Link from "next/link";
 
 import { PlayButton } from "@/components/player/play-button";
-import { Badge } from "@/components/ui";
+import { Badge, cn } from "@/components/ui";
 import type { MyPlaylist, Song } from "@/lib/services/types";
 import { formatGenre } from "@/lib/utils/format";
+import { NoCover } from "./no-cover";
 import { SongActions } from "./song-actions";
 
 interface SongItemProps {
@@ -23,15 +24,23 @@ export function SongItem({ song, queue, favoriteIds, playlists, onMutated }: Son
 
   return (
     <li className="flex items-center gap-4 rounded-xl border border-bg-highlight bg-bg-elevated px-4 py-3">
-      {song.cover_url ? (
-        <Link
-          href={`/song/${song.id}`}
-          className="h-11 w-11 shrink-0 overflow-hidden rounded-lg border border-bg-highlight"
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
+      <Link
+        href={`/song/${song.id}`}
+        // El link de la imagen duplica el link del título (hermano siguiente):
+        // sin esto queda un link focusable sin nombre accesible (img alt="").
+        aria-label={`Abrir ${song.title}`}
+        className={cn(
+          "h-11 w-11 shrink-0 overflow-hidden",
+          song.cover_url && "rounded-lg border border-bg-highlight"
+        )}
+      >
+        {song.cover_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
           <img src={song.cover_url} alt="" className="h-full w-full object-cover" />
-        </Link>
-      ) : null}
+        ) : (
+          <NoCover size="sm" />
+        )}
+      </Link>
       <PlayButton song={song} queue={queue} />
       <div className="min-w-0 flex-1">
         <Link

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Sparkles } from "lucide-react";
 
 import { Card, CardContent, Title } from "@/components/ui";
+import { NoCover } from "@/components/no-cover";
 import { playlistsService } from "@/lib/services/playlists-service";
 import { CACHE_TAGS } from "@/lib/services/tags";
 
@@ -61,9 +62,7 @@ export default async function PlaylistsPage() {
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={pl.cover_url} alt="" className="h-full w-full object-cover" />
                       ) : (
-                        <div className="bg-brand-gradient flex h-full w-full items-center justify-center font-display font-extrabold text-bg-base">
-                          {pl.name.charAt(0).toUpperCase()}
-                        </div>
+                        <NoCover size="md" className="rounded-xl" />
                       )}
                     </div>
                     <div className="min-w-0">
@@ -92,9 +91,7 @@ export default async function PlaylistsPage() {
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={pl.cover_url} alt="" className="h-full w-full object-cover" />
                     ) : (
-                      <div className="bg-brand-gradient flex h-full w-full items-center justify-center font-display font-extrabold text-bg-base">
-                        {pl.name.charAt(0).toUpperCase()}
-                      </div>
+                      <NoCover size="md" className="rounded-xl" />
                     )}
                   </div>
                   <div className="min-w-0">

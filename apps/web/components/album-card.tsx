@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { cn } from "@/components/ui";
+import { NoCover } from "@/components/no-cover";
 import type { Album } from "@/lib/services/types";
 
 interface AlbumCardProps {
@@ -32,11 +33,7 @@ export function AlbumCard({ album, className, priority = false }: AlbumCardProps
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
           />
         ) : (
-          <div className="bg-brand-gradient flex h-full w-full items-center justify-center">
-            <span className="font-display text-4xl font-extrabold text-bg-base">
-              {album.title.charAt(0).toUpperCase()}
-            </span>
-          </div>
+          <NoCover size="lg" />
         )}
       </div>
 

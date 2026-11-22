@@ -3,6 +3,18 @@ import { describe, expect, it, vi } from "vitest";
 
 import { MediaCard } from "./media-card";
 
+// BrandLogo (fallback NoCover) usa next/image; en jsdom se reemplaza por <img>.
+vi.mock("next/image", () => ({
+  default: ({
+    priority,
+    ...props
+  }: React.ImgHTMLAttributes<HTMLImageElement> & { priority?: boolean }) => {
+    void priority;
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img {...props} alt={props.alt ?? ""} />;
+  },
+}));
+
 const base = { title: "Crimen", href: "/song/s1" };
 
 describe("MediaCard", () => {

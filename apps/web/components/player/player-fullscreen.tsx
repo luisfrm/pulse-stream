@@ -6,6 +6,7 @@ import { ChevronDown, Pause, Play, SkipBack, SkipForward } from "lucide-react";
 
 import { OfflineButton } from "@/components/offline-button";
 import { cn } from "@/components/ui";
+import { NoCover } from "@/components/no-cover";
 import { formatGenre, formatTime } from "@/lib/utils/format";
 import { usePlayer } from "./player-provider";
 
@@ -136,11 +137,7 @@ export function PlayerFullscreen({ open, onClose }: PlayerFullscreenProps) {
                   className="h-full w-full object-cover"
                 />
               ) : (
-                <div className="bg-brand-gradient flex h-full w-full items-center justify-center">
-                  <span className="font-display text-6xl font-extrabold text-bg-base">
-                    {current.title.charAt(0).toUpperCase()}
-                  </span>
-                </div>
+                <NoCover size="lg" />
               )}
             </div>
 

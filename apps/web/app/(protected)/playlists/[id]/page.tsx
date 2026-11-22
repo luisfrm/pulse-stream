@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { Sparkles } from "lucide-react";
 
 import { BackLink } from "@/components/back-link";
+import { NoCover } from "@/components/no-cover";
 import { Badge, Button } from "@/components/ui";
 import { getUserLibrary } from "@/lib/services/library";
 import { playlistsService } from "@/lib/services/playlists-service";
@@ -96,9 +97,7 @@ export default async function PlaylistDetailPage({ params }: PlaylistDetailPageP
                 className="h-full w-full object-cover"
               />
             ) : (
-              <div className="bg-brand-gradient flex h-full w-full items-center justify-center font-display text-5xl font-extrabold text-bg-base">
-                {playlist.name.charAt(0).toUpperCase()}
-              </div>
+              <NoCover size="lg" />
             )}
           </div>
 

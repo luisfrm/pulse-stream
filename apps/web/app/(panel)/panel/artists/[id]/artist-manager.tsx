@@ -7,6 +7,7 @@ import { Disc3, Loader2, Minus, Music, Plus, Sparkles, Trash2 } from "lucide-rea
 import { toast } from "sonner";
 
 import { CoverUploader } from "@/components/cover-uploader";
+import { NoCover } from "@/components/no-cover";
 import { Button, cn, Modal, Input } from "@/components/ui";
 import { albumsService } from "@/lib/services/albums-service";
 import { artistsService } from "@/lib/services/artists-service";
@@ -176,9 +177,7 @@ export function ArtistManager({
             // eslint-disable-next-line @next/next/no-img-element
             <img src={artist.cover_url} alt="" className="h-full w-full object-cover" />
           ) : (
-            <div className="bg-brand-gradient flex h-full w-full items-center justify-center font-display text-4xl font-extrabold text-bg-base">
-              {artist.name.charAt(0).toUpperCase()}
-            </div>
+            <NoCover size="lg" />
           )}
         </div>
         <div className="min-w-0">
@@ -362,9 +361,7 @@ export function ArtistManager({
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={album.cover_url} alt="" className="h-full w-full object-cover" />
                     ) : (
-                      <div className="bg-brand-gradient flex h-full w-full items-center justify-center font-display font-extrabold text-bg-base">
-                        {album.title.charAt(0).toUpperCase()}
-                      </div>
+                      <NoCover size="md" />
                     )}
                   </div>
                   <div className="min-w-0">
@@ -424,9 +421,7 @@ export function ArtistManager({
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={song.cover_url} alt="" className="h-full w-full object-cover" />
                     ) : (
-                      <div className="bg-brand-gradient flex h-full w-full items-center justify-center font-display font-extrabold text-bg-base">
-                        {song.title.charAt(0).toUpperCase()}
-                      </div>
+                      <NoCover size="sm" />
                     )}
                   </div>
                   <span className="min-w-0 flex-1">

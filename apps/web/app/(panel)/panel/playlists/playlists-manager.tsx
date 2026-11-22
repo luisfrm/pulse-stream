@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ChevronDown, Loader2, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { NoCover } from "@/components/no-cover";
 import {
   Button,
   Input,
@@ -219,9 +220,7 @@ export function PlaylistsManager({
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={pl.cover_url} alt="" className="h-full w-full object-cover" />
                       ) : (
-                        <div className="bg-brand-gradient flex h-full w-full items-center justify-center font-display font-extrabold text-bg-base">
-                          {pl.name.charAt(0).toUpperCase()}
-                        </div>
+                        <NoCover size="md" />
                       )}
                     </div>
                     <div className="min-w-0">

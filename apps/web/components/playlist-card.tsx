@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { cn } from "@/components/ui";
+import { NoCover } from "@/components/no-cover";
 import { authorHandle } from "@/lib/utils/format";
 import type { Playlist } from "@/lib/services/types";
 
@@ -46,11 +47,7 @@ export function PlaylistCard({
               className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
             />
           ) : (
-            <div className="bg-brand-gradient flex h-full w-full items-center justify-center">
-              <span className="font-display text-lg font-extrabold text-bg-base">
-                {playlist.name.charAt(0).toUpperCase()}
-              </span>
-            </div>
+            <NoCover size="md" />
           )}
         </div>
         <div className="min-w-0 flex-1">
@@ -84,11 +81,7 @@ export function PlaylistCard({
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
           />
         ) : (
-          <div className="bg-brand-gradient flex h-full w-full items-center justify-center">
-            <span className="font-display text-4xl font-extrabold text-bg-base">
-              {playlist.name.charAt(0).toUpperCase()}
-            </span>
-          </div>
+          <NoCover size="lg" />
         )}
       </div>
 

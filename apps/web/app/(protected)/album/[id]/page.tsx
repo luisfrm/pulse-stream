@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { BackLink } from "@/components/back-link";
+import { NoCover } from "@/components/no-cover";
 import { albumsService } from "@/lib/services/albums-service";
 import { getUserLibrary } from "@/lib/services/library";
 import { songsService } from "@/lib/services/songs-service";
@@ -79,11 +80,7 @@ export default async function AlbumPage({ params }: AlbumPageProps) {
                 className="h-full w-full object-cover"
               />
             ) : (
-              <div className="bg-brand-gradient flex h-full w-full items-center justify-center">
-                <span className="font-display text-6xl font-extrabold text-bg-base">
-                  {album.title.charAt(0).toUpperCase()}
-                </span>
-              </div>
+              <NoCover size="lg" />
             )}
           </div>
           <div className="min-w-0">

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { CoverUploader } from "@/components/cover-uploader";
+import { NoCover } from "@/components/no-cover";
 import { Button, Input, Modal } from "@/components/ui";
 import { artistsService } from "@/lib/services/artists-service";
 import type { Artist } from "@/lib/services/types";
@@ -94,15 +95,16 @@ export function ArtistsResults({
               <div className="flex items-center gap-4">
                 <Link
                   href={`/panel/artists/${artist.id}`}
+                  // Duplica el link del nombre (hermano siguiente): sin esto
+                  // queda un link focusable sin nombre accesible (img alt="").
+                  aria-label={`Abrir ${artist.name}`}
                   className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-bg-highlight bg-bg-highlight/40"
                 >
                   {artist.cover_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={artist.cover_url} alt="" className="h-full w-full object-cover" />
                   ) : (
-                    <span className="bg-brand-gradient flex h-full w-full items-center justify-center font-display font-extrabold text-bg-base">
-                      {artist.name.charAt(0).toUpperCase()}
-                    </span>
+                    <NoCover size="md" />
                   )}
                 </Link>
                 <div className="min-w-0 flex-1">

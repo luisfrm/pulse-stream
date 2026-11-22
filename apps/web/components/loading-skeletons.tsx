@@ -54,16 +54,6 @@ export function CarouselSkeleton({
   );
 }
 
-/** Card editorial 3:4 + caption — espejo de CollageCard. */
-export function CollageCardSkeleton() {
-  return (
-    <div>
-      <Skeleton className="aspect-[3/4] w-full rounded-xl" />
-      <Skeleton className="mt-2 h-3 w-32" />
-    </div>
-  );
-}
-
 /** Fila de canción (cover chico + 2 líneas + acciones) — listas/detalles. */
 export function SongItemSkeleton() {
   return (

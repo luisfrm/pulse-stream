@@ -6,9 +6,9 @@ import { Heart, Plus } from "lucide-react";
 
 import { Carousel } from "@/components/carousel";
 import { Chips } from "@/components/chips";
-import { CollageCard } from "@/components/collage-card";
 import { ContextMediaCard } from "@/components/context-media-card";
-import { CarouselSkeleton, CollageCardSkeleton } from "@/components/loading-skeletons";
+import { CarouselSkeleton } from "@/components/loading-skeletons";
+import { NoCover } from "@/components/no-cover";
 import { Section } from "@/components/section";
 import { SongCard } from "@/components/song-card";
 import { Skeleton } from "@/components/ui";
@@ -173,15 +173,7 @@ export default async function DashboardHome({
 
       {showPlaylists && (
         <Suspense
-          fallback={
-            <Section title="Destacados" className="mt-6">
-              <div className="grid grid-cols-2 gap-4">
-                {Array.from({ length: 2 }).map((_, index) => (
-                  <CollageCardSkeleton key={index} />
-                ))}
-              </div>
-            </Section>
-          }
+          fallback={<CarouselSkeleton title="Destacados" className="mt-6" />}
         >
           <FeaturedSection />
         </Suspense>
@@ -221,11 +213,7 @@ async function Shortcuts() {
               className="h-16 w-16 shrink-0 rounded-md object-cover"
             />
           ) : (
-            <div className="bg-brand-gradient flex h-16 w-16 shrink-0 items-center justify-center rounded-md">
-              <span className="font-display text-lg font-bold text-bg-base">
-                {playlist.name.charAt(0).toUpperCase()}
-              </span>
-            </div>
+            <NoCover size="md" className="h-16 w-16 shrink-0" />
           )}
           <span className="truncate font-display text-base font-bold">
             {playlist.name}
@@ -440,7 +428,7 @@ async function PopularMonthSection() {
   );
 }
 
-/** Sección 11: collage 2-up con las playlists del sistema (si hay). */
+/** Sección 11: carrusel de playlists del sistema (si hay). */
 async function FeaturedSection() {
   const systemPlaylists = (await getCommunityPlaylists()).filter(
     (playlist) => playlist.kind === "system"
@@ -449,18 +437,24 @@ async function FeaturedSection() {
   if (systemPlaylists.length === 0) return null;
 
   return (
-    <Section title="Destacados" className="mt-6">
-      <div className="grid grid-cols-2 gap-4">
+    <Section
+      title="Destacados"
+      eyebrow="Curadas por Pulse Stream"
+      className="mt-6"
+    >
+      <Carousel>
         {systemPlaylists.map((playlist) => (
-          <CollageCard
-            key={playlist.id}
-            title={playlist.name}
-            href={`/playlists/${playlist.id}`}
-            coverUrl={playlist.cover_url}
-            caption="Curada por Pulse Stream"
-          />
+          <div key={playlist.id} className={CAROUSEL_ITEM}>
+            <ContextMediaCard
+              title={playlist.name}
+              href={`/playlists/${playlist.id}`}
+              coverUrl={playlist.cover_url}
+              subtitle={songCountLabel(playlist.song_count)}
+              queueParams={{ playlistId: playlist.id }}
+            />
+          </div>
         ))}
-      </div>
+      </Carousel>
     </Section>
   );
 }

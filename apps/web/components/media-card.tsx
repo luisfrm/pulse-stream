@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Pause, Play } from "lucide-react";
 
 import { cn } from "@/components/ui";
+import { NoCover } from "./no-cover";
 
 interface MediaCardProps {
   title: string;
@@ -45,8 +46,6 @@ export function MediaCard({
   className,
   priority = false,
 }: MediaCardProps) {
-  const initial = title.charAt(0).toUpperCase();
-
   return (
     <div className={cn("group relative flex h-full min-w-0 flex-col gap-3", className)}>
       <div className="relative aspect-square w-full">
@@ -68,9 +67,7 @@ export function MediaCard({
               className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
             />
           ) : (
-            <div className="bg-brand-gradient flex h-full w-full items-center justify-center">
-              <span className="font-display text-4xl font-extrabold text-bg-base">{initial}</span>
-            </div>
+            <NoCover shape={shape} size="lg" />
           )}
         </div>
 
