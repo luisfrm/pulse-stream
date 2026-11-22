@@ -282,7 +282,7 @@ están documentados en el gate de contrato.
 | Item | Alcance | Estado |
 |---|---|---|
 | **Tests** | `.github/workflows/tests.yml`: solo unitarios (worker `test:unit` + web vitest) en cada `pull_request`, sin DB ni secrets | Hecho |
-| **CI (integracion)** | `ci.yml` pasa a `push: main` + `workflow_dispatch`: pytest, vitest con Neon, typecheck/lint/build del web y `generated.ts` pinneado | Hecho |
+| **CI (integracion)** | `ci.yml` pasa a `push: master` + `workflow_dispatch`: pytest, vitest con Neon, typecheck/lint/build del web y `generated.ts` pinneado | Hecho (job `api` de pytest eliminado al deprecar el backend Python — ver *Pendientes de infraestructura*) |
 | **Deploy API Worker** | `.github/workflows/deploy-api-worker.yml`: migraciones con la URL directa, `wrangler deploy`, `wrangler secret bulk` desde GitHub, smoke `/health`/`/genres`/`/artists`; environment `production` | Hecho |
 | **Config del Worker** | `wrangler.jsonc` con `routes` del custom domain y `vars` no secretas; secretos de runtime solo en GitHub (fuente de verdad) | Hecho |
 | **Deploy web** | Vercel con su integracion de Git (sin workflow); envs `NEXT_PUBLIC_API_URL`, `ENV=prod`, `COOKIE_DOMAIN`, `COOKIE_SAMESITE` | Manual (dashboard) |
@@ -363,3 +363,16 @@ Nota: el test de renumeración que falló con timeout durante la pasada era
 latencia de red (15 requests secuenciales a Neon a ~1.3s), no un hang —
 reproducido contra el worker: el DELETE del remove responde en ~1.3s. Se
 amplió su timeout a 40s con comentario.
+
+## Pendientes de infraestructura (CI / migraciones)
+
+| # | Tarea | Estado |
+|---|---|---|
+| 1 | Migración Drizzle **`0000_baseline`** (esquema completo en un solo baseline) | Pendiente — es lo que permite dropear el bootstrap Alembic de la base de test y el paso `Python schema` de `ci.yml`; hasta entonces el Worker depende de `apps/api` solo como infraestructura de test |
+| 2 | Secret **`TEST_DATABASE_URL`** de GitHub | Sin uso tras quitar el job `api` de `ci.yml` (el Worker usa `TEST_DATABASE_URL_WORKER`) y purgable cuando el baseline esté; se deja por si hace falta un checkout del Python deprecado |
+| 3 | Workflow manual **`db-migrate.yml`** (aplicar migraciones Drizzle sin deploy) | Cancelado por ahora; planeado para una fase posterior. Hasta entonces `db:migrate` se corre a mano con guard (`CONFIRM_TARGET`) |
+
+> **Verificación de cada fase**: `pnpm typecheck` no incluye el Worker, así que
+> cada fase cierra con `pnpm --filter @pulse-stream/api-worker typecheck`
+> además de su suite. `vitest` transpila sin chequear tipos: un fixture
+> incompleto (`PlaylistRow` sin `artistId`) pasaba los tests y solo rompía `tsc`.

@@ -3,43 +3,14 @@ name: CI (integración)
 # Los tests unitarios corren en cada PR (`tests.yml`). Este workflow usa bases
 # de datos reales (Neon) y corre solo sobre master (o a mano con workflow_dispatch)
 # para no consumir la DB de test en cada PR.
+# `apps/api` (Python) está deprecado y congelado: no tiene job propio. Su único
+# rol es el bootstrap Alembic de la base de test del Worker (ver `api-worker`).
 on:
   push:
     branches: [master]
   workflow_dispatch:
 
 jobs:
-  api:
-    name: API (uv + pytest)
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/api
-    env:
-      # `Settings` (pydantic) exige estos dos al importar; el `.env` local está
-      # git-ignored y en CI no existe. Los tests usan TEST_DATABASE_URL.
-      AUTH_SECRET: ci-not-a-secret
-      DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
-      # Los tests de covers comparan `cover_url` (settings.r2_public_base_url):
-      # localmente lo aporta `apps/api/.env`, en CI no existe.
-      R2_PUBLIC_BASE_URL: https://cdn.example.com
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: astral-sh/setup-uv@v6
-        with:
-          version: "0.11.x"
-
-      - name: Sync dependencies
-        run: uv sync --all-groups
-
-      - name: Run tests
-        env:
-          # Base PROPIA del backend Python: su `drop_all` no convive con las
-          # tablas del Worker (que usa TEST_DATABASE_URL_WORKER).
-          TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
-        run: uv run pytest
-
   web:
     name: Web (pnpm build)
     runs-on: ubuntu-latest
@@ -93,13 +64,15 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Sync Python dependencies (schema de referencia)
+      - name: Sync apps/api (bootstrap de test del worker)
         working-directory: apps/api
         run: uv sync --all-groups
 
-      # El esquema base lo define el backend Python (Alembic); el Worker suma
-      # sus propias migraciones Drizzle (better-auth) encima.
-      - name: Python schema (Alembic, base de referencia)
+      # Infraestructura de test del Worker (no CI de Python): el esquema base de
+      # la base de test sale de Alembic y encima corren las migraciones Drizzle
+      # del Worker. Cuando exista el baseline Drizzle `0000` (esquema completo),
+      # este paso y `apps/api` dejan de ser necesarios.
+      - name: Python schema (Alembic, bootstrap de test)
         working-directory: apps/api
         env:
           RAW_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL_WORKER }}
