@@ -4,7 +4,7 @@ import * as React from "react";
 
 import { LoadMoreButton } from "@/components/load-more-button";
 import { SongCard } from "@/components/song-card";
-import { SongItemSkeleton } from "@/components/loading-skeletons";
+import { MediaCardSkeleton } from "@/components/loading-skeletons";
 import { songsService } from "@/lib/services/songs-service";
 import type { MyPlaylist, Page, Song } from "@/lib/services/types";
 import { friendlyError } from "@/lib/utils/error";
@@ -98,7 +98,7 @@ export function SongsResultsSkeleton() {
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
       {Array.from({ length: 10 }).map((_, i) => (
-        <SongItemSkeleton key={i} />
+        <MediaCardSkeleton key={i} />
       ))}
     </div>
   );

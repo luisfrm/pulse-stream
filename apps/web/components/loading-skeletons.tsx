@@ -1,14 +1,65 @@
-import { Skeleton } from "@/components/ui";
+import { Skeleton, cn } from "@/components/ui";
 
-/** Cover cuadrado + 2 líneas de texto — espejo de SongCard/PlaylistCard. */
-export function MediaCardSkeleton() {
+/**
+ * Cover cuadrado + título (1 línea) y subtítulo (2 líneas) — espejo de MediaCard.
+ * `boxed` replica las cards que todavía tienen caja (AlbumCard, cards inline del
+ * artista) para no saltar de layout al hidratar.
+ */
+export function MediaCardSkeleton({ boxed = false }: { boxed?: boolean }) {
   return (
-    <div className="flex h-full flex-col gap-3 rounded-2xl border border-bg-highlight bg-bg-elevated p-3">
-      <Skeleton className="aspect-square w-full" />
-      <div className="flex-1 space-y-2">
+    <div
+      className={cn(
+        "flex h-full flex-col gap-3",
+        boxed && "rounded-2xl border border-bg-highlight bg-bg-elevated p-3"
+      )}
+    >
+      <Skeleton className={cn("aspect-square w-full", !boxed && "rounded-md")} />
+      <div className={cn("space-y-2", boxed && "flex-1")}>
         <Skeleton className="h-4 w-3/4" />
         <Skeleton className="h-3 w-1/2" />
+        <Skeleton className="h-3 w-2/5" />
       </div>
+    </div>
+  );
+}
+
+/** Título de sección + fila de cards sin scrollbar — espejo de Carousel/Section. */
+export function CarouselSkeleton({
+  title,
+  cards = 6,
+  className,
+}: {
+  title?: string;
+  cards?: number;
+  className?: string;
+}) {
+  return (
+    <section className={className}>
+      {title ? (
+        <h2 className="mb-4 font-display text-2xl font-bold">{title}</h2>
+      ) : (
+        <Skeleton className="mb-4 h-7 w-48" />
+      )}
+      <div className="flex gap-4 overflow-hidden">
+        {Array.from({ length: cards }).map((_, i) => (
+          <div
+            key={i}
+            className="w-[46%] shrink-0 sm:w-[31%] lg:w-[196px]"
+          >
+            <MediaCardSkeleton />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** Card editorial 3:4 + caption — espejo de CollageCard. */
+export function CollageCardSkeleton() {
+  return (
+    <div>
+      <Skeleton className="aspect-[3/4] w-full rounded-xl" />
+      <Skeleton className="mt-2 h-3 w-32" />
     </div>
   );
 }
@@ -31,9 +82,12 @@ export function SongItemSkeleton() {
 export function SectionGridSkeleton({
   title,
   cards = 5,
+  boxed = false,
 }: {
   title?: string;
   cards?: number;
+  /** true cuando el contenido real de la sección sigue siendo una card con caja. */
+  boxed?: boolean;
 }) {
   return (
     <section>
@@ -43,7 +97,7 @@ export function SectionGridSkeleton({
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
         {Array.from({ length: cards }).map((_, i) => (
-          <MediaCardSkeleton key={i} />
+          <MediaCardSkeleton key={i} boxed={boxed} />
         ))}
       </div>
     </section>
