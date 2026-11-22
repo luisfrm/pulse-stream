@@ -41,6 +41,32 @@ export const PlaylistSystemCreateSchema = z
   })
   .openapi("PlaylistSystemCreate").openapi({ description: "Creación de una playlist del sistema (admin only).\n\nLa playlist se genera como snapshot de una query: top de la semana,\ntop del mes o canciones recién agregadas." });
 
+/**
+ * Tope por defecto de una playlist editorial "Essentials" por artista
+ * (compartido por el schema de creación y el reseed del service).
+ */
+export const ESSENTIALS_LIMIT = 20;
+
+/**
+ * Semilla de una playlist editorial "Essentials" de un artista (Worker-only).
+ *
+ * No expone `query`: el servicio fija `artist_top` y `kind=system`.
+ */
+export const PlaylistEssentialsCreateSchema = z
+  .object({
+    artist_id: UuidSchema,
+    limit: IntSchema.min(1).max(50).default(ESSENTIALS_LIMIT),
+    name: z.string().min(1).max(255).optional(),
+    description: z.string().nullable().optional(),
+  })
+  .openapi("PlaylistEssentialsCreate")
+  .openapi({
+    description:
+      "Genera las Essentials de un artista (sus canciones más escuchadas, " +
+      "all-time) — admin only.\n\nUna sola Essentials por artista: si ya existe " +
+      "responde 409; si el artista no tiene canciones, 404.",
+  });
+
 export const PlaylistUpdateSchema = z
   .object({
     name: z.string().min(1).max(255).nullable().optional(),
@@ -103,4 +129,5 @@ export type MyPlaylistRead = z.infer<typeof MyPlaylistReadSchema>;
 export type PlaylistCreate = z.infer<typeof PlaylistCreateSchema>;
 export type PlaylistUpdate = z.infer<typeof PlaylistUpdateSchema>;
 export type PlaylistSystemCreate = z.infer<typeof PlaylistSystemCreateSchema>;
+export type PlaylistEssentialsCreate = z.infer<typeof PlaylistEssentialsCreateSchema>;
 export type PlaylistAddSong = z.infer<typeof PlaylistAddSongSchema>;

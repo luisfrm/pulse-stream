@@ -318,6 +318,27 @@ export async function listNewestSongIds(
   return rows.map((row) => row.id);
 }
 
+/**
+ * IDs de las canciones de un artista para las Essentials editoriales:
+ * `play_count` all-time desc, desempate por `created_at` e `id`.
+ *
+ * All-time a propósito (sin ventana de días): "Essentials" es lo
+ * representativo del artista, no lo trendy de la semana.
+ */
+export async function topSongsByArtist(
+  config: AppConfig,
+  artistId: string,
+  limit: number,
+): Promise<string[]> {
+  const rows = await createDb(config)
+    .select({ id: songs.id })
+    .from(songs)
+    .where(eq(songs.artistId, artistId))
+    .orderBy(desc(songs.playCount), asc(songs.createdAt), asc(songs.id))
+    .limit(limit);
+  return rows.map((row) => row.id);
+}
+
 /** `true` si la canción existe (sin traer relaciones): chequeo de PATCH/DELETE. */
 export async function songExists(
   config: AppConfig,

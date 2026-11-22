@@ -15,6 +15,20 @@
       "when": 1792720324101,
       "tag": "0002_user_uniqueness",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792810000000,
+      "tag": "0003_playlists_artist_essentials",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792890000000,
+      "tag": "0004_playlists_artist_fk_cascade",
+      "breakpoints": true
     }
   ]
 }

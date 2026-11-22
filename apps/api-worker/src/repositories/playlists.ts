@@ -17,6 +17,7 @@ import { and, asc, count, desc, eq, inArray, sql } from "drizzle-orm";
 
 import { createDb } from "@/db/client";
 import {
+  ARTIST_TOP_QUERY,
   playlistSongs,
   playlists,
   users,
@@ -59,6 +60,28 @@ export async function findPlaylistWithOwner(
     .from(playlists)
     .innerJoin(users, eq(playlists.ownerId, users.id))
     .where(eq(playlists.id, id))
+    .limit(1);
+
+  const row = rows[0];
+  return row ? { ...row.playlist, ownerEmail: row.ownerEmail } : null;
+}
+
+/** Essentials (`query=artist_top`, system) del artista, si existe. */
+export async function findArtistEssentials(
+  config: AppConfig,
+  artistId: string,
+): Promise<PlaylistWithOwner | null> {
+  const rows = await createDb(config)
+    .select({ playlist: playlists, ownerEmail: users.email })
+    .from(playlists)
+    .innerJoin(users, eq(playlists.ownerId, users.id))
+    .where(
+      and(
+        eq(playlists.artistId, artistId),
+        eq(playlists.query, ARTIST_TOP_QUERY),
+        eq(playlists.kind, "system"),
+      ),
+    )
     .limit(1);
 
   const row = rows[0];
