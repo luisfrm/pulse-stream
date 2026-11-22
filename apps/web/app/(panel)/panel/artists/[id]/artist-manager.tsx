@@ -3,13 +3,16 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Disc3, Loader2, Minus, Music, Plus, Trash2 } from "lucide-react";
+import { Disc3, Loader2, Minus, Music, Plus, Sparkles, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 import { CoverUploader } from "@/components/cover-uploader";
+import { NoCover } from "@/components/no-cover";
 import { Button, cn, Modal, Input } from "@/components/ui";
 import { albumsService } from "@/lib/services/albums-service";
 import { artistsService } from "@/lib/services/artists-service";
-import type { Album, Artist, Song } from "@/lib/services/types";
+import { playlistsService } from "@/lib/services/playlists-service";
+import type { Album, Artist, Playlist, Song } from "@/lib/services/types";
 import { friendlyError } from "@/lib/utils/error";
 
 interface ArtistManagerProps {
@@ -17,6 +20,7 @@ interface ArtistManagerProps {
   readonly albums: Album[];
   readonly songs: Song[];
   readonly collaborations: Song[];
+  readonly essentials: Playlist | null;
   readonly onMutated: () => Promise<void>;
 }
 
@@ -26,6 +30,7 @@ export function ArtistManager({
   albums,
   songs,
   collaborations,
+  essentials,
   onMutated,
 }: ArtistManagerProps) {
   const router = useRouter();
@@ -35,6 +40,12 @@ export function ArtistManager({
   const [error, setError] = React.useState<string | null>(null);
   const [deleting, setDeleting] = React.useState(false);
   const [deletingAlbumId, setDeletingAlbumId] = React.useState<string | null>(null);
+  // Se inicializa con el lookup del server y se actualiza con la respuesta de
+  // crear/reseed (la UI no depende del timing del router.refresh).
+  const [currentEssentials, setCurrentEssentials] =
+    React.useState<Playlist | null>(essentials);
+  const [creatingEssentials, setCreatingEssentials] = React.useState(false);
+  const [reseedingEssentials, setReseedingEssentials] = React.useState(false);
   const [albumOpen, setAlbumOpen] = React.useState(false);
   // Mantiene el form montado durante la animación de salida.
   const [albumClosing, setAlbumClosing] = React.useState(false);
@@ -75,6 +86,10 @@ export function ArtistManager({
     setError(null);
     try {
       await artistsService.deleteArtist(artist.id);
+      // El DELETE cascadea álbumes/canciones y, desde F3.1, la Essentials del
+      // artista: sin purga, "Destacados" y el feed muestran la playlist muerta
+      // hasta 5 min. La action del artista ya purga artists/albums/songs/playlists.
+      await onMutated();
       router.push("/panel/artists");
       router.refresh();
     } catch (err) {
@@ -97,6 +112,55 @@ export function ArtistManager({
     }
   }
 
+  async function generateEssentials() {
+    setCreatingEssentials(true);
+    try {
+      const created = await playlistsService.createArtistEssentials({
+        artist_id: artist.id,
+      });
+      setCurrentEssentials(created);
+      const noun = created.song_count === 1 ? "canción" : "canciones";
+      toast.success(`Essentials generada · ${created.song_count} ${noun}`, {
+        action: {
+          label: "Ver playlist",
+          onClick: () => router.push(`/playlists/${created.id}`),
+        },
+      });
+      await onMutated();
+      router.refresh();
+    } catch (err) {
+      toast.error(friendlyError(err));
+    } finally {
+      setCreatingEssentials(false);
+    }
+  }
+
+  async function reseedEssentials() {
+    if (!currentEssentials) return;
+    if (
+      !window.confirm(
+        "Re-sembrar reemplaza las canciones por el ranking actual del artista. ¿Continuar?"
+      )
+    ) {
+      return;
+    }
+    setReseedingEssentials(true);
+    try {
+      const updated = await playlistsService.reseedArtistEssentials(
+        currentEssentials.id
+      );
+      setCurrentEssentials(updated);
+      const noun = updated.song_count === 1 ? "canción" : "canciones";
+      toast.success(`Essentials re-sembrada · ${updated.song_count} ${noun}`);
+      await onMutated();
+      router.refresh();
+    } catch (err) {
+      toast.error(friendlyError(err));
+    } finally {
+      setReseedingEssentials(false);
+    }
+  }
+
   return (
     <div className="mx-auto w-full max-w-5xl">
       <Link
@@ -113,9 +177,7 @@ export function ArtistManager({
             // eslint-disable-next-line @next/next/no-img-element
             <img src={artist.cover_url} alt="" className="h-full w-full object-cover" />
           ) : (
-            <div className="bg-brand-gradient flex h-full w-full items-center justify-center font-display text-4xl font-extrabold text-bg-base">
-              {artist.name.charAt(0).toUpperCase()}
-            </div>
+            <NoCover size="lg" />
           )}
         </div>
         <div className="min-w-0">
@@ -196,6 +258,52 @@ export function ArtistManager({
             Las reproducciones son el acumulado de las canciones listadas (hasta
             100). Los colaboradores no cuentan como canciones propias.
           </p>
+
+          {/* Essentials editoriales: seed all-time + reseed explícito. */}
+          <div className="mt-4 rounded-xl border border-bg-highlight bg-bg-elevated px-4 py-3">
+            {currentEssentials ? (
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">
+                    Essentials · {currentEssentials.song_count}{" "}
+                    {currentEssentials.song_count === 1 ? "canción" : "canciones"}
+                  </p>
+                  <p className="text-xs text-text-subdued">
+                    Playlist editorial del artista
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Link
+                    href={`/playlists/${currentEssentials.id}`}
+                    className="text-sm font-medium text-text-subdued transition-colors hover:text-brand-400"
+                  >
+                    Ver
+                  </Link>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={reseedEssentials}
+                    loading={reseedingEssentials}
+                  >
+                    Re-sembrar
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm text-text-subdued">
+                  Todavía no tiene Essentials.
+                </p>
+                <Button
+                  size="sm"
+                  onClick={generateEssentials}
+                  loading={creatingEssentials}
+                >
+                  <Sparkles size={15} aria-hidden /> Generar Essentials
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -253,9 +361,7 @@ export function ArtistManager({
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={album.cover_url} alt="" className="h-full w-full object-cover" />
                     ) : (
-                      <div className="bg-brand-gradient flex h-full w-full items-center justify-center font-display font-extrabold text-bg-base">
-                        {album.title.charAt(0).toUpperCase()}
-                      </div>
+                      <NoCover size="md" />
                     )}
                   </div>
                   <div className="min-w-0">
@@ -315,9 +421,7 @@ export function ArtistManager({
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={song.cover_url} alt="" className="h-full w-full object-cover" />
                     ) : (
-                      <div className="bg-brand-gradient flex h-full w-full items-center justify-center font-display font-extrabold text-bg-base">
-                        {song.title.charAt(0).toUpperCase()}
-                      </div>
+                      <NoCover size="sm" />
                     )}
                   </div>
                   <span className="min-w-0 flex-1">

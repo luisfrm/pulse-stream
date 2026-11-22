@@ -15,6 +15,8 @@ export type PresignResponse = components["schemas"]["PresignResponse"];
 export type SongGenre = components["schemas"]["SongGenre"];
 export type Playlist = components["schemas"]["PlaylistRead"];
 export type PlaylistDetail = components["schemas"]["PlaylistDetail"];
+export type PlaylistEssentialsCreate =
+  components["schemas"]["PlaylistEssentialsCreate"];
 /** Playlist del usuario (GET /me/playlists): `PlaylistRead` + `song_ids` por posición. */
 export type MyPlaylist = components["schemas"]["MyPlaylistRead"];
 

@@ -4,6 +4,7 @@ import * as React from "react";
 import dynamic from "next/dynamic";
 import { ChevronUp, Pause, Play } from "lucide-react";
 
+import { NoCover } from "@/components/no-cover";
 import { formatTime } from "@/lib/utils/format";
 import { usePlayer } from "./player-provider";
 
@@ -55,9 +56,7 @@ export function PlayerBar() {
                   className="h-full w-full object-cover"
                 />
               ) : (
-                <div className="bg-brand-gradient flex h-full w-full items-center justify-center text-sm font-extrabold text-bg-base">
-                  {current.title.charAt(0).toUpperCase()}
-                </div>
+                <NoCover size="sm" />
               )}
             </div>
 

@@ -441,6 +441,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/playlists/system/essentials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Artist Essentials
+         * @description Devuelve la Essentials del artista o `null` si todavía no existe (para que el panel muestre Generar vs. Re-sembrar).
+         */
+        get: operations["get_artist_essentials_playlists_system_essentials_get"];
+        put?: never;
+        /**
+         * Create Artist Essentials
+         * @description Genera las Essentials de un artista (sus canciones más escuchadas, all-time) — admin only.
+         *
+         *     Una sola Essentials por artista (409 si ya existe); si el artista no existe o no tiene canciones, 404.
+         */
+        post: operations["create_artist_essentials_playlists_system_essentials_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/playlists/system/{playlist_id}/reseed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reseed Artist Essentials
+         * @description Reemplaza las canciones de una Essentials por el ranking actual del artista — admin only.
+         *
+         *     Nombre, descripción y likes se conservan. Solo aplica a playlists `artist_top` (las de charts responden 400).
+         */
+        post: operations["reseed_artist_essentials_playlists_system__playlist_id__reseed_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/playlists/system": {
         parameters: {
             query?: never;
@@ -877,6 +925,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/top-songs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Top Songs (usuario)
+         * @description Ranking de las canciones MÁS ESCUCHADAS POR EL USUARIO en los últimos `days` días (por defecto 7). `play_count` de cada item son los plays del usuario en la ventana, no el global.
+         */
+        get: operations["top_songs_me_top_songs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -1297,6 +1365,28 @@ export interface components {
             songs?: components["schemas"]["SongRead"][];
         };
         /**
+         * PlaylistEssentialsCreate
+         * @description Genera las Essentials de un artista (sus canciones más escuchadas, all-time) — admin only.
+         *
+         *     Una sola Essentials por artista: si ya existe responde 409; si el artista no tiene canciones, 404.
+         */
+        PlaylistEssentialsCreate: {
+            /**
+             * Artist Id
+             * Format: uuid
+             */
+            artist_id: string;
+            /**
+             * Limit
+             * @default 20
+             */
+            limit: number;
+            /** Name */
+            name?: string;
+            /** Description */
+            description?: string | null;
+        };
+        /**
          * PlaylistKind
          * @description Tipo de playlist (columna VARCHAR plana — regla de enums en Pydantic).
          * @enum {string}
@@ -1526,7 +1616,7 @@ export interface components {
         };
         /**
          * SongWithPlays
-         * @description Canción + métrica de reproducciones (ranking "populares").
+         * @description Canción + métrica de reproducciones (ranking de `/songs/popular` global o `/me/top-songs` del usuario).
          */
         SongWithPlays: {
             /**
@@ -2938,6 +3028,137 @@ export interface operations {
             };
         };
     };
+    get_artist_essentials_playlists_system_essentials_get: {
+        parameters: {
+            query: {
+                artist_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaylistRead"] | null;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_artist_essentials_playlists_system_essentials_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlaylistEssentialsCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaylistDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reseed_artist_essentials_playlists_system__playlist_id__reseed_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                playlist_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaylistDetail"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     create_system_playlist_playlists_system_post: {
         parameters: {
             query?: never;
@@ -3716,6 +3937,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Page_RecentlyPlayedSong_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    top_songs_me_top_songs_get: {
+        parameters: {
+            query?: {
+                /** @description Ventana móvil en días */
+                days?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SongWithPlays"][];
                 };
             };
             /** @description Validation Error */

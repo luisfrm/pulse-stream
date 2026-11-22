@@ -4,31 +4,37 @@
  *
  *   POST /me/listens            -> 201 ListenRead (dedupe de 30 s)
  *   GET  /me/recently-played    -> Page<RecentlyPlayedSong>
+ *   GET  /me/top-songs          -> SongWithPlays[] (solo Worker; Python congelado)
  *
- * Ambos exigen sesión: el `user_id` sale SIEMPRE de la cookie, nunca del body.
+ * Todos exigen sesión: el `user_id` sale SIEMPRE de la cookie, nunca del body.
  * Completar canciones (álbum/artista/colaboradores) lo hace el loader
  * batcheado del repositorio de canciones.
  */
 
-import { createRoute, type OpenAPIHono } from "@hono/zod-openapi";
+import { createRoute, z, type OpenAPIHono } from "@hono/zod-openapi";
 
 import type { AppEnv } from "@/index";
 import { pageQuerySchema, paginate } from "@/lib/pagination";
-import { toListenDto, toSongDto } from "@/lib/serialize";
+import { toListenDto, toSongDto, toSongWithPlaysDto } from "@/lib/serialize";
 import { requireUser } from "@/middleware/auth";
 import {
   HTTPValidationErrorSchema,
   ListenCreateSchema,
   ListenReadSchema,
   PageRecentlyPlayedSongSchema,
+  SongWithPlaysSchema,
+  queryInt,
 } from "@/schemas";
-import { listRecentlyPlayed, recordPlay } from "@/services/listens";
+import {
+  listRecentlyPlayed,
+  listTopSongsForUser,
+  recordPlay,
+} from "@/services/listens";
 
 const validationError = {
   description: "Validation Error",
   content: { "application/json": { schema: HTTPValidationErrorSchema } },
 };
-
 
 const recordPlayRoute = createRoute({
   method: "post",
@@ -77,6 +83,39 @@ const recentlyPlayedRoute = createRoute({
   },
 });
 
+const topSongsQuery = z.object({
+  days: queryInt({
+    min: 1,
+    max: 365,
+    default: 7,
+    description: "Ventana móvil en días",
+  }),
+  limit: queryInt({ min: 1, max: 50, default: 10 }),
+});
+
+const topSongsRoute = createRoute({
+  method: "get",
+  path: "/me/top-songs",
+  tags: ["listens"],
+  summary: "Top Songs (usuario)",
+  operationId: "top_songs_me_top_songs_get",
+  description:
+    "Ranking de las canciones MÁS ESCUCHADAS POR EL USUARIO en los últimos " +
+    "`days` días (por defecto 7). `play_count` de cada item son los plays del " +
+    "usuario en la ventana, no el global.",
+  middleware: [requireUser] as const,
+  request: { query: topSongsQuery },
+  responses: {
+    200: {
+      description: "Successful Response",
+      content: {
+        "application/json": { schema: z.array(SongWithPlaysSchema) },
+      },
+    },
+    422: validationError,
+  },
+});
+
 export function registerListenRoutes(app: OpenAPIHono<AppEnv>): void {
   app.openapi(recordPlayRoute, async (c) => {
     const config = c.get("config");
@@ -100,6 +139,20 @@ export function registerListenRoutes(app: OpenAPIHono<AppEnv>): void {
         offset,
         limit,
       ),
+      200,
+    );
+  });
+
+  app.openapi(topSongsRoute, async (c) => {
+    const config = c.get("config");
+    const { days, limit } = c.req.valid("query");
+    const ranking = await listTopSongsForUser(config, c.get("user"), {
+      days,
+      limit,
+    });
+
+    return c.json(
+      ranking.map(({ song, plays }) => toSongWithPlaysDto(song, config, plays)),
       200,
     );
   });

@@ -142,13 +142,21 @@ export const songCollaborators = pgTable(
   ],
 );
 
+/**
+ * Valor de `playlists.query` de las Essentials por artista (columna VARCHAR).
+ * NO vive en `PlaylistSystemQuery` (componente OpenAPI compartido con Python):
+ * agregarlo cambiaría el contrato y `generated.ts`.
+ */
+export const ARTIST_TOP_QUERY = "artist_top" as const;
+
 export const playlists = pgTable(
   "playlists",
   {
     id: uuid("id").primaryKey(),
     /** "user" | "system" (VARCHAR plano, validado en zod). */
     kind: varchar("kind", { length: 20 }).notNull().default("user"),
-    /** Query de snapshot de las playlists system: top_week|top_month|new. */
+    /** Query de snapshot de las playlists system: top_week|top_month|new
+     * (y `artist_top` para las Essentials editoriales, valor interno). */
     query: varchar("query", { length: 20 }),
     name: varchar("name", { length: 255 }).notNull(),
     description: text("description"),
@@ -157,12 +165,21 @@ export const playlists = pgTable(
     ownerId: uuid("owner_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    /** Artista de una playlist editorial (Essentials); NULL en el resto. */
+    artistId: uuid("artist_id").references(() => artists.id, {
+      onDelete: "cascade",
+    }),
     createdAt: timestamptz("created_at").notNull().defaultNow(),
     updatedAt: timestamptz("updated_at").notNull().defaultNow(),
   },
   (table) => [
     index("ix_playlists_owner_id").on(table.ownerId),
     index("ix_playlists_kind").on(table.kind),
+    // Una sola Essentials por artista (race-safe). El valor de `query` es
+    // interno: no vive en el enum OpenAPI compartido con Python.
+    uniqueIndex("ux_playlists_essentials_artist")
+      .on(table.artistId)
+      .where(sql`${table.query} = 'artist_top' AND ${table.kind} = 'system'`),
   ],
 );
 

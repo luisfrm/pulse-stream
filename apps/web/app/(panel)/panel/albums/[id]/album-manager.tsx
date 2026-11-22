@@ -7,6 +7,7 @@ import { Archive, Plus } from "lucide-react";
 
 import { AudioPreviewPlayer } from "@/components/audio-preview-player";
 import { CoverUploader } from "@/components/cover-uploader";
+import { NoCover } from "@/components/no-cover";
 import { Button, Modal, Input } from "@/components/ui";
 import { albumsService } from "@/lib/services/albums-service";
 import type { AlbumDetail, ZipImportResult } from "@/lib/services/types";
@@ -103,9 +104,7 @@ export function AlbumManager({ album, onMutated }: AlbumManagerProps) {
             // eslint-disable-next-line @next/next/no-img-element
             <img src={album.cover_url} alt="" className="h-full w-full object-cover" />
           ) : (
-            <div className="bg-brand-gradient flex h-full w-full items-center justify-center font-display text-5xl font-extrabold text-bg-base">
-              {album.title.charAt(0).toUpperCase()}
-            </div>
+            <NoCover size="lg" />
           )}
         </div>
         <div className="min-w-0">
@@ -222,9 +221,7 @@ export function AlbumManager({ album, onMutated }: AlbumManagerProps) {
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={song.cover_url} alt="" className="h-full w-full object-cover" />
                     ) : (
-                      <div className="bg-brand-gradient flex h-full w-full items-center justify-center font-display font-extrabold text-bg-base">
-                        {song.title.charAt(0).toUpperCase()}
-                      </div>
+                      <NoCover size="sm" />
                     )}
                   </div>
                   <div className="min-w-0 flex-1">

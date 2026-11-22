@@ -1,8 +1,13 @@
 import { api, type ApiFetchOptions } from "@/lib/api/client";
-import type { ListenRead, Page, RecentlyPlayedSong } from "./types";
+import type { ListenRead, Page, RecentlyPlayedSong, SongWithPlays } from "./types";
 
 export interface GetRecentlyPlayedParams {
   offset?: number;
+  limit?: number;
+}
+
+export interface GetTopSongsParams {
+  days?: number;
   limit?: number;
 }
 
@@ -30,6 +35,20 @@ export const listensService = {
       query: params,
       cache: "no-store",
       ...options,
+    });
+  },
+
+  /**
+   * Canciones más escuchadas POR EL USUARIO en la ventana (`days`, default 7).
+   * `play_count` es el conteo del usuario en esa ventana, no el global.
+   */
+  async getTopSongs({
+    days = 7,
+    limit = 10,
+  }: GetTopSongsParams = {}): Promise<SongWithPlays[]> {
+    return await api<SongWithPlays[]>("/me/top-songs", {
+      query: { days, limit },
+      cache: "no-store",
     });
   },
 };

@@ -98,6 +98,13 @@ export class ArtistNotFoundError extends NotFoundError {
   }
 }
 
+/** El artista existe pero no tiene canciones para sembrar una Essentials. */
+export class ArtistWithoutSongsError extends NotFoundError {
+  constructor(artistId: string) {
+    super(`El artista ${artistId} no tiene canciones`);
+  }
+}
+
 export class ArtistNameTakenError extends AppError {
   static override readonly STATUS = 409;
 
@@ -165,6 +172,24 @@ export class PlaylistNotRefreshableError extends AppError {
 
   constructor(playlistId: string, reason: string) {
     super(`Playlist ${playlistId} no se puede regenerar: ${reason}`);
+  }
+}
+
+/** Ya existe una Essentials para el artista (unique parcial). */
+export class EssentialsAlreadyExistsError extends AppError {
+  static override readonly STATUS = 409;
+
+  constructor(artistId: string) {
+    super(`El artista ${artistId} ya tiene una playlist Essentials`);
+  }
+}
+
+/** Solo las Essentials por artista se pueden re-sembrar. */
+export class PlaylistNotReseedableError extends AppError {
+  static override readonly STATUS = 400;
+
+  constructor(playlistId: string, reason: string) {
+    super(`Playlist ${playlistId} no se puede re-sembrar: ${reason}`);
   }
 }
 

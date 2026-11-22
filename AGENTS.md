@@ -22,7 +22,9 @@ pnpm gen:types           # regenera packages/api-types/src/generated.ts desde
                          # http://localhost:8000/openapi.json (API corriendo)
 ```
 
-Backend (en `apps/api`):
+Backend (en `apps/api`) � �DEPRECADO, congelado! Ver `apps/api/DEPRECATED.md`.
+Solo se usa para el bootstrap del esquema de test (Alembic) y como referencia
+hist�rica del contrato; el backend real es `apps/api-worker` (:8787):
 ```bash
 uv sync --all-groups
 uv run alembic upgrade head
@@ -371,7 +373,17 @@ horizontal vive solo en `body`.
 
 ## 4. API Worker (`apps/api-worker`) � rewrite del backend sobre Cloudflare
 
-> `apps/api` es la **implementaci�n de referencia**: define el contrato OpenAPI
+> � **`apps/api` (Python) est� DEPRECADO y congelado** (ver
+> `apps/api/DEPRECATED.md`). NO se le agregan endpoints, fixes ni migraciones
+> nuevas: todo el trabajo de backend va a este Worker. El rol que le queda a
+> Python es hist�rico: el fixture `src/lib/__fixtures__/openapi-contract.json`
+> se gener� desde su OpenAPI y el gate de contrato lo sigue usando como
+> referencia de forma. Las rutas que solo existen en el Worker se documentan en
+> `WORKER_ONLY_PATHS` (`src/lib/contract.ts`) y se testean �nicamente ac�.
+> El bootstrap del esquema de la base de test sigue corriendo las migraciones
+> Alembic existentes + los deltas Drizzle (infraestructura de test, no feature).
+
+> `apps/api` era la **implementaci�n de referencia**: defin�a el contrato OpenAPI
 > y sus tests (`pytest`) son la especificaci�n. El Worker lo reemplaza en
 > runtime y debe ser *drop-in*: `pnpm gen:types:worker` tiene que generar el
 > mismo `packages/api-types/src/generated.ts` que la API Python.

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
 
 import { AudioPreviewPlayer } from "@/components/audio-preview-player";
+import { NoCover } from "@/components/no-cover";
 import { Button, Checkbox, Modal, Input, Select, Textarea } from "@/components/ui";
 import { songsService } from "@/lib/services/songs-service";
 import type { Album, Artist, Song } from "@/lib/services/types";
@@ -118,9 +119,7 @@ export function SongManager({
             // eslint-disable-next-line @next/next/no-img-element
             <img src={song.cover_url} alt="" className="h-full w-full object-cover" />
           ) : (
-            <div className="bg-brand-gradient flex h-full w-full items-center justify-center font-display text-4xl font-extrabold text-bg-base">
-              {song.title.charAt(0).toUpperCase()}
-            </div>
+            <NoCover size="lg" />
           )}
         </div>
         <div className="min-w-0 flex-1">

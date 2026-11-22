@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { Check, ListPlus, Loader2, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -43,23 +44,87 @@ export function PlaylistPicker({
   const [newDesc, setNewDesc] = React.useState("");
   const [createPending, setCreatePending] = React.useState(false);
   const rootRef = React.useRef<HTMLDivElement>(null);
+  const panelRef = React.useRef<HTMLDivElement>(null);
+  const triggerRef = React.useRef<HTMLButtonElement>(null);
+  // El panel va en un portal (fixed) para que un carrusel con overflow no lo
+  // recorte. La posición se calcula al abrir, desde el trigger. En el flip se
+  // guarda `bottom` (anclaje por abajo al trigger) en vez de `top`.
+  const [panelPos, setPanelPos] = React.useState<{
+    top?: number;
+    bottom?: number;
+    left: number;
+    maxHeight?: number;
+  } | null>(null);
 
   // Desktop: cierre con click fuera y Escape (el BottomSheet lo maneja solo).
   React.useEffect(() => {
     if (isMobile || !open) return;
     const onPointerDown = (e: PointerEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (
+        !rootRef.current?.contains(target) &&
+        !panelRef.current?.contains(target)
+      ) {
+        setOpen(false);
+      }
     };
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
+    // El panel es `fixed`: al scrollear la página se desancla, así que se cierra.
+    const onScroll = (e: Event) => {
+      if (panelRef.current?.contains(e.target as Node)) return;
+      setOpen(false);
+    };
     document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onScroll);
     return () => {
       document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onScroll);
     };
   }, [isMobile, open]);
+
+  function toggleOpen() {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (rect) {
+      const width = 288; // w-72
+      const left = Math.min(
+        Math.max(8, rect.right - width),
+        window.innerWidth - width - 8
+      );
+      // El panel se clampea al viewport: si no entra abajo, flipea arriba
+      // ANCLADO AL TRIGGER (por su borde inferior, no por una altura estimada
+      // fija — si no, un panel corto queda a la deriva con un hueco enorme).
+      const PANEL_MAX = 320;
+      const below = rect.bottom + 8;
+      const fitsBelow = below + PANEL_MAX <= window.innerHeight;
+      const top = fitsBelow
+        ? below
+        : Math.max(8, rect.top - PANEL_MAX - 8);
+      setPanelPos({
+        top,
+        left,
+        // En el flip se ancla por abajo (CSS `bottom`), así el panel pega con
+        // el trigger sin importar su altura real.
+        ...(fitsBelow
+          ? {}
+          : {
+              bottom: window.innerHeight - rect.top + 8,
+              maxHeight: rect.top - 16,
+            }),
+      });
+    }
+    setOpen(true);
+    setError(null);
+  }
 
   function resetCreate() {
     setCreating(false);
@@ -236,11 +301,9 @@ export function PlaylistPicker({
 
   const trigger = (
     <button
+      ref={triggerRef}
       type="button"
-      onClick={() => {
-        setOpen((o) => !o);
-        setError(null);
-      }}
+      onClick={toggleOpen}
       aria-label="Agregar a playlist"
       aria-expanded={open}
       className={cn(
@@ -266,11 +329,28 @@ export function PlaylistPicker({
   return (
     <div ref={rootRef} className="relative">
       {trigger}
-      {open && (
-        <div className="animate-dropdown-in absolute right-0 top-full z-50 mt-2 w-72 overflow-hidden rounded-2xl border border-bg-highlight bg-bg-elevated p-2 shadow-2xl">
-          {content}
-        </div>
-      )}
+      {open &&
+        panelPos &&
+        createPortal(
+          <div
+            ref={panelRef}
+            style={{
+              // Normal: anclado por arriba; flip: por abajo, pegado al trigger.
+              ...(panelPos.bottom !== undefined
+                ? { bottom: panelPos.bottom, maxHeight: panelPos.maxHeight }
+                : {
+                    top: panelPos.top,
+                    maxHeight:
+                      window.innerHeight - (panelPos.top ?? 0) - 8,
+                  }),
+              left: panelPos.left,
+            }}
+            className="animate-dropdown-in fixed z-50 w-72 overflow-y-auto rounded-2xl border border-bg-highlight bg-bg-elevated p-2 shadow-2xl"
+          >
+            {content}
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

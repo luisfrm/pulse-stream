@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Pencil, Trash2 } from "lucide-react";
 
 import { AudioPreviewPlayer } from "@/components/audio-preview-player";
+import { NoCover } from "@/components/no-cover";
 import { Badge } from "@/components/ui";
 import type { Song } from "@/lib/services/types";
 import { formatGenre } from "@/lib/utils/format";
@@ -37,9 +38,7 @@ export function PanelSongCard({
             className="h-full w-full object-cover transition-transform duration-300 hover:scale-105"
           />
         ) : (
-          <span className="bg-brand-gradient flex h-full w-full items-center justify-center font-display text-5xl font-extrabold text-bg-base">
-            {song.title.charAt(0).toUpperCase()}
-          </span>
+          <NoCover size="lg" />
         )}
       </Link>
 

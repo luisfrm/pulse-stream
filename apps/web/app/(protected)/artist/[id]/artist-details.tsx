@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 
 import { LoadMoreButton } from "@/components/load-more-button";
+import { NoCover } from "@/components/no-cover";
 import { SongItem } from "@/components/song-item";
 import { Title } from "@/components/ui";
 import { albumsService } from "@/lib/services/albums-service";
@@ -274,11 +275,7 @@ function AlbumsSection({
                   className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
                 />
               ) : (
-                <div className="bg-brand-gradient flex h-full w-full items-center justify-center">
-                  <span className="font-display text-4xl font-extrabold text-bg-base">
-                    {album.title.charAt(0).toUpperCase()}
-                  </span>
-                </div>
+                <NoCover size="lg" />
               )}
             </div>
             <div className="min-w-0">

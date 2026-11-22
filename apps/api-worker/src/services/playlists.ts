@@ -11,15 +11,21 @@
  */
 
 import type { AppConfig } from "@/env";
-import type { UserRow } from "@/db/schema";
+import { ARTIST_TOP_QUERY, type UserRow } from "@/db/schema";
 import { startOfUtcMonth } from "@/lib/datetime";
 import {
+  ArtistNotFoundError,
+  ArtistWithoutSongsError,
+  EssentialsAlreadyExistsError,
   PlaylistForbiddenError,
   PlaylistNotFoundError,
   PlaylistNotRefreshableError,
+  PlaylistNotReseedableError,
   SongNotFoundError,
 } from "@/lib/errors";
+import { isUniqueViolation } from "@/lib/postgres";
 import { topSongIds } from "@/repositories/listens";
+import { findArtistById } from "@/repositories/artists";
 import {
   addSongToPlaylist,
   countPlaylistsByOwner,
@@ -27,6 +33,7 @@ import {
   createPlaylist,
   createPlaylistWithSongs,
   deletePlaylist,
+  findArtistEssentials,
   findPlaylistWithOwner,
   listPlaylistsByOwner,
   listPublicPlaylists,
@@ -42,15 +49,17 @@ import {
   findSongsByPlaylistId,
   listNewestSongIds,
   songExists,
+  topSongsByArtist,
   type SongWithRelations,
 } from "@/repositories/songs";
 import type {
   PlaylistCreate,
+  PlaylistEssentialsCreate,
   PlaylistSystemCreate,
   PlaylistSystemQuery,
   PlaylistUpdate,
 } from "@/schemas";
-import { PlaylistSystemQueryEnum } from "@/schemas";
+import { ESSENTIALS_LIMIT, PlaylistSystemQueryEnum } from "@/schemas";
 
 /** Tamaño de los snapshots del sistema (top_week/top_month/new). */
 export const SYSTEM_SNAPSHOT_LIMIT = 30;
@@ -267,6 +276,114 @@ export async function createSystemPlaylist(
   return detailFor(config, playlistId);
 }
 
+/**
+ * `POST /playlists/system/essentials` (admin): playlist editorial del artista,
+ * sembrada con sus canciones más escuchadas (all-time).
+ *
+ * Una sola Essentials por artista (unique parcial race-safe): el chequeo previo
+ * da un 409 amable y el `23505` del índice también.
+ */
+export async function createArtistEssentials(
+  config: AppConfig,
+  admin: UserRow,
+  payload: PlaylistEssentialsCreate,
+): Promise<PlaylistDetailData> {
+  const artist = await findArtistById(config, payload.artist_id);
+  if (!artist) throw new ArtistNotFoundError(payload.artist_id);
+
+  const songIds = await topSongsByArtist(
+    config,
+    payload.artist_id,
+    payload.limit,
+  );
+  if (songIds.length === 0) {
+    throw new ArtistWithoutSongsError(payload.artist_id);
+  }
+
+  if (await findArtistEssentials(config, payload.artist_id)) {
+    throw new EssentialsAlreadyExistsError(payload.artist_id);
+  }
+
+  const playlistId = crypto.randomUUID();
+  try {
+    await createPlaylistWithSongs(
+      config,
+      {
+        id: playlistId,
+        ownerId: admin.id,
+        name: payload.name ?? `${artist.name} Essentials`,
+        description:
+          payload.description ??
+          `Lo esencial de ${artist.name}, curado por el sistema.`,
+        isPublic: true,
+        kind: "system",
+        query: ARTIST_TOP_QUERY,
+        artistId: payload.artist_id,
+      },
+      songIds,
+    );
+  } catch (error) {
+    // Carrera entre el chequeo previo y el INSERT: el índice parcial decide.
+    if (isUniqueViolation(error)) {
+      throw new EssentialsAlreadyExistsError(payload.artist_id);
+    }
+    throw error;
+  }
+
+  return detailFor(config, playlistId);
+}
+
+/** `GET /playlists/system/essentials`: la Essentials del artista o `null`. */
+export async function getArtistEssentials(
+  config: AppConfig,
+  artistId: string,
+): Promise<PlaylistWithItems | null> {
+  const playlist = await findArtistEssentials(config, artistId);
+  if (!playlist) return null;
+
+  const [withCount] = await withItems(config, [playlist]);
+  return withCount ?? null;
+}
+
+/**
+ * `POST /playlists/system/{id}/reseed` (admin): reemplaza las canciones por el
+ * ranking actual del artista.
+ *
+ * Vuelve SIEMPRE al tope canónico `ESSENTIALS_LIMIT` (aunque la playlist se
+ * haya creado con otro `limit`). Nombre, descripción y likes no se tocan.
+ * Si el artista se quedó sin canciones → 404: nunca se destruye la curación
+ * manual en silencio.
+ *
+ * El re-seed es explícito a propósito: el `refresh` automático no está
+ * disponible para las Essentials (la curación manual manda).
+ */
+export async function reseedArtistEssentials(
+  config: AppConfig,
+  admin: UserRow,
+  playlistId: string,
+): Promise<PlaylistDetailData> {
+  const playlist = await getMutable(config, playlistId, admin);
+
+  if (playlist.query !== ARTIST_TOP_QUERY || playlist.artistId === null) {
+    throw new PlaylistNotReseedableError(
+      playlistId,
+      "solo las Essentials por artista se re-siembran",
+    );
+  }
+
+  const ranking = await topSongsByArtist(
+    config,
+    playlist.artistId,
+    ESSENTIALS_LIMIT,
+  );
+  if (ranking.length === 0) {
+    throw new ArtistWithoutSongsError(playlist.artistId);
+  }
+
+  await replacePlaylistSongs(config, playlistId, ranking);
+  return detailFor(config, playlistId);
+}
+
 /** `POST /playlists/system/{id}/refresh` (admin): regenera el snapshot. */
 export async function refreshSystemPlaylist(
   config: AppConfig,
@@ -288,6 +405,15 @@ export async function refreshSystemPlaylist(
       playlistId,
       "esta playlist no tiene query de snapshot asociada " +
         "(fue creada antes de la migración 0008); recreala para poder refrescarla",
+    );
+  }
+
+  // Las Essentials son editoriales: el refresh automático las borraría. El
+  // escape hatch es el reseed explícito (POST /system/{id}/reseed).
+  if (rawQuery === ARTIST_TOP_QUERY) {
+    throw new PlaylistNotRefreshableError(
+      playlistId,
+      "las Essentials por artista no se refrescan: usá el re-seed explícito",
     );
   }
 

@@ -4,6 +4,7 @@ import { updateTag } from "next/cache";
 
 import { albumsService } from "@/lib/services/albums-service";
 import { artistsService } from "@/lib/services/artists-service";
+import { playlistsService } from "@/lib/services/playlists-service";
 import { songsService } from "@/lib/services/songs-service";
 import { CACHE_TAGS } from "@/lib/services/tags";
 
@@ -26,7 +27,7 @@ export default async function PanelArtistPage({ params }: PanelArtistPageProps) 
     .catch(() => null);
   if (!artist) notFound();
 
-  const [{ items: albums }, { items: songs }, { items: collaborations }] =
+  const [{ items: albums }, { items: songs }, { items: collaborations }, essentials] =
     await Promise.all([
       albumsService
         .getAlbums(
@@ -48,6 +49,7 @@ export default async function PanelArtistPage({ params }: PanelArtistPageProps) 
           { next: { revalidate: 300, tags: [CACHE_TAGS.songs] } }
         )
         .catch(() => ({ items: [] })),
+      playlistsService.getArtistEssentials(id).catch(() => null),
     ]);
 
   const refresh = async () => {
@@ -55,6 +57,9 @@ export default async function PanelArtistPage({ params }: PanelArtistPageProps) 
     updateTag(CACHE_TAGS.artists);
     updateTag(CACHE_TAGS.albums);
     updateTag(CACHE_TAGS.songs);
+    // El feed público / "Destacados" del home leen este tag: sin esto, la
+    // playlist nueva o re-sembrada tarda 5 min en verse.
+    updateTag(CACHE_TAGS.playlists);
   };
 
   return (
@@ -63,6 +68,7 @@ export default async function PanelArtistPage({ params }: PanelArtistPageProps) 
       albums={albums}
       songs={songs}
       collaborations={collaborations}
+      essentials={essentials}
       onMutated={refresh}
     />
   );

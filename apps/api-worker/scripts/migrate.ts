@@ -107,6 +107,8 @@ interface DuplicateUsernameRow {
   total: number;
 }
 
+// En una base vacía (sin tablas todavía) el pre-check no puede correr: la
+// tabla `users` aparece con la primera migración. `42P01` = relación inexistente.
 const duplicates = (await sqlClient`
   SELECT lower(username) AS username, count(*)::int AS total
   FROM users
@@ -114,7 +116,16 @@ const duplicates = (await sqlClient`
   GROUP BY lower(username)
   HAVING count(*) > 1
   ORDER BY lower(username)
-`) as DuplicateUsernameRow[];
+`.catch((error: unknown) => {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    (error as { code?: string }).code === "42P01"
+  ) {
+    return [] as DuplicateUsernameRow[];
+  }
+  throw error;
+})) as DuplicateUsernameRow[];
 
 if (duplicates.length > 0) {
   const detail = duplicates

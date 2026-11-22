@@ -16,6 +16,8 @@ import { describe, expect, it } from "vitest";
 import { app } from "@/index";
 import {
   CONTRACT_DEVIATIONS,
+  WORKER_ONLY_COMPONENTS,
+  WORKER_ONLY_PATHS,
   normalizeComponents,
   normalizePaths,
   type NormalizedComponents,
@@ -73,9 +75,23 @@ const PAGE_COMPONENTS = [
 describe("contrato OpenAPI vs backend Python", () => {
   it("expone exactamente los mismos componentes (salvo desviaciones)", () => {
     const ourNames = Object.keys(ourComponents).sort();
-    const expectedNames = [...Object.keys(expected), ...CONTRACT_DEVIATIONS].sort();
+    const expectedNames = [
+      ...Object.keys(expected),
+      ...CONTRACT_DEVIATIONS,
+      ...WORKER_ONLY_COMPONENTS,
+    ].sort();
     expect(ourNames).toEqual(expectedNames);
+    // El fixture declara los componentes que solo existen en Python; el Worker
+    // no debe dejar ninguno afuera.
+    expect(expectedPythonOnly).toEqual([]);
   });
+
+  it.each(WORKER_ONLY_COMPONENTS)(
+    "%s (worker-only) existe en el OpenAPI del Worker",
+    (name) => {
+      expect(ourComponents).toHaveProperty([name]);
+    },
+  );
 
   it.each(Object.keys(expected))("%s tiene la misma forma que Pydantic", (name) => {
     expect(ourComponents[name]).toEqual(expected[name]);
@@ -109,14 +125,27 @@ describe("contrato OpenAPI vs backend Python", () => {
   // --- Paths: rutas, status y `$ref` del body -----------------------------
 
   it("expone exactamente las mismas rutas y métodos", () => {
-    expect(Object.keys(ourPaths).sort()).toEqual(
-      Object.keys(expectedPaths).sort(),
-    );
+    const workerOnly = new Set<string>(Object.keys(WORKER_ONLY_PATHS));
+    const comparablePaths = Object.keys(ourPaths)
+      .filter((path) => !workerOnly.has(path))
+      .sort();
+    expect(comparablePaths).toEqual(Object.keys(expectedPaths).sort());
 
     for (const [path, expectedMethods] of Object.entries(expectedPaths)) {
       expect(Object.keys(ourPaths[path] ?? {}).sort()).toEqual(
         Object.keys(expectedMethods).sort(),
       );
+    }
+  });
+
+  it("declara las rutas worker-only con sus métodos y status", () => {
+    for (const [path, methods] of Object.entries(WORKER_ONLY_PATHS)) {
+      expect(Object.keys(ourPaths[path] ?? {}).sort()).toEqual(
+        Object.keys(methods).sort(),
+      );
+      for (const [method, statuses] of Object.entries(methods)) {
+        expect(ourPaths[path]?.[method]?.statuses).toEqual(statuses);
+      }
     }
   });
 

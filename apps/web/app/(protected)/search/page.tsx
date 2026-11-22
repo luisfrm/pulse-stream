@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { BackLink } from "@/components/back-link";
+import { NoCover } from "@/components/no-cover";
 import { MediaCardSkeleton, SongItemSkeleton } from "@/components/loading-skeletons";
 import { SearchInput } from "@/components/search-input";
 import { Skeleton } from "@/components/ui";
@@ -124,9 +125,7 @@ async function SearchResults({ query }: { query: string }) {
                       className="h-12 w-12 rounded-full object-cover"
                     />
                   ) : (
-                    <div className="bg-brand-gradient flex h-12 w-12 shrink-0 items-center justify-center rounded-full font-display font-extrabold text-bg-base">
-                      {artist.name.charAt(0).toUpperCase()}
-                    </div>
+                    <NoCover shape="circle" size="md" />
                   )}
                   <span className="min-w-0">
                     <span className="block truncate font-medium">{artist.name}</span>

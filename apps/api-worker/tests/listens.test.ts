@@ -2,13 +2,14 @@
  * Integración del historial de reproducciones (espejo de
  * `apps/api/tests/test_listens.py`).
  *
- * Cubre el alta del play (201), la ventana de dedupe de 30 s y el listado
- * `recently-played` (sin duplicar, último play primero, paginado).
+ * Cubre el alta del play (201), la ventana de dedupe de 30 s, el listado
+ * `recently-played` (sin duplicar, último play primero, paginado) y el ranking
+ * personal `GET /me/top-songs` (solo Worker).
  */
 
 import { beforeEach, describe, expect, it } from "vitest";
 
-import type { ListenRead, RecentlyPlayedSong, SongRead } from "@/schemas";
+import type { ListenRead, RecentlyPlayedSong, SongRead, SongWithPlays } from "@/schemas";
 import { createDb } from "@/db/client";
 import { listens } from "@/db/schema";
 import {
@@ -16,6 +17,7 @@ import {
   describeDb,
   readJson,
   registerAndLogin,
+  registerUser,
   resetDb,
   testConfig,
   type TestClient,
@@ -43,6 +45,28 @@ async function seedSongs(
     );
   }
   return songs;
+}
+
+/**
+ * Inserta N plays directos (sin tocar contadores) con `played_at` arbitrario.
+ * `lastPlayedAt` es el más reciente; los anteriores van 1 s atrás cada uno.
+ */
+async function insertPlays(
+  userId: string,
+  songId: string,
+  count: number,
+  lastPlayedAt: Date = new Date(),
+): Promise<void> {
+  await createDb(testConfig())
+    .insert(listens)
+    .values(
+      Array.from({ length: count }, (_, index) => ({
+        id: crypto.randomUUID(),
+        userId,
+        songId,
+        playedAt: new Date(lastPlayedAt.getTime() - index * 1000),
+      })),
+    );
 }
 
 describeDb("listens", () => {
@@ -75,6 +99,7 @@ describeDb("listens", () => {
     });
     expect(response.status).toBe(401);
     expect((await anonymous.get("/me/recently-played")).status).toBe(401);
+    expect((await anonymous.get("/me/top-songs")).status).toBe(401);
   });
 
   it("canción inexistente -> 404", async () => {
@@ -251,5 +276,103 @@ describeDb("listens", () => {
       song_id: "no-es-uuid",
     });
     expect(response.status).toBe(422);
+  });
+
+  it("top-songs: ranking por plays del usuario en la ventana", async () => {
+    const [s1, s2, s3] = await seedSongs(client, 3);
+    const user = await registerAndLogin(client);
+
+    await insertPlays(user.id, s1!.id, 1);
+    await insertPlays(user.id, s2!.id, 3);
+    await insertPlays(user.id, s3!.id, 2);
+
+    const response = await client.get("/me/top-songs");
+    expect(response.status, await response.clone().text()).toBe(200);
+    const body = await readJson<SongWithPlays[]>(response);
+
+    expect(body.map((song) => song.id)).toEqual([s2!.id, s3!.id, s1!.id]);
+    expect(body.map((song) => song.play_count)).toEqual([3, 2, 1]);
+    // Payload completo (artist/album) para pintar cards sin más fetches.
+    expect(body[0]?.artist.name).toBeTruthy();
+    expect(body[0]?.album).not.toBeNull();
+  });
+
+  it("top-songs: desempata por el play más reciente", async () => {
+    const [older, newer] = await seedSongs(client, 2);
+    const user = await registerAndLogin(client);
+
+    await insertPlays(user.id, older!.id, 2, new Date(Date.now() - 60_000));
+    await insertPlays(user.id, newer!.id, 2, new Date(Date.now() - 10_000));
+
+    const body = await readJson<SongWithPlays[]>(await client.get("/me/top-songs"));
+    expect(body.map((song) => song.id)).toEqual([newer!.id, older!.id]);
+    expect(body.map((song) => song.play_count)).toEqual([2, 2]);
+  });
+
+  it("top-songs: respeta el limit", async () => {
+    const [s1, s2] = await seedSongs(client, 2);
+    const user = await registerAndLogin(client);
+
+    await insertPlays(user.id, s1!.id, 2);
+    await insertPlays(user.id, s2!.id, 1);
+
+    const body = await readJson<SongWithPlays[]>(
+      await client.get("/me/top-songs?limit=1"),
+    );
+    expect(body).toHaveLength(1);
+  });
+
+  it("top-songs: usuario sin listens -> []", async () => {
+    await registerAndLogin(client);
+
+    const response = await client.get("/me/top-songs");
+    expect(response.status, await response.clone().text()).toBe(200);
+    expect(await readJson(response)).toEqual([]);
+  });
+
+  it("top-songs: ignora los plays fuera de la ventana", async () => {
+    const [recent, old] = await seedSongs(client, 2);
+    const user = await registerAndLogin(client);
+
+    await insertPlays(user.id, recent!.id, 1, new Date(Date.now() - 60_000));
+    await insertPlays(
+      user.id,
+      old!.id,
+      1,
+      new Date(Date.now() - 8 * 24 * 60 * 60 * 1000),
+    );
+
+    const inWindow = await readJson<SongWithPlays[]>(
+      await client.get("/me/top-songs?days=7"),
+    );
+    expect(inWindow.map((song) => song.id)).toEqual([recent!.id]);
+
+    // Control: la misma canción vieja sí entra si la ventana la cubre.
+    const wider = await readJson<SongWithPlays[]>(
+      await client.get("/me/top-songs?days=30"),
+    );
+    expect(wider.map((song) => song.id)).toContain(old!.id);
+  });
+
+  it("top-songs: no mezcla los plays de otros usuarios", async () => {
+    const [mine, theirs] = await seedSongs(client, 2);
+    const user = await registerAndLogin(client);
+    // `registerUser` NO inicia sesión: la cookie del cliente sigue siendo del primero.
+    const other = await registerUser(client);
+
+    await insertPlays(user.id, mine!.id, 3);
+    await insertPlays(other.id, theirs!.id, 5);
+
+    const body = await readJson<SongWithPlays[]>(await client.get("/me/top-songs"));
+    expect(body.map((song) => song.id)).toEqual([mine!.id]);
+    expect(body[0]?.play_count).toBe(3);
+  });
+
+  it("top-songs: query fuera de rango -> 422", async () => {
+    await registerAndLogin(client);
+
+    for (const query of ["days=0", "days=366", "limit=0", "limit=51"]) {
+      expect((await client.get(`/me/top-songs?${query}`)).status).toBe(422);
+    }
   });
 });

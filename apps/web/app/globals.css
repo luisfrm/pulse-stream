@@ -255,3 +255,12 @@ button {
 ::-webkit-scrollbar-corner {
   background: transparent;
 }
+
+/* Carruseles horizontales: sin barra de scroll (se navega con las flechas). */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

@@ -19,6 +19,7 @@ import {
   findLastListen,
   insertListenWithCounters,
   listRecentlyPlayedSongIds,
+  topSongIdsForUser,
 } from "@/repositories/listens";
 import { findSongsByIds, songExists, type SongWithRelations } from "@/repositories/songs";
 
@@ -107,4 +108,34 @@ export async function listRecentlyPlayed(
   });
 
   return { items, total };
+}
+
+/**
+ * `GET /me/top-songs`: ranking de las canciones más escuchadas POR EL USUARIO
+ * en la ventana (`days`). `plays` es el count del usuario en esa ventana, no
+ * el `songs.play_count` global. Espejo de `listPopularSongs` con user_id.
+ *
+ * 1 ranking + 3 del loader batcheado de canciones (4 en total, sin N+1).
+ */
+export async function listTopSongsForUser(
+  config: AppConfig,
+  user: UserRow,
+  options: { days: number; limit: number },
+): Promise<{ song: SongWithRelations; plays: number }[]> {
+  const since = new Date(Date.now() - options.days * 24 * 60 * 60 * 1000);
+
+  const ranking = await topSongIdsForUser(config, user.id, {
+    since,
+    limit: options.limit,
+  });
+  const songs = await findSongsByIds(
+    config,
+    ranking.map(({ songId }) => songId),
+  );
+  const byId = new Map(songs.map((song) => [song.id, song]));
+
+  return ranking.flatMap(({ songId, plays }) => {
+    const song = byId.get(songId);
+    return song ? [{ song, plays }] : [];
+  });
 }

@@ -16,29 +16,35 @@ import { toMyPlaylistDto, toPlaylistDetailDto, toPlaylistDto, toSongDto } from "
 import { requireAdmin, requireUser } from "@/middleware/auth";
 import {
   HTTPValidationErrorSchema,
+  ErrorModelSchema,
   MyPlaylistReadSchema,
   PageMyPlaylistReadSchema,
   PagePlaylistReadSchema,
   PlaylistAddSongSchema,
   PlaylistCreateSchema,
   PlaylistDetailSchema,
+  PlaylistEssentialsCreateSchema,
   PlaylistReadSchema,
   PlaylistSystemCreateSchema,
   PlaylistUpdateSchema,
   UuidSchema,
+  nullableRef,
   queryBool,
 } from "@/schemas";
 import {
   addSongRecord,
+  createArtistEssentials,
   createPlaylistRecord,
   createSystemPlaylist,
   deletePlaylistRecord,
+  getArtistEssentials,
   getPlaylistDetail,
   listPlaylistsForUser,
   listPlaylistsForUserPage,
   listPublicCommunity,
   refreshSystemPlaylist,
   removeSongRecord,
+  reseedArtistEssentials,
   updatePlaylistRecord,
   type PlaylistDetailData,
 } from "@/services/playlists";
@@ -49,8 +55,23 @@ const validationError = {
   content: { "application/json": { schema: HTTPValidationErrorSchema } },
 };
 
+const notFoundError = {
+  description: "Not Found",
+  content: { "application/json": { schema: ErrorModelSchema } },
+};
+
+const conflictError = {
+  description: "Conflict",
+  content: { "application/json": { schema: ErrorModelSchema } },
+};
+
+const badRequestError = {
+  description: "Bad Request",
+  content: { "application/json": { schema: ErrorModelSchema } },
+};
 
 const playlistParams = z.object({ playlist_id: UuidSchema });
+const essentialsQuery = z.object({ artist_id: UuidSchema });
 const playlistSongParams = z.object({
   playlist_id: UuidSchema,
   song_id: UuidSchema,
@@ -69,6 +90,81 @@ function toDetailDto(detail: PlaylistDetailData, config: AppConfig) {
     detail.songs.map((song) => toSongDto(song, config)),
   );
 }
+
+const createEssentialsRoute = createRoute({
+  method: "post",
+  path: "/playlists/system/essentials",
+  tags: ["playlists"],
+  summary: "Create Artist Essentials",
+  operationId: "create_artist_essentials_playlists_system_essentials_post",
+  description:
+    "Genera las Essentials de un artista (sus canciones más escuchadas, " +
+    "all-time) — admin only.\n\nUna sola Essentials por artista (409 si ya " +
+    "existe); si el artista no existe o no tiene canciones, 404.",
+  middleware: [requireAdmin] as const,
+  request: {
+    body: {
+      required: true,
+      content: {
+        "application/json": { schema: PlaylistEssentialsCreateSchema },
+      },
+    },
+  },
+  responses: {
+    201: {
+      description: "Successful Response",
+      content: { "application/json": { schema: PlaylistDetailSchema } },
+    },
+    404: notFoundError,
+    409: conflictError,
+    422: validationError,
+  },
+});
+
+const getEssentialsRoute = createRoute({
+  method: "get",
+  path: "/playlists/system/essentials",
+  tags: ["playlists"],
+  summary: "Get Artist Essentials",
+  operationId: "get_artist_essentials_playlists_system_essentials_get",
+  description:
+    "Devuelve la Essentials del artista o `null` si todavía no existe " +
+    "(para que el panel muestre Generar vs. Re-sembrar).",
+  middleware: [requireUser] as const,
+  request: { query: essentialsQuery },
+  responses: {
+    200: {
+      description: "Successful Response",
+      content: {
+        "application/json": { schema: nullableRef(PlaylistReadSchema) },
+      },
+    },
+    422: validationError,
+  },
+});
+
+const reseedEssentialsRoute = createRoute({
+  method: "post",
+  path: "/playlists/system/{playlist_id}/reseed",
+  tags: ["playlists"],
+  summary: "Reseed Artist Essentials",
+  operationId: "reseed_artist_essentials_playlists_system__playlist_id__reseed_post",
+  description:
+    "Reemplaza las canciones de una Essentials por el ranking actual del " +
+    "artista — admin only.\n\nNombre, descripción y likes se conservan. " +
+    "Solo aplica a playlists `artist_top` (las de charts responden 400).",
+  middleware: [requireAdmin] as const,
+  request: { params: playlistParams },
+  responses: {
+    200: {
+      description: "Successful Response",
+      content: { "application/json": { schema: PlaylistDetailSchema } },
+    },
+    400: badRequestError,
+    404: notFoundError,
+    422: validationError,
+  },
+});
 
 const createSystemPlaylistRoute = createRoute({
   method: "post",
@@ -312,6 +408,35 @@ const listMyPlaylistsPageRoute = createRoute({
 
 export function registerPlaylistRoutes(app: OpenAPIHono<AppEnv>): void {
   // --- Estáticas primero ------------------------------------------------
+  app.openapi(createEssentialsRoute, async (c) => {
+    const config = c.get("config");
+    const detail = await createArtistEssentials(
+      config,
+      c.get("user"),
+      c.req.valid("json"),
+    );
+    return c.json(toDetailDto(detail, config), 201);
+  });
+
+  app.openapi(getEssentialsRoute, async (c) => {
+    const config = c.get("config");
+    const playlist = await getArtistEssentials(
+      config,
+      c.req.valid("query").artist_id,
+    );
+    return c.json(playlist ? toPlaylistDto(playlist, config) : null, 200);
+  });
+
+  app.openapi(reseedEssentialsRoute, async (c) => {
+    const config = c.get("config");
+    const detail = await reseedArtistEssentials(
+      config,
+      c.get("user"),
+      c.req.valid("param").playlist_id,
+    );
+    return c.json(toDetailDto(detail, config), 200);
+  });
+
   app.openapi(createSystemPlaylistRoute, async (c) => {
     const config = c.get("config");
     const detail = await createSystemPlaylist(

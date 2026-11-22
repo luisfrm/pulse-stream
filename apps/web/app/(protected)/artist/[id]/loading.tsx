@@ -24,7 +24,7 @@ export default function ArtistLoading() {
           <Skeleton className="h-6 w-40" />
           <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
             {Array.from({ length: 5 }).map((_, i) => (
-              <MediaCardSkeleton key={i} />
+              <MediaCardSkeleton key={i} boxed />
             ))}
           </div>
         </section>
