@@ -345,3 +345,21 @@ viewport) en vez del tamaño estándar de las demás secciones.
 | **Destacados normalizado** | Carrusel estándar de `ContextMediaCard` (196px, idéntico al resto de las secciones). `CollageCard` y `CollageCardSkeleton` eliminados: el home tiene una sola clase de card | Hecho (reviewer: approved) |
 | **A11y** | Links de cover con `aria-label` en `song-item` y `artists-results` (eran focusables sin nombre accesible) | Hecho |
 | **Datos** | Ambas Essentials regeneradas 100% desde el panel (Bad Bunny y Daddy Yankee) | Hecho |
+
+## Pasada de hardening — Resuelta
+
+Seis hallazgos investigados con evidencia (4 aplican, 1 aplica como tradeoff de diseño, 1 no aplica en lo esencial pero sí su camino de error). Fixes verificados en vivo y aprobados por review.
+
+| Item | Fix | Estado |
+|---|---|---|
+| **Posiciones de `playlist_songs`** (adds concurrentes duplicaban `position` sin error) | Migración `0005`: renumeración global (repara duplicados) + `UNIQUE (playlist_id, position)`; retry del INSERT ante unique violation; offset `+1_000_000` en el remove para la colisión transitoria del índice non-deferrable (testeado quitando la PRIMERA canción). `replacePlaylistSongs` no lo necesita (DELETE-all en la misma transacción) | Hecho (reviewer: approved) |
+| **Curación con respuestas fuera de orden** | Guard `if (pendingSongId) return;` + `finally` funcional en el panel; segundo click no dispara otra mutación | Hecho |
+| **Borrado de artista** | `onMutated()` no bloquea la salida, modal se cierra en error, sin `router.refresh()` redundante | Hecho |
+| **Resize del PlaylistPicker** (`Node.contains(window)` lanzaba TypeError y el panel quedaba anclado) | Handler dedicado `onResize` + `maxHeight` calculado al abrir en ambas ramas | Hecho |
+| **Saludo con hora del server** (UTC en Vercel → 3h de error en ART) | `Greeting` client: `initial` del server (sin mismatch) y recálculo con la hora del browser vía rAF | Hecho |
+| **Chips sin feedback durante la navegación RSC** | `useTransition` + `aria-busy` + atenuado (el filtrado server-side queda igual) | Hecho |
+
+Nota: el test de renumeración que falló con timeout durante la pasada era
+latencia de red (15 requests secuenciales a Neon a ~1.3s), no un hang —
+reproducido contra el worker: el DELETE del remove responde en ~1.3s. Se
+amplió su timeout a 40s con comentario.
