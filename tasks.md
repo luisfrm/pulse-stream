@@ -286,3 +286,48 @@ están documentados en el gate de contrato.
 | **Deploy API Worker** | `.github/workflows/deploy-api-worker.yml`: migraciones con la URL directa, `wrangler deploy`, `wrangler secret bulk` desde GitHub, smoke `/health`/`/genres`/`/artists`; environment `production` | Hecho |
 | **Config del Worker** | `wrangler.jsonc` con `routes` del custom domain y `vars` no secretas; secretos de runtime solo en GitHub (fuente de verdad) | Hecho |
 | **Deploy web** | Vercel con su integracion de Git (sin workflow); envs `NEXT_PUBLIC_API_URL`, `ENV=prod`, `COOKIE_DOMAIN`, `COOKIE_SAMESITE` | Manual (dashboard) |
+
+## Rediseño del home estilo Spotify (F0-F2) — Resuelta
+
+Rodada cerrada con el flujo coder/reviewer por fase. Referencia medida del layout
+en `LAYOUT_AUTH_USER.md` (perfil autenticado vía MCP browse); el análisis previo
+sin MCP quedó archivado en `LAYOUT_UNLOGGED_USER.md`.
+
+| Fase | Alcance | Estado |
+|---|---|---|
+| **F0** | Primitivas de layout: `MediaCard` (card sin caja estilo Spotify, play 48px, a11y con título en el label), `Carousel` (snap + flechas lg + ResizeObserver + reduced-motion), `Section`, `Chips` (URL-synced), `CollageCard`, skeletons (`MediaCardSkeleton` con variante `boxed`, `CarouselSkeleton`, `CollageCardSkeleton`). `SongCard` refactorizado a wrapper fino de `MediaCard` sin cambiar su API | Hecho (reviewer: approved) |
+| **F1** | `GET /me/top-songs?days=&limit=` **solo en el Worker** (Python deprecado: `apps/api/DEPRECATED.md`): ranking por usuario con 1 query + loader batcheado (4 queries, sin N+1), `SongWithPlays` reusado, desviación de contrato `WORKER_ONLY_PATHS` documentada y testeada, `generated.ts` regenerado, `listensService.getTopSongs` en el web | Hecho (reviewer: approved; 472/472 tests del worker) |
+| **F2** | Home nuevo: saludo compacto + chips `Todo·Canciones·Playlists·Álbumes` (filtro server-side pre-fetch, `?tipo=` canonizado), shortcut grid 3 columnas (medido en Spotify: 3×477px), **"Lo más escuchado por ti" (7d) con fallback "Recién subidas" en la misma ranura (nunca ambas)**, carruseles (Seguí escuchando, Tus playlists, Álbumes que te gustan, Top semana, Comunidad, Top mes), Destacados con collage (se omite sin system playlists), `ContextMediaCard` con play perezoso client-side (`queueParams`, limit 25), `PlaylistPicker` en portal con clamp/flip vertical | Hecho (reviewer: approved) |
+
+Fixes de review incorporados: popover del picker sin clipping (portal), z-index
+del play bajo el popover, labels únicos por card, flip anclado al trigger (gap
+202px → 13px), skeleton `boxed` donde el contenido aún tiene caja, tipografía
+16/14 medida, `searchParams` robusto (repetidos/desconocidos → canónico).
+
+Pendientes anotados (no bloqueantes, para fases siguientes): toast de error en
+`ContextMediaCard`, cola sin `lyrics` (endpoint de ids), eq/pausa en collection
+cards, `songCountLabel` duplicado, wrapper `relative` muerto del picker, CI de
+pytest para el Python deprecado (decisión pendiente).
+
+## F3 — Essentials por artista (playlists editoriales estilo Spotify) — Resuelta
+
+Modelo editorial de Spotify: charts = snapshots globales que se regeneran;
+essentials = una playlist por artista, sembrada con SU ranking all-time
+(`songs.play_count`), curable canción a canción, **sin refresh automático**
+(re-seed explícito con confirmación). Plan: `.opencode/plan/essentials-por-artista.md`.
+
+| Fase | Alcance | Estado |
+|---|---|---|
+| **F3.1** | Worker: migración `0003` (`playlists.artist_id` + índice parcial unique por artista) y `0004` (FK `ON DELETE CASCADE` — fix del review que evitaba 500 al borrar artistas con essentials); `topSongsByArtist` (1 query all-time); `createArtistEssentials` (404/409, batch atómico) + lookup + `reseed` (400 tipado si no es essentials; 404 sin destruir curación si el artista quedó sin canciones); `refresh` → 400 para essentials; 3 rutas worker-only con gate generalizado (mapa método→statuses) + `WORKER_ONLY_COMPONENTS`; `PlaylistEssentialsCreate`; `ESSENTIALS_LIMIT=20` única fuente. Desviación documentada: `artist_top` NO entra al enum compartido (evitaba un segundo camino de creación sin `artist_id`/409) — el valor vive en DB, el DTO da `query: null` | Hecho (reviewer: approved; suite worker 486/486) |
+| **F3.2** | Panel: `/panel/artists/[id]` con lookup server-side + botón "Generar Essentials" → estado "Essentials · N canciones" + Ver + **Re-sembrar con confirmación**; `/panel/playlists` con **curation una a una** (expandible lazy, quitar por fila, agregar con búsqueda debounceada, resultados filtrados); TODA mutación purga `CACHE_TAGS.playlists` (Destacados instantáneo); borrado de artista también purga (fix post-review) | Hecho (reviewer: approved; lint sin setState síncrono en effects) |
+| **F3.3** | Generación masiva por el flujo del producto: "Bad Bunny Essentials" regenerada por el botón (20 canciones all-time, antes era un hack de `top_week` con curación por API), "Daddy Yankee Essentials" (13), Enrique Iglesias fuera (umbral ≥5), Bastille fuera (1 canción) | Hecho |
+
+Home logueado completo: "Destacados" muestra las 2 essentials en collage 2-up
+(captura `docs/spotify-auth/14-f33-destacados-essentials.png`).
+
+Pendientes anotados de F3: refresh del listado del panel tras `confirm()` de
+borrado (DOM stale, se corrige al navegar), carrera de creación duplicada
+(`23505 → 409`) sin test determinista, `findArtistEssentials` repite shape (dejado
+a propósito), nits 6-11 del review F3.2 (toast vs banner, 409 refetch, estado
+muerto al borrar expandida, actions.ts compartido, docstring de useDebounce,
+`no-store` explícito en loadDetail).
