@@ -5,8 +5,9 @@
  *   - el historial del usuario (`/me/listens`, `/me/recently-played`), con los
  *     contadores de `songs.play_count` y `users.total_plays` en la MISMA
  *     transacción del INSERT;
- *   - el ranking global (`topSongIds`) que usan `/songs/popular` y los
- *     snapshots de las playlists del sistema.
+ *   - los rankings de reproducciones: global (`topSongIds`, usado por
+ *     `/songs/popular` y los snapshots de playlists del sistema) y por usuario
+ *     (`topSongIdsForUser`, usado por `/me/top-songs`).
  *
  * Sin transacciones interactivas (driver HTTP de Neon): lo que tiene que ser
  * atómico va en un `db.batch`.
@@ -44,6 +45,35 @@ export async function topSongIds(
     .where(options.since ? gte(listens.playedAt, options.since) : undefined)
     .groupBy(listens.songId)
     .orderBy(desc(count(listens.id)), asc(listens.songId))
+    .limit(options.limit);
+
+  return rows.map(({ songId, plays }) => ({ songId, plays }));
+}
+
+/**
+ * Ranking de reproducciones de UN usuario: `count(*)` por canción, orden
+ * `plays desc, max(played_at) desc, song_id asc` (desempate determinista).
+ * `since` filtra la ventana sobre `played_at`.
+ */
+export async function topSongIdsForUser(
+  config: AppConfig,
+  userId: string,
+  options: TopSongOptions,
+): Promise<SongPlayRanking[]> {
+  const rows = await createDb(config)
+    .select({ songId: listens.songId, plays: count(listens.id) })
+    .from(listens)
+    .where(
+      options.since
+        ? and(eq(listens.userId, userId), gte(listens.playedAt, options.since))
+        : eq(listens.userId, userId),
+    )
+    .groupBy(listens.songId)
+    .orderBy(
+      desc(count(listens.id)),
+      desc(max(listens.playedAt)),
+      asc(listens.songId),
+    )
     .limit(options.limit);
 
   return rows.map(({ songId, plays }) => ({ songId, plays }));

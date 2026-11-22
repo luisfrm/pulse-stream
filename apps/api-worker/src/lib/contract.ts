@@ -41,6 +41,30 @@ export type NormalizedComponents = Record<string, NormalizedSchema>;
  */
 export const CONTRACT_DEVIATIONS = ["UserCreate", "UserUpdate"] as const;
 
+/**
+ * Rutas y métodos que existen SOLO en el Worker: `apps/api` (Python) quedó
+ * congelado por decisión del usuario y no emite estas operaciones, así que
+ * faltan en el fixture de paridad. Se excluyen del gate de rutas y se validan
+ * aparte en `contract.test.ts`: path → método → statuses declarados (la lista
+ * no puede mentir).
+ */
+export const WORKER_ONLY_PATHS = {
+  "/me/top-songs": { get: [200, 422] },
+  "/playlists/system/essentials": {
+    get: [200, 422],
+    post: [201, 404, 409, 422],
+  },
+  "/playlists/system/{playlist_id}/reseed": {
+    post: [200, 400, 404, 422],
+  },
+} as const;
+
+/**
+ * Componentes que existen SOLO en el Worker (los usan rutas worker-only).
+ * Se excluyen del gate de componentes y se validan aparte (existen de verdad).
+ */
+export const WORKER_ONLY_COMPONENTS = ["PlaylistEssentialsCreate"] as const;
+
 type JsonObject = Record<string, unknown>;
 
 const COMPONENT_REF_PREFIX = "#/components/schemas/";

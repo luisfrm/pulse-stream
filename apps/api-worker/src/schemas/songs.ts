@@ -78,8 +78,8 @@ export function songReadShape() {
 
 export const SongReadSchema = z.object(songReadShape()).openapi("SongRead");
 
-/** Canción + métrica de reproducciones (ranking "populares"). */
-export const SongWithPlaysSchema = z.object(songReadShape()).openapi("SongWithPlays").openapi({ description: "Canción + métrica de reproducciones (ranking \"populares\")." });
+/** Canción + métrica de reproducciones (ranking de `/songs/popular` global o `/me/top-songs` del usuario). */
+export const SongWithPlaysSchema = z.object(songReadShape()).openapi("SongWithPlays").openapi({ description: "Canción + métrica de reproducciones (ranking de `/songs/popular` global o `/me/top-songs` del usuario)." });
 
 export type SongRead = z.infer<typeof SongReadSchema>;
 export type SongCreate = z.infer<typeof SongCreateSchema>;
