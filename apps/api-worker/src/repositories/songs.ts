@@ -28,6 +28,7 @@ import {
   type SongRow,
 } from "@/db/schema";
 import type { AppConfig } from "@/env";
+import type { SongGenre } from "@/schemas";
 
 /** Canción + relaciones eager-loaded (contrato de `SongInput`). */
 export type SongWithRelations = SongRow & {
@@ -57,6 +58,8 @@ export interface SongFilters {
   playlistId?: string | null;
   /** `"plays"` = `play_count DESC`; ausente = `created_at DESC` (default). */
   sort?: "plays" | null;
+  /** Género exacto contenido en `songs.genres` (ya validado por el enum). */
+  genre?: SongGenre | null;
 }
 
 function songConditions(filters: SongFilters) {
@@ -78,6 +81,12 @@ function songConditions(filters: SongFilters) {
           AND "collab_artist"."name" ILIKE ${pattern}
       )
     )`);
+  }
+  if (filters.genre) {
+    // `songs.genres` es `json` (no jsonb): el cast habilita el operador de
+    // existencia de array en jsonb (`?` = "¿el texto es un elemento?"), que no
+    // depende del orden ni del formato del JSON guardado.
+    conditions.push(sql`${songs.genres}::jsonb ? ${filters.genre}`);
   }
   if (filters.artistId) {
     conditions.push(eq(songs.artistId, filters.artistId));

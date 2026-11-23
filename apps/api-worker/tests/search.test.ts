@@ -47,6 +47,12 @@ describeDb("search", () => {
     return readJson<SongPage>(response);
   }
 
+  async function listSongQuery(queryString: string): Promise<SongPage> {
+    const response = await client.get(`/songs${queryString}`);
+    expect(response.status, await response.clone().text()).toBe(200);
+    return readJson<SongPage>(response);
+  }
+
   async function publicFeed(q?: string): Promise<PlaylistPage> {
     const query = q === undefined ? "" : `?q=${encodeURIComponent(q)}`;
     const response = await client.get(`/playlists/public${query}`);
@@ -193,6 +199,88 @@ describeDb("search", () => {
       );
       expect(page.items.map((song) => song.id)).toEqual([segunda!, primera!]);
       expect(page.items.map((song) => song.id)).not.toContain(tercera!);
+    });
+  });
+
+  describe("GET /songs?genre=", () => {
+    it("filtra por género (también cuando la canción tiene varios) y el total coincide", async () => {
+      const rock = await seedCatalogBatch({
+        songs: [
+          { title: "Rock Uno", genres: ["rock"] },
+          { title: "Rock Dos", genres: ["rock", "indie"] },
+        ],
+      });
+      await seedCatalogBatch({
+        songs: [{ title: "Pop Uno", genres: ["pop"] }],
+      });
+
+      const byRock = await listSongQuery("?genre=rock");
+      expect(byRock.total).toBe(2);
+      expect(byRock.items.map((song) => song.id).sort()).toEqual(
+        [...rock.songIds].sort(),
+      );
+
+      // El filtro mira los ELEMENTOS del array: la canción con dos géneros
+      // también matchea por el segundo.
+      const byIndie = await listSongQuery("?genre=indie");
+      expect(byIndie.total).toBe(1);
+      expect(byIndie.items[0]?.id).toBe(rock.songIds[1]!);
+
+      // Género válido sin canciones: página vacía, total 0.
+      const byMetal = await listSongQuery("?genre=metal");
+      expect(byMetal.total).toBe(0);
+      expect(byMetal.items).toEqual([]);
+    });
+
+    it("genre fuera del enum -> 422", async () => {
+      expect((await client.get("/songs?genre=reggae")).status).toBe(422);
+    });
+
+    it("documenta el URL-encoding de 'r&b' (y la trampa sin encodear)", async () => {
+      const rnb = await seedCatalogBatch({
+        songs: [{ title: "Slow Jam", genres: ["r&b"] }],
+      });
+
+      // `&` separa params: el web tiene que mandar el valor con
+      // `encodeURIComponent` → `/songs?genre=r%26b`.
+      const encoded = await listSongQuery(
+        `?genre=${encodeURIComponent("r&b")}`,
+      );
+      expect(encoded.total).toBe(1);
+      expect(encoded.items[0]?.id).toBe(rnb.songIds[0]!);
+
+      // Sin encodear, la URL se parte en `genre=r` + `b=`: `r` no es un género
+      // del enum → 422 (la trampa que el link de la landing debe evitar).
+      expect((await client.get("/songs?genre=r&b")).status).toBe(422);
+    });
+
+    it("combina genre con q (AND) y respeta sort=plays", async () => {
+      const rock = await seedCatalogBatch({
+        artistName: "Banda Rock",
+        songs: [
+          { title: "Lenta", playCount: 1, genres: ["rock"] },
+          { title: "Hit", playCount: 9, genres: ["rock"] },
+        ],
+      });
+      await seedCatalogBatch({
+        artistName: "Banda Pop",
+        // play_count más alto que cualquiera: si el filtro se escapara del
+        // AND del `q` (o no aplicara), aparecería primero en `sort=plays`.
+        songs: [{ title: "Pop Hit", playCount: 50, genres: ["pop"] }],
+      });
+      const [lenta, hit] = rock.songIds;
+
+      // `q` matchea por artista en las dos bandas; el género acota a rock.
+      const combined = await searchSongs("Banda", "&genre=rock");
+      expect(combined.total).toBe(2);
+      expect(combined.items.map((song) => song.id).sort()).toEqual(
+        [...rock.songIds].sort(),
+      );
+
+      // El orden por plays convive con el filtro de género.
+      const ranked = await listSongQuery("?genre=rock&sort=plays");
+      expect(ranked.items.map((song) => song.id)).toEqual([hit!, lenta!]);
+      expect(ranked.total).toBe(2);
     });
   });
 

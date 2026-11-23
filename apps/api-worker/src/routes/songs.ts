@@ -24,6 +24,7 @@ import {
   HTTPValidationErrorSchema,
   PageSongReadSchema,
   SongCreateSchema,
+  SongGenreQueryEnum,
   SongListSortSchema,
   SongReadSchema,
   SongUpdateSchema,
@@ -49,6 +50,10 @@ const validationError = {
 
 const listQuery = pageQuerySchema().extend({
   q: searchQuery("Búsqueda por título, artista o colaborador (contains)"),
+  genre: SongGenreQueryEnum.nullable().optional().openapi({
+    description:
+      "Filtrar por género: las canciones cuyo array `genres` lo contiene",
+  }),
   artist_id: UuidSchema.nullable().optional().openapi({
     description: "Filtrar por artista",
   }),
@@ -203,6 +208,7 @@ export function registerSongRoutes(app: OpenAPIHono<AppEnv>): void {
       offset,
       limit,
       q,
+      genre,
       artist_id,
       collaborator_id,
       album_id,
@@ -213,6 +219,7 @@ export function registerSongRoutes(app: OpenAPIHono<AppEnv>): void {
       config,
       {
         search: q,
+        genre,
         artistId: artist_id,
         collaboratorId: collaborator_id,
         albumId: album_id,

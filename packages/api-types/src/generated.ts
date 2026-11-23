@@ -2744,6 +2744,8 @@ export interface operations {
                 limit?: number;
                 /** @description Búsqueda por título, artista o colaborador (contains) */
                 q?: string | null;
+                /** @description Filtrar por género: las canciones cuyo array `genres` lo contiene */
+                genre?: "pop" | "rock" | "hip-hop" | "electronic" | "jazz" | "classical" | "reggaeton" | "folk" | "metal" | "r&b" | "latin" | "indie" | null;
                 /** @description Filtrar por artista */
                 artist_id?: string | null;
                 /** @description Filtrar por artista colaborador (no principal) */
