@@ -2742,7 +2742,7 @@ export interface operations {
             query?: {
                 offset?: number;
                 limit?: number;
-                /** @description Búsqueda por título */
+                /** @description Búsqueda por título, artista o colaborador (contains) */
                 q?: string | null;
                 /** @description Filtrar por artista */
                 artist_id?: string | null;
@@ -2752,6 +2752,8 @@ export interface operations {
                 album_id?: string | null;
                 /** @description Filtrar por playlist (en orden de posición) */
                 playlist_id?: string | null;
+                /** @description Orden del listado: 'plays' = más reproducidas primero. Ignorado si viene playlist_id (gana el orden de posición) */
+                sort?: "plays" | null;
             };
             header?: never;
             path?: never;
@@ -3228,6 +3230,8 @@ export interface operations {
             query?: {
                 offset?: number;
                 limit?: number;
+                /** @description Filtra por nombre de la playlist (contains) */
+                q?: string | null;
             };
             header?: never;
             path?: never;

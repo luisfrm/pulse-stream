@@ -166,6 +166,8 @@ export interface PublicPlaylistFilters {
   limit: number;
   /** Filtro opcional por dueño (`GET /playlists?mine=false`). */
   ownerId?: string;
+  /** Contains por nombre (`GET /playlists/public?q=`), case-insensitive. */
+  search?: string | null;
 }
 
 /**
@@ -178,6 +180,9 @@ export async function listPublicPlaylists(
 ): Promise<PlaylistWithItems[]> {
   const conditions = [eq(playlists.isPublic, true)];
   if (filters.ownerId) conditions.push(eq(playlists.ownerId, filters.ownerId));
+  if (filters.search) {
+    conditions.push(sql`${playlists.name} ILIKE ${`%${filters.search}%`}`);
+  }
 
   const rows = await createDb(config)
     .select({ playlist: playlists, ownerEmail: users.email })
@@ -203,9 +208,14 @@ export async function listPublicPlaylists(
 export async function countPublicPlaylists(
   config: AppConfig,
   ownerId?: string,
+  /** Mismo `q` que `listPublicPlaylists` (el total refleja el filtro). */
+  search?: string | null,
 ): Promise<number> {
   const conditions = [eq(playlists.isPublic, true)];
   if (ownerId) conditions.push(eq(playlists.ownerId, ownerId));
+  if (search) {
+    conditions.push(sql`${playlists.name} ILIKE ${`%${search}%`}`);
+  }
 
   const rows = await createDb(config)
     .select({ value: count() })

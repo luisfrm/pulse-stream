@@ -55,12 +55,29 @@ export interface SongFilters {
   collaboratorId?: string | null;
   albumId?: string | null;
   playlistId?: string | null;
+  /** `"plays"` = `play_count DESC`; ausente = `created_at DESC` (default). */
+  sort?: "plays" | null;
 }
 
 function songConditions(filters: SongFilters) {
   const conditions = [];
   if (filters.search) {
-    conditions.push(sql`${songs.title} ILIKE ${`%${filters.search}%`}`);
+    // Contains (`ILIKE %q%`) sobre título, artista principal o CUALQUIER
+    // colaborador. El `EXISTS` correlacionado evita sumar `song_collaborators`
+    // al JOIN del listado (multiplicaría filas y rompería LIMIT/OFFSET).
+    const pattern = `%${filters.search}%`;
+    conditions.push(sql`(
+      ${songs.title} ILIKE ${pattern}
+      OR ${artists.name} ILIKE ${pattern}
+      OR EXISTS (
+        SELECT 1
+        FROM ${songCollaborators} AS "collab"
+        INNER JOIN ${artists} AS "collab_artist"
+          ON "collab_artist"."id" = "collab"."artist_id"
+        WHERE "collab"."song_id" = ${songs.id}
+          AND "collab_artist"."name" ILIKE ${pattern}
+      )
+    )`);
   }
   if (filters.artistId) {
     conditions.push(eq(songs.artistId, filters.artistId));
@@ -138,8 +155,11 @@ async function loadSongRelations(
  * `GET /songs`: orden `created_at desc`, salvo `playlist_id`, que ordena por
  * `playlist_songs.position asc`.
  *
- * Desempate por `id` en ambos casos: Python no lo tenía y dos canciones con el
- * mismo `created_at` (o dos posiciones iguales) salían en orden arbitrario,
+ * `sort=plays` cambia el orden a `play_count desc` (default de siempre si no
+ * viene). Con `playlist_id` la posición GANA y `sort` se ignora.
+ *
+ * Desempate por `id` en todos los casos: Python no lo tenía y dos canciones con
+ * el mismo `created_at` (o dos posiciones iguales) salían en orden arbitrario,
  * rompiendo la paginación estable. Mejora chica y deliberada.
  */
 export async function listSongs(
@@ -167,8 +187,11 @@ export async function listSongs(
   }
 
   const ordered = filters.playlistId
-    ? query.orderBy(asc(playlistSongs.position), asc(songs.id))
-    : query.orderBy(desc(songs.createdAt), asc(songs.id));
+    ? // La posición de la playlist manda sobre `sort` (orden curado).
+      query.orderBy(asc(playlistSongs.position), asc(songs.id))
+    : filters.sort === "plays"
+      ? query.orderBy(desc(songs.playCount), asc(songs.id))
+      : query.orderBy(desc(songs.createdAt), asc(songs.id));
 
   const rows = await ordered
     .where(and(...songConditions(filters)))
@@ -178,14 +201,25 @@ export async function listSongs(
   return loadSongRelations(config, rows);
 }
 
-/** `total` del listado: mismos filtros que `listSongs`. */
+/**
+ * `total` del listado: mismos filtros que `listSongs`.
+ *
+ * El JOIN a `artists` es el mismo del listado porque `q` mira `artists.name`;
+ * la FK `songs.artist_id` es NOT NULL y 1:1, así que no altera el total.
+ */
 export async function countSongs(
   config: AppConfig,
   filters: SongFilters,
 ): Promise<number> {
   const db = createDb(config);
 
-  let query = db.select({ value: count() }).from(songs).$dynamic();
+  // Mismo JOIN a `artists` que `listSongs`: el filtro `q` mira `artists.name`.
+  // La FK es NOT NULL y 1:1, así que no altera el total.
+  let query = db
+    .select({ value: count() })
+    .from(songs)
+    .innerJoin(artists, eq(songs.artistId, artists.id))
+    .$dynamic();
   if (filters.collaboratorId) {
     query = query.innerJoin(
       songCollaborators,

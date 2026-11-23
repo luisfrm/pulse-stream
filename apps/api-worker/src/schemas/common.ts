@@ -110,6 +110,15 @@ export function queryInt(options: {
 const QUERY_TRUTHY = new Set(["true", "1", "on", "yes", "t", "y"]);
 
 /**
+ * Query param `q` de los listados: `contains` case-insensitive (el repository
+ * lo traduce a `ILIKE '%q%'`), opcional y nullable como en Python. Acá solo se
+ * valida la forma (mismo tope de 255 que el resto de los `q`).
+ */
+export function searchQuery(description: string) {
+  return z.string().max(255).nullable().optional().openapi({ description });
+}
+
+/**
  * Query param booleano (`bool = Query(True)`): acepta true/false/1/0/yes/no/
  * on/off (case-insensitive) y documenta `{type: "boolean", default}`.
  *
