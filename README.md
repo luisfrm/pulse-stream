@@ -109,10 +109,11 @@ que sirve `/openapi.json`. En CI el archivo generado está *pinneado*:
 Pasos:
 
 1. Mergear la rama a `master` (el deploy del Worker se dispara con push a master).
-2. Deployar el Worker con el workflow **Deploy API Worker** (o a mano con
-   `pnpm --filter @pulse-stream/api-worker deploy`). El job corre migraciones,
-   publica con `wrangler deploy`, sincroniza los 5 secrets de runtime desde
-   GitHub y hace smoke de `/health`, `/genres` y `/artists`.
+2. Deployar el Worker con el workflow **Master CI + Deploy** (o a mano con
+   `pnpm --filter @pulse-stream/api-worker deploy`). El job `deploy` corre
+   migraciones, publica con `wrangler deploy`, sincroniza los 5 secrets de
+   runtime desde GitHub y hace smoke de `/health`, `/genres` y `/artists`; solo
+   se ejecuta con la integración verde (`needs`) y cambios del worker.
 3. Verificar el smoke y recién entonces apuntar `apps/web` al Worker
    (`NEXT_PUBLIC_API_URL` + `ENV=prod` + `COOKIE_DOMAIN` en Vercel) y redeployar
    el web. Si cambiás la env antes de que el Worker esté arriba, el sitio queda
@@ -147,9 +148,8 @@ pnpm gen:types:worker
 
 | Workflow | Dispara | Qué corre | Secrets |
 |---|---|---|---|
-| `Tests` | **pull_request** | unitarios: worker `test:unit` (202) + web vitest (58). Sin red ni DB | ninguno |
-| `CI (integración)` | **push a master** / manual | vitest de integración con Neon, typecheck/lint/build del web, dry-run del worker y `generated.ts` pinneado (job `api` de pytest eliminado: backend Python deprecado) | repository: `TEST_DATABASE_URL_WORKER` (`TEST_DATABASE_URL` quedó sin uso, purgable) |
-| `Deploy API Worker` | **push a master** (paths del worker) / manual | typecheck + unit + migraciones + `wrangler deploy` + sync de secrets + smoke | environment `production`: `CLOUDFLARE_API_TOKEN`, `MIGRATE_DATABASE_URL`, `DATABASE_URL`, `AUTH_SECRET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `RESEND_API_KEY`; variable `CLOUDFLARE_ACCOUNT_ID` |
+| `PR checks` (`tests.yml`) | **pull_request** | lo barato y sin DB: worker `typecheck` + `test:unit`, web `typecheck → lint → test`, y `export:openapi` + `gen:types:worker` + `git diff --exit-code` (tipos pinneados). `timeout-minutes: 10` | ninguno |
+| `Master CI + Deploy` (`master.yml`) | **push a master** / manual (`force_deploy`) | `changes` (paths del worker) → `web` (typecheck → lint → build) + `api-worker` (typecheck, vitest de integración con Neon, dry-run, tipos pinneados) → **`deploy` con `needs: [changes, web, api-worker]`**: migraciones con la URL directa, `wrangler deploy`, sync de secrets y smoke. Si la integración falla, no se publica | repository: `TEST_DATABASE_URL_WORKER` (`TEST_DATABASE_URL` quedó sin uso, purgable). environment `production`: `CLOUDFLARE_API_TOKEN`, `MIGRATE_DATABASE_URL`, `DATABASE_URL`, `AUTH_SECRET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `RESEND_API_KEY`; variable `CLOUDFLARE_ACCOUNT_ID` |
 
 **El web lo deploya Vercel** con su integración de Git; no hay workflow de deploy
 web. Variables en Vercel (Production): `NEXT_PUBLIC_API_URL`,

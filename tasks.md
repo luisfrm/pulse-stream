@@ -287,6 +287,10 @@ están documentados en el gate de contrato.
 | **Config del Worker** | `wrangler.jsonc` con `routes` del custom domain y `vars` no secretas; secretos de runtime solo en GitHub (fuente de verdad) | Hecho |
 | **Deploy web** | Vercel con su integracion de Git (sin workflow); envs `NEXT_PUBLIC_API_URL`, `ENV=prod`, `COOKIE_DOMAIN`, `COOKIE_SAMESITE` | Manual (dashboard) |
 
+> Estos tres workflows (`Tests`, `CI (integración)`, `Deploy API Worker`) fueron
+> reemplazados por **`PR checks`** (`tests.yml`) y **`Master CI + Deploy`**
+> (`master.yml`) en el pipeline CI-1..CI-3 — ver la sección al final del ledger.
+
 ## Rediseño del home estilo Spotify (F0-F2) — Resuelta
 
 Rodada cerrada con el flujo coder/reviewer por fase. Referencia medida del layout
@@ -368,11 +372,22 @@ amplió su timeout a 40s con comentario.
 
 | # | Tarea | Estado |
 |---|---|---|
-| 1 | Migración Drizzle **`0000_baseline`** (esquema completo en un solo baseline) | Pendiente — es lo que permite dropear el bootstrap Alembic de la base de test y el paso `Python schema` de `ci.yml`; hasta entonces el Worker depende de `apps/api` solo como infraestructura de test |
-| 2 | Secret **`TEST_DATABASE_URL`** de GitHub | Sin uso tras quitar el job `api` de `ci.yml` (el Worker usa `TEST_DATABASE_URL_WORKER`) y purgable cuando el baseline esté; se deja por si hace falta un checkout del Python deprecado |
+| 1 | Migración Drizzle **`0000_baseline`** (esquema completo en un solo baseline) | Pendiente — es lo que permite dropear el bootstrap Alembic de la base de test y el paso `Python schema` de `master.yml`; hasta entonces el Worker depende de `apps/api` solo como infraestructura de test |
+| 2 | Secret **`TEST_DATABASE_URL`** de GitHub | Sin uso desde que se eliminó el job de pytest de la API Python (el Worker usa `TEST_DATABASE_URL_WORKER`) y purgable cuando el baseline esté; se deja por si hace falta un checkout del Python deprecado |
 | 3 | Workflow manual **`db-migrate.yml`** (aplicar migraciones Drizzle sin deploy) | Cancelado por ahora; planeado para una fase posterior. Hasta entonces `db:migrate` se corre a mano con guard (`CONFIRM_TARGET`) |
 
 > **Verificación de cada fase**: `pnpm typecheck` no incluye el Worker, así que
 > cada fase cierra con `pnpm --filter @pulse-stream/api-worker typecheck`
 > además de su suite. `vitest` transpila sin chequear tipos: un fixture
 > incompleto (`PlaylistRow` sin `artistId`) pasaba los tests y solo rompía `tsc`.
+
+## Pipeline CI/CD sellado (CI-1..CI-3)
+
+| Fase | Alcance | Estado |
+|---|---|---|
+| **CI-1** | `tests.yml`: job único renombrado **"PR checks"** con todo lo barato que antes solo corría en master (menos la integración con Neon): worker `typecheck` + `test:unit`, web `typecheck → lint → test`, `export:openapi` + `gen:types:worker` + `git diff --exit-code` sobre `generated.ts`, `timeout-minutes: 10`, sin DB ni secrets. Lección del fixture `artistId`: `tsc` del worker entra al PR | Hecho (approved, verificado en el runner) |
+| **CI-2** | `master.yml` ("Master CI + Deploy") funde `ci.yml` + `deploy-api-worker.yml` en un workflow con gating: `changes` (dorny/paths-filter) → `web` + `api-worker` (integración Neon + Alembic bootstrap) → `deploy` con `needs: [changes, web, api-worker]` e `if` (cambios del worker o `force_deploy`), `environment: production`, migraciones → deploy → secret bulk → smoke. Sin `paths:` en el `on:` (master siempre verifica). Typecheck/unit del deploy eliminados (ya corren en `api-worker`). Docs al día | Hecho (esta fase) |
+| **CI-3** | Branch protection: required check **"PR checks"** (el rename de "Unit tests" ya está hecho) y verificación end-to-end real de master al mergear `master.yml` (integración → migraciones → deploy → smoke de prod) | Pendiente |
+
+Recordatorio para CI-1/CI-3: el nombre mostrado del job es el contrato con
+branch protection; si cambia, hay que actualizar la regla.

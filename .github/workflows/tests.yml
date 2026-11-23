@@ -2,10 +2,11 @@ name: Tests
 
 # CI de PR vs. CD de master:
 # - CI (este workflow, en cada `pull_request`): todo lo barato y sin base de
-#   datos — typecheck/lint/unitarios del worker y del web + `generated.ts`
+#   datos — typecheck/lint/unitarios/builds del worker y del web + `generated.ts`
 #   pinneado. Corre en PRs de cualquiera, sin secrets.
-# - CD (`ci.yml`, solo master): integración con Neon (costosa), migraciones
-#   Drizzle y luego `deploy-api-worker.yml`.
+# - CD (`master.yml`, solo master): `changes` → `web` + `api-worker` (integración
+#   con Neon, costosa) → `deploy` gated por `needs` (migraciones prod → wrangler
+#   → smoke). Paridad: un PR verde implica master compilando.
 # El `name` del job ("PR checks") se usa como required check en branch
 # protection: no cambiarlo sin actualizar esa regla.
 on:
