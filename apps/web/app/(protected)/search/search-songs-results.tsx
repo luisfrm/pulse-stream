@@ -3,25 +3,33 @@
 import * as React from "react";
 
 import { LoadMoreButton } from "@/components/load-more-button";
-import { MediaCardSkeleton } from "@/components/loading-skeletons";
-import { SongCard } from "@/components/song-card";
+import { SongItem } from "@/components/song-item";
 import { songsService } from "@/lib/services/songs-service";
-import type { Page, Song } from "@/lib/services/types";
+import type { MyPlaylist, Page, Song } from "@/lib/services/types";
 import { friendlyError } from "@/lib/utils/error";
 
 interface SearchSongsResultsProps {
   readonly initialPage: Page<Song>;
   readonly query: string;
+  /** Datos del usuario para que las filas tengan corazón / "+" / descarga. */
+  readonly playlists?: MyPlaylist[];
+  readonly favoriteIds?: Set<string>;
+  /** Server Action a invocar después de una mutación (like/playlist). */
+  readonly onMutated?: () => Promise<void>;
 }
 
 /**
- * Resultados de canciones en /search: grid paginado client-side con "Ver más".
- * Los artistas del buscador (limitados a 6) los sigue renderizando el RSC,
- * porque esa lista es chica y fija.
+ * Resultados de canciones de /search: FILAS compactas (SongItem) paginadas
+ * client-side con "Ver más". La primera página la trae el RSC ya ordenada por
+ * `sort=plays`; las siguientes repiten ese mismo orden (si no, el offset/limit
+ * avanzaría sobre otro orden y se saltearían o repetirían canciones).
  */
 export function SearchSongsResults({
   initialPage,
   query,
+  playlists,
+  favoriteIds,
+  onMutated,
 }: SearchSongsResultsProps) {
   const [songs, setSongs] = React.useState<Song[]>(initialPage.items);
   const [total, setTotal] = React.useState<number>(initialPage.total);
@@ -37,9 +45,10 @@ export function SearchSongsResults({
     setError(null);
     try {
       const page = await songsService.getSongs({
-        query: query || undefined,
+        query,
         offset,
         limit: initialPage.limit,
+        sort: "plays",
       });
       setSongs((prev) => [...prev, ...page.items]);
       setTotal(page.total);
@@ -51,21 +60,20 @@ export function SearchSongsResults({
     }
   }
 
-  if (songs.length === 0) {
-    return (
-      <p className="rounded-2xl border border-bg-highlight bg-bg-elevated/50 px-5 py-8 text-center text-sm text-text-subdued">
-        Sin resultados para tu búsqueda.
-      </p>
-    );
-  }
-
   return (
     <>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
-        {songs.map((song, idx) => (
-          <SongCard key={song.id} song={song} queue={songs} priority={idx < 4} />
+      <ul className="flex flex-col gap-2">
+        {songs.map((song) => (
+          <SongItem
+            key={song.id}
+            song={song}
+            queue={songs}
+            playlists={playlists}
+            favoriteIds={favoriteIds}
+            onMutated={onMutated}
+          />
         ))}
-      </div>
+      </ul>
 
       <LoadMoreButton
         onClick={loadMore}
@@ -80,16 +88,5 @@ export function SearchSongsResults({
         </p>
       )}
     </>
-  );
-}
-
-/** Skeleton espejado del estado con datos. */
-export function SearchSongsSkeleton() {
-  return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
-      {Array.from({ length: 10 }).map((_, i) => (
-        <MediaCardSkeleton key={i} />
-      ))}
-    </div>
   );
 }
