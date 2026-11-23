@@ -37,11 +37,24 @@ uv run pytest                          # integración; exige TEST_DATABASE_URL
   (`apps/api/tests/conftest.py`). No hay SQLite ni Docker en el flujo.
 - Frontend usa **alias `@/*` → `apps/web/*`** (tsconfig paths).
 - Solo un paquete: `pnpm --filter @pulse-stream/web <lint|typecheck|test|build>`
-  (`test` del web = `vitest run`). El CI (`.github/workflows/ci.yml`) corre
-  exactamente: web `typecheck → lint → build` y `api-worker` `typecheck →
-  vitest de integración (Neon) → dry-run build`. El job de pytest de la API
-  Python fue eliminado (backend deprecado); Alembic sobrevive sólo como
-  bootstrap del esquema de la base de test del worker.
+  (`test` del web = `vitest run`). El pipeline es **hub-and-spokes**.
+  **CI en cada PR** (`.github/workflows/tests.yml`, check **"PR checks"**):
+  worker `typecheck` + `test:unit`, web `typecheck → lint → test` y
+  `generated.ts` pinneado — sin DB, sin secrets, sin builds. **CD en master**:
+  `deploy-pipeline.yml` es el **único workflow de CI+deploy disparado por
+  push** (hub de ruteo, sin steps
+  propios) → `changes` (paths del worker) → `ci-master.yml` (reusable: `web`
+  `typecheck → lint → build` + `api-worker` `typecheck → vitest de integración
+  con Neon → dry-run build`) → `deploy-api-worker.yml` (reusable, `needs:
+  [changes, ci]`, `environment: production`: preflight → `wrangler deploy` →
+  `secret bulk` → smoke; **no migra** — las migraciones las aplica
+  `database-migrations.yml` por paths, decisión de diseño para no aplicarlas
+  dos veces en paralelo). Solo corre en pushes que tocan
+  `apps/api-worker/**` o `pnpm-lock.yaml` (forzable con `workflow_dispatch` +
+  `target=worker`). Aparte, `database-migrations.yml` corre por paths
+  (`migrations/**`, `src/db/schema.ts`) con gate `db:check` → `db:migrate`. El
+  job de pytest de la API Python fue eliminado (backend deprecado); Alembic
+  sobrevive sólo como bootstrap del esquema de la base de test del worker.
 
 ---
 
@@ -455,10 +468,41 @@ integración `tests/auth-password-reset.test.ts` cubre el reset con token válid
 (si alguien revierte el shim, ese test es el que rompe). Sin `RESEND_API_KEY` en
 local el link se loguea y no se manda mail.
 
-**CI/CD**: `Tests` (solo unitarios, en cada PR), `CI (integracion)` (vitest con
-Neon + checks del web y del worker, push a master) y `Deploy API Worker`
-(migraciones + `wrangler
-deploy` + `wrangler secret bulk` + smoke, environment `production`). El web lo
-deploya Vercel. La config NO secreta del Worker vive en `wrangler.jsonc`
-(`vars` + `routes`); los secretos de runtime se sincronizan desde GitHub en cada
-deploy, asi que GitHub es la fuente de verdad. Nunca commitear `.dev.vars`.
+**CI/CD**: hub-and-spokes, cinco archivos.
+- **`PR checks`** (`.github/workflows/tests.yml`, en cada `pull_request`): lo
+  barato y sin DB — worker `typecheck` + `test:unit`, web
+  `typecheck → lint → test` y `export:openapi` + `gen:types:worker` +
+  `git diff --exit-code` (tipos pinneados). Sin secrets. Es el required check
+  de branch protection.
+- **`Master Pipeline`** (`.github/workflows/deploy-pipeline.yml`): el **único
+  workflow de CI+deploy** disparado por `push` a master (`database-migrations.yml`
+  también escucha push, pero sólo con paths de migraciones). Hub de ruteo sin steps propios (~40 líneas):
+  `changes` (dorny/paths-filter con `fetch-depth: 0`) → `ci` (`uses:
+  ./ci-master.yml`, `secrets: inherit`) → `deploy-api-worker` (`uses:
+  ./deploy-api-worker.yml`, `needs: [changes, ci]`). El mismo `if` en CI y
+  deploy (cambios del worker o `inputs.target == 'worker'`) + `needs` =
+  gating: **con el CI rojo no se publica**. Un push de docs no paga la
+  integración.
+- **`Master CI`** (`.github/workflows/ci-master.yml`, reusable
+  `workflow_call` + `workflow_dispatch` para debug): jobs `web`
+  (`typecheck → lint → build`) y `api-worker` (`typecheck → vitest de
+  integración con Neon → dry-run build` + tipos pinneados), con Alembic sólo
+  como bootstrap de la base de test. `concurrency: master-ci` serializa (base
+  de test compartida). Secrets por `inherit` (solo repository).
+- **`Deploy API Worker`** (`.github/workflows/deploy-api-worker.yml`, reusable
+  + dispatch): `environment: production`, `timeout-minutes: 20`, preflight →
+  `wrangler deploy` → `wrangler secret bulk` → smoke
+  `/health`/`/genres`/`/artists`. **No migra** (las migraciones las aplica
+  `database-migrations.yml` por paths — evita aplicarlas dos veces en
+  paralelo). El dispatch directo es el **bypass de
+  emergencia** (deploy sin CI); el camino normal es el pipeline.
+- **`Database Migrations`** (`.github/workflows/database-migrations.yml`): por
+  paths (`apps/api-worker/migrations/**`, `src/db/schema.ts`); `check`
+  (`db:check`, sin DB) → `migrate` (`environment: production`,
+  `MIGRATE_DATABASE_URL` + `CONFIRM_TARGET=yes`). `concurrency: db-migrations`
+  sin cancelar: el migrador no es transaccional.
+
+El web lo deploya Vercel. La config NO secreta del Worker vive en
+`wrangler.jsonc` (`vars` + `routes`); los secretos de runtime se sincronizan
+desde GitHub en cada deploy, asi que GitHub es la fuente de verdad. Nunca
+commitear `.dev.vars`.

@@ -1,7 +1,15 @@
 name: Tests
 
-# Solo tests unitarios: no tocan red ni base de datos (worker: `src/**`;
-# web: vitest con jsdom). La integración con Neon corre en `ci.yml` sobre main.
+# CI de PR vs. CD de master:
+# - CI (este workflow, en cada `pull_request`): todo lo barato y sin base de
+#   datos — typecheck/lint/unitarios/builds del worker y del web + `generated.ts`
+#   pinneado. Corre en PRs de cualquiera, sin secrets.
+# - CD (hub-and-spokes, solo master): `deploy-pipeline.yml` (hub) → `ci-master.yml`
+#   (integración con Neon, costosa) → `deploy-api-worker.yml` (production), más
+#   `database-migrations.yml` por paths. Paridad: un PR verde implica master
+#   compilando.
+# El `name` del job ("PR checks") se usa como required check en branch
+# protection: no cambiarlo sin actualizar esa regla.
 on:
   pull_request:
 
@@ -14,7 +22,7 @@ concurrency:
 
 jobs:
   unit:
-    name: Unit tests
+    name: PR checks
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -32,10 +40,45 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # `tsc` no lo corre ninguna suite de tests: un fixture incompleto
+      # (p. ej. `PlaylistRow` sin `artistId`) pasaba los unitarios y rompía
+      # master. `pnpm typecheck` de la raíz no incluye el worker.
+      - name: Worker typecheck
+        run: pnpm --filter @pulse-stream/api-worker typecheck
+
       # `vitest run src` excluye `tests/**` (integración con DB): no necesita
       # TEST_DATABASE_URL ni dispara el guard de CI.
       - name: Worker unit tests
         run: pnpm --filter @pulse-stream/api-worker test:unit
 
+      - name: Web typecheck
+        run: pnpm --filter @pulse-stream/web typecheck
+
+      - name: Web lint
+        run: pnpm --filter @pulse-stream/web lint
+
       - name: Web unit tests
         run: pnpm --filter @pulse-stream/web test
+
+      # Builds sin DB ni secrets: `next build` caza errores que `tsc` no ve
+      # (límites de Suspense con useSearchParams, boundaries RSC/cliente,
+      # metadata de rutas) y el dry-run del worker valida el bundle de esbuild.
+      # Paridad con master: sin estos dos, un PR verde no garantiza master verde.
+      # `NEXT_PUBLIC_API_URL` se inlinea en build (valor público): sin ella el
+      # bundle apunta al propio origen y el build "pasa" en falso.
+      - name: Web build
+        env:
+          NEXT_PUBLIC_API_URL: https://pulse-stream-api.luisrivas.site
+        run: pnpm --filter @pulse-stream/web build
+
+      - name: Worker build (dry-run)
+        run: pnpm --filter @pulse-stream/api-worker build
+
+      # El OpenAPI se exporta sin server (`createApp()`) y de ahí se regeneran
+      # los tipos. Si alguien cambió rutas/contratos y no commiteó el
+      # `generated.ts`, el `git diff` falla (misma regla que en master).
+      - name: Generated types are pinned
+        run: |
+          pnpm --filter @pulse-stream/api-worker export:openapi
+          pnpm gen:types:worker
+          git diff --exit-code packages/api-types/src/generated.ts

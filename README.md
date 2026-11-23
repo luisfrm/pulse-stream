@@ -109,10 +109,12 @@ que sirve `/openapi.json`. En CI el archivo generado está *pinneado*:
 Pasos:
 
 1. Mergear la rama a `master` (el deploy del Worker se dispara con push a master).
-2. Deployar el Worker con el workflow **Deploy API Worker** (o a mano con
-   `pnpm --filter @pulse-stream/api-worker deploy`). El job corre migraciones,
-   publica con `wrangler deploy`, sincroniza los 5 secrets de runtime desde
-   GitHub y hace smoke de `/health`, `/genres` y `/artists`.
+2. Deployar el Worker con el workflow **Master Pipeline** (`deploy-pipeline.yml`,
+   que invoca el deploy reusable) o a mano con
+   `pnpm --filter @pulse-stream/api-worker deploy`. El job `deploy` corre
+   migraciones, publica con `wrangler deploy`, sincroniza los 5 secrets de
+   runtime desde GitHub y hace smoke de `/health`, `/genres` y `/artists`; solo
+   se ejecuta con la integración verde (`needs`) y cambios del worker.
 3. Verificar el smoke y recién entonces apuntar `apps/web` al Worker
    (`NEXT_PUBLIC_API_URL` + `ENV=prod` + `COOKIE_DOMAIN` en Vercel) y redeployar
    el web. Si cambiás la env antes de que el Worker esté arriba, el sitio queda
@@ -147,9 +149,14 @@ pnpm gen:types:worker
 
 | Workflow | Dispara | Qué corre | Secrets |
 |---|---|---|---|
-| `Tests` | **pull_request** | unitarios: worker `test:unit` (202) + web vitest (58). Sin red ni DB | ninguno |
-| `CI (integración)` | **push a master** / manual | vitest de integración con Neon, typecheck/lint/build del web, dry-run del worker y `generated.ts` pinneado (job `api` de pytest eliminado: backend Python deprecado) | repository: `TEST_DATABASE_URL_WORKER` (`TEST_DATABASE_URL` quedó sin uso, purgable) |
-| `Deploy API Worker` | **push a master** (paths del worker) / manual | typecheck + unit + migraciones + `wrangler deploy` + sync de secrets + smoke | environment `production`: `CLOUDFLARE_API_TOKEN`, `MIGRATE_DATABASE_URL`, `DATABASE_URL`, `AUTH_SECRET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `RESEND_API_KEY`; variable `CLOUDFLARE_ACCOUNT_ID` |
+| `PR checks` (`tests.yml`) | **pull_request** | lo barato y sin DB: worker `typecheck` + `test:unit`, web `typecheck → lint → test`, y `export:openapi` + `gen:types:worker` + `git diff --exit-code` (tipos pinneados). `timeout-minutes: 10` | ninguno |
+| `Master Pipeline` (`deploy-pipeline.yml`) | **push a master** / manual (`target=worker`) | **hub sin steps**: `changes` (paths-filter con `fetch-depth: 0`) → `ci` (`uses: ci-master.yml`: `web` typecheck → lint → build + `api-worker` integración con Neon, dry-run y tipos pinneados) → `deploy-api-worker` (`needs: [changes, ci]`: preflight, `wrangler deploy`, sync de secrets y smoke — **no migra**, las migraciones las aplica `database-migrations.yml` por paths). Con el CI rojo no se publica; sin cambios del worker no se corre el CI | repository: `TEST_DATABASE_URL_WORKER` (CI); environment `production`: `CLOUDFLARE_API_TOKEN`, `DATABASE_URL`, `AUTH_SECRET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `RESEND_API_KEY` + variable `CLOUDFLARE_ACCOUNT_ID` |
+| `Database Migrations` (`database-migrations.yml`) | **push a master** que toque `apps/api-worker/migrations/**` o `src/db/schema.ts` / manual | `check` (`db:check`, integridad schema↔snapshots, sin DB) → `migrate` (`db:migrate` con la URL directa). No llama al CI a propósito: no duplica 15 min por push de migraciones | environment `production`: `MIGRATE_DATABASE_URL` |
+
+Los archivos `ci-master.yml` (CI reusable) y `deploy-api-worker.yml` (deploy
+reusable) no se disparan solos: los invoca el hub. El `workflow_dispatch`
+directo de `deploy-api-worker.yml` es el **bypass de emergencia** (deploy sin
+CI) para un hotfix cuando el pipeline no puede correr.
 
 **El web lo deploya Vercel** con su integración de Git; no hay workflow de deploy
 web. Variables en Vercel (Production): `NEXT_PUBLIC_API_URL`,

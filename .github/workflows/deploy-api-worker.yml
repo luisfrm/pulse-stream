@@ -1,21 +1,25 @@
 name: Deploy API Worker
 
-# CD del backend sobre Cloudflare Workers. El web lo deploya Vercel con su
-# integración de Git (no hay workflow de deploy web).
+# Deploy del backend sobre Cloudflare Workers. Reusable: lo llama
+# `deploy-pipeline.yml` gateado por `needs` (con la integración verde).
+#
+# ⚠️ El `workflow_dispatch` directo es el **bypass de emergencia**: corre el
+# deploy SIN pasar por el CI. El camino normal es siempre a través del pipeline
+# (push a master → changes → ci-master → deploy). Usarlo solo para un hotfix
+# cuando el CI no puede correr (p. ej. infraestructura de test caída).
 #
 # Requiere el environment `production` con los secrets:
-#   CLOUDFLARE_API_TOKEN, MIGRATE_DATABASE_URL, DATABASE_URL, AUTH_SECRET,
+#   CLOUDFLARE_API_TOKEN, DATABASE_URL, AUTH_SECRET,
 #   R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, RESEND_API_KEY
 # y la variable CLOUDFLARE_ACCOUNT_ID (environment o repositorio).
+# (MIGRATE_DATABASE_URL ya NO lo usa este workflow: las migraciones las aplica
+# `database-migrations.yml` por paths.)
 on:
-  push:
-    branches: [master]
-    paths:
-      - "apps/api-worker/**"
-      - "pnpm-lock.yaml"
-      - ".github/workflows/deploy-api-worker.yml"
+  workflow_call:
   workflow_dispatch:
 
+# Hardening para el dispatch directo (el camino llamado hereda el del caller):
+# el GITHUB_TOKEN no necesita más que lectura.
 permissions:
   contents: read
 
@@ -45,22 +49,19 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # `wrangler deploy` bundlea con esbuild (no typechequea): el chequeo va
-      # antes para no publicar una versión rota.
-      - name: Typecheck
-        run: pnpm --filter @pulse-stream/api-worker typecheck
-
-      - name: Unit tests
-        run: pnpm --filter @pulse-stream/api-worker test:unit
-
-      # Migraciones con el endpoint DIRECTO de Neon (el pooled es solo para el
-      # runtime). `CONFIRM_TARGET=yes` es obligatorio fuera de la base de test.
-      - name: Migraciones (Neon directa)
-        working-directory: apps/api-worker
-        env:
-          MIGRATE_DATABASE_URL: ${{ secrets.MIGRATE_DATABASE_URL }}
-          CONFIRM_TARGET: "yes"
-        run: pnpm db:migrate
+      # Typecheck y unit tests NO se repiten acá: los corre `ci-master.yml`
+      # (needs del caller) y `wrangler deploy` bundlea con esbuild, sin chequear
+      # tipos.
+      #
+      # Migraciones: NO corren acá a propósito. Las aplica
+      # `database-migrations.yml` (paths `apps/api-worker/migrations/**` +
+      # `src/db/schema.ts`) — decisión de diseño: "migraciones en su propio
+      # workflow". Antes este step migraba también y un push de migraciones
+      # aplicaba `db:migrate` DOS veces en paralelo (deploy + migrations, sin
+      # advisory lock). El orden código↔esquema no es crítico MIENTRAS el
+      # release tolere el esquema previo (migraciones aditivas: columnas
+      # nullable, índices tras renumerar). OJO: si la migración falla, este
+      # deploy NO se bloquea — mergear la migración antes del código que la usa.
 
       # Con `ENV=prod` el worker hace fail-fast si falta configuración y
       # responde 500 en todos los endpoints. Mejor no publicar que dejar el

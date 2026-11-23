@@ -1,0 +1,67 @@
+name: Master Pipeline
+
+# Hub thin de ruteo (~40 líneas, CERO steps propios): detecta qué cambió, corre
+# el CI una sola vez e invoca a cada deploy que corresponde.
+#
+#   push a master → changes → ci-master (web + api-worker, integración Neon)
+#                              ↓ verde
+#                           deploy-api-worker (migraciones → wrangler → smoke)
+#
+# Es el ÚNICO workflow con `on: push` a master. Los deploys son reusables
+# (`workflow_call`), así que nada se duplica ni corre en paralelo sin gate.
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Forzar deploy aunque no haya cambios (auto = por paths)"
+        type: choice
+        default: auto
+        options: [auto, worker]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: master-pipeline
+  cancel-in-progress: false
+
+jobs:
+  changes:
+    name: Detect worker changes
+    runs-on: ubuntu-latest
+    outputs:
+      worker: ${{ steps.filter.outputs.worker }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Sin clon completo, el diff del dispatch queda contra un boundary
+          # shallow y `worker` daría `true` siempre.
+          fetch-depth: 0
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            worker:
+              - 'apps/api-worker/**'
+              - 'pnpm-lock.yaml'
+              - '.github/workflows/deploy-pipeline.yml'
+              - '.github/workflows/deploy-api-worker.yml'
+              - '.github/workflows/ci-master.yml'
+
+  # El `if` del deploy es el mismo: `needs` salta el deploy si el CI falló o fue
+  # skipped. Sin cambios del worker (y sin force) no se paga la integración: la
+  # verificación de ese push ya la hizo la PR.
+  ci:
+    needs: changes
+    if: needs.changes.outputs.worker == 'true' || inputs.target == 'worker'
+    uses: ./.github/workflows/ci-master.yml
+    secrets: inherit
+
+  deploy-api-worker:
+    needs: [changes, ci]
+    if: needs.changes.outputs.worker == 'true' || inputs.target == 'worker'
+    uses: ./.github/workflows/deploy-api-worker.yml
+    secrets: inherit

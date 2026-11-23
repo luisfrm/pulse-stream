@@ -1,0 +1,76 @@
+name: Database Migrations
+
+# Migraciones de producción por paths: si un push a master toca el esquema o las
+# migraciones del Worker, se valida la integridad y se aplican.
+#
+# Gate deliberado: SOLO `db:check` (integridad schema↔snapshots, sin DB). No se
+# llama al CI: duplicaría ~15 min de integración en cada push de migraciones.
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'apps/api-worker/migrations/**'
+      - 'apps/api-worker/src/db/schema.ts'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # NUNCA cancelar a mitad: el migrador corre sentencia por sentencia, sin
+  # transacción envolvente.
+  group: db-migrations
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Check Schema Integrity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.5.3
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: db:check
+        run: pnpm --filter @pulse-stream/api-worker db:check
+
+  migrate:
+    name: Migrate production database
+    needs: check
+    runs-on: ubuntu-latest
+    # Una migración colgada bloquearía el grupo (cancel-in-progress: false).
+    timeout-minutes: 20
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.5.3
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Endpoint DIRECTO de Neon (el pooled es solo para el runtime) y
+      # `CONFIRM_TARGET=yes` obligatorio fuera de la base de test.
+      - name: Migraciones (Neon directa)
+        working-directory: apps/api-worker
+        env:
+          MIGRATE_DATABASE_URL: ${{ secrets.MIGRATE_DATABASE_URL }}
+          CONFIRM_TARGET: "yes"
+        run: pnpm db:migrate

@@ -1,14 +1,24 @@
-name: CI (integración)
+name: Master CI
 
-# Los tests unitarios corren en cada PR (`tests.yml`). Este workflow usa bases
-# de datos reales (Neon) y corre solo sobre master (o a mano con workflow_dispatch)
-# para no consumir la DB de test en cada PR.
-# `apps/api` (Python) está deprecado y congelado: no tiene job propio. Su único
-# rol es el bootstrap Alembic de la base de test del Worker (ver `api-worker`).
+# Verificación reusable: la llama `deploy-pipeline.yml` como requisito del deploy,
+# o se corre suelta con `workflow_dispatch` para debug. NO se dispara por push
+# (así no corre dos veces cuando el pipeline ya la incluyó).
+#
+# Secrets: llegan por `secrets: inherit` del caller (solo repository secrets).
+# Los de production NO fluyen acá: viven en el job `deploy` con `environment:`.
 on:
-  push:
-    branches: [master]
+  workflow_call:
   workflow_dispatch:
+
+# Hardening para el dispatch directo (el camino llamado hereda el del caller):
+# el GITHUB_TOKEN no necesita más que lectura.
+permissions:
+  contents: read
+
+# Serializa corridas: la base de test de integración es compartida.
+concurrency:
+  group: master-ci
+  cancel-in-progress: false
 
 jobs:
   web:
