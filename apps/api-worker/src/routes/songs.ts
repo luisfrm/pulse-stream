@@ -24,12 +24,15 @@ import {
   HTTPValidationErrorSchema,
   PageSongReadSchema,
   SongCreateSchema,
+  SongGenreQueryEnum,
+  SongListSortSchema,
   SongReadSchema,
   SongUpdateSchema,
   SongWithPlaysSchema,
   UuidSchema,
   queryBool,
   queryInt,
+  searchQuery,
 } from "@/schemas";
 import {
   createSongRecord,
@@ -46,8 +49,10 @@ const validationError = {
 };
 
 const listQuery = pageQuerySchema().extend({
-  q: z.string().max(255).nullable().optional().openapi({
-    description: "Búsqueda por título",
+  q: searchQuery("Búsqueda por título, artista o colaborador (contains)"),
+  genre: SongGenreQueryEnum.nullable().optional().openapi({
+    description:
+      "Filtrar por género: las canciones cuyo array `genres` lo contiene",
   }),
   artist_id: UuidSchema.nullable().optional().openapi({
     description: "Filtrar por artista",
@@ -61,6 +66,11 @@ const listQuery = pageQuerySchema().extend({
   }),
   playlist_id: UuidSchema.nullable().optional().openapi({
     description: "Filtrar por playlist (en orden de posición)",
+  }),
+  sort: SongListSortSchema.nullable().optional().openapi({
+    description:
+      "Orden del listado: 'plays' = más reproducidas primero. " +
+      "Ignorado si viene playlist_id (gana el orden de posición)",
   }),
 });
 
@@ -194,16 +204,29 @@ const deleteSongRoute = createRoute({
 export function registerSongRoutes(app: OpenAPIHono<AppEnv>): void {
   app.openapi(listSongsRoute, async (c) => {
     const config = c.get("config");
-    const { offset, limit, q, artist_id, collaborator_id, album_id, playlist_id } =
-      c.req.valid("query");
+    const {
+      offset,
+      limit,
+      q,
+      genre,
+      artist_id,
+      collaborator_id,
+      album_id,
+      playlist_id,
+      sort,
+    } = c.req.valid("query");
     const page = await listSongPage(
       config,
       {
         search: q,
+        genre,
         artistId: artist_id,
         collaboratorId: collaborator_id,
         albumId: album_id,
         playlistId: playlist_id,
+        // Con `playlist_id` el orden es por posición y `sort` se ignora (lo
+        // resuelve el repository: la posición gana siempre).
+        sort,
       },
       offset,
       limit,

@@ -33,6 +33,8 @@ export function SearchInput({
     if (debouncedValue === currentQuery) return;
 
     const params = new URLSearchParams(searchParams.toString());
+    // Se mergea sobre los params actuales: filtros que no son `paramName`
+    // (p. ej. `genre` en /songs) se conservan al buscar.
     if (debouncedValue) {
       params.set(paramName, debouncedValue);
     } else {

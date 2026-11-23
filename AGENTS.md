@@ -225,13 +225,13 @@ crear entidades vía API, assert status + shape del JSON.
 **Navegación (Fase 5.5):** el sidebar vive en `components/dashboard-shell.tsx`
 (una sola `SidebarNav` compartida entre drawer móvil y sidebar desktop; una
 top bar móvil `lg:hidden` con hamburguesa abre el drawer — el avatar de la
-bottom nav ya no lo hace). Grupos y orden: **Principal** = Inicio · Buscar;
+bottom nav ya no lo hace). Grupos y orden: **Principal** = Inicio · Explorar;
 **Biblioteca** = Mi catálogo (`/catalog`) · Canciones (`/songs` — explorar
 catálogo) · Playlists · Recientes;
 **Administración** = Configuración (`/settings`, **todos** los
 usuarios) · Panel admin (solo admin). El chip de usuario al pie del sidebar se
 eliminó (logout vive en Configuración). Bottom nav (`components/bottom-nav.tsx`):
-Catálogo · Buscar · Cuenta (`/account`, Link) · Panel (admin) · Crear+.
+Catálogo · Explorar · Cuenta (`/account`, Link) · Panel (admin) · Crear+.
 
 - **Mi catálogo** (`/catalog`, `force-dynamic`): 3 secciones — Canciones en
   lista (`SongItem` con like/descargar/"+", SOLO las 10 más recientes + "Ver

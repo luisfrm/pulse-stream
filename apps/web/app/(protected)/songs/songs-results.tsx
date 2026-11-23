@@ -12,6 +12,8 @@ import { friendlyError } from "@/lib/utils/error";
 interface SongsResultsProps {
   readonly initialPage: Page<Song>;
   readonly query: string;
+  /** Filtro de género activo (`/songs?genre=`): se repite en cada página. */
+  readonly genre?: string;
   /** Datos opcionales del usuario para que las cards tengan corazón / "+" / acciones. */
   readonly playlists?: MyPlaylist[];
   readonly favoriteIds?: Set<string>;
@@ -27,6 +29,7 @@ interface SongsResultsProps {
 export function SongsResults({
   initialPage,
   query,
+  genre,
   playlists,
   favoriteIds,
   onMutated,
@@ -48,6 +51,7 @@ export function SongsResults({
     try {
       const page = await songsService.getSongs({
         query: query || undefined,
+        ...(genre ? { genre } : {}),
         offset,
         limit: initialPage.limit,
       });

@@ -30,6 +30,7 @@ import {
   UuidSchema,
   nullableRef,
   queryBool,
+  searchQuery,
 } from "@/schemas";
 import {
   addSongRecord,
@@ -220,7 +221,11 @@ const listPublicPlaylistsRoute = createRoute({
   description:
     "Feed público: playlists públicas de toda la comunidad (nuevas primero).\n\n" +
     "Público (sin sesión): son contenido visible para cualquiera por diseño.",
-  request: { query: pageQuerySchema() },
+  request: {
+    query: pageQuerySchema().extend({
+      q: searchQuery("Filtra por nombre de la playlist (contains)"),
+    }),
+  },
   responses: {
     200: {
       description: "Successful Response",
@@ -459,8 +464,8 @@ export function registerPlaylistRoutes(app: OpenAPIHono<AppEnv>): void {
 
   app.openapi(listPublicPlaylistsRoute, async (c) => {
     const config = c.get("config");
-    const { offset, limit } = c.req.valid("query");
-    const page = await listPublicCommunity(config, offset, limit);
+    const { offset, limit, q } = c.req.valid("query");
+    const page = await listPublicCommunity(config, offset, limit, q);
     return c.json(
       paginate(
         page.items.map((playlist) => toPlaylistDto(playlist, config)),

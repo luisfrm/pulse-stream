@@ -1,5 +1,12 @@
+import type { operations } from "@pulse-stream/api-types";
+
 import { api, type ApiFetchOptions } from "@/lib/api/client";
 import type { Page, Song, SongWithPlays } from "./types";
+
+/** Query de `GET /songs` tal como la genera el contrato (fuente de `sort`). */
+type SongsListQuery = NonNullable<
+  operations["list_songs_songs_get"]["parameters"]["query"]
+>;
 
 export interface GetSongsParams {
   query?: string;
@@ -10,6 +17,17 @@ export interface GetSongsParams {
   collaboratorId?: string;
   albumId?: string;
   playlistId?: string;
+  /**
+   * `plays` = más reproducidas primero. La API lo ignora si viene
+   * `playlist_id` (gana el orden de posición).
+   */
+  sort?: SongsListQuery["sort"];
+  /**
+   * Género (`GET /songs?genre=`). El enum canónico vive en la API: un valor
+   * desconocido responde 422, así que los llamadores deben pasar solo valores
+   * de `GET /genres`.
+   */
+  genre?: string;
 }
 
 export interface GetPopularParams {
@@ -54,18 +72,29 @@ export const songsService = {
     params?: GetSongsParams,
     options?: ApiFetchOptions,
   ): Promise<Page<Song>> {
-    const { artistId, collaboratorId, albumId, playlistId, query, ...rest } = params ?? {};
+    const {
+      artistId,
+      collaboratorId,
+      albumId,
+      playlistId,
+      query,
+      sort,
+      genre,
+      ...rest
+    } = params ?? {};
     return await api<Page<Song>>("/songs", {
       query: {
         ...rest,
-        // La API espera `q` para la búsqueda por título (y snake_case para
-        // los ids): sin este mapeo el backend ignora el filtro y devuelve
-        // todo el catálogo (bug del buscador de /songs y /search).
+        // La API espera `q` para la búsqueda por título/artista/colaborador (y
+        // snake_case para los ids): sin este mapeo el backend ignora el filtro
+        // y devuelve todo el catálogo (bug del buscador de /songs y /search).
         ...(query ? { q: query } : {}),
         ...(artistId ? { artist_id: artistId } : {}),
         ...(collaboratorId ? { collaborator_id: collaboratorId } : {}),
         ...(albumId ? { album_id: albumId } : {}),
         ...(playlistId ? { playlist_id: playlistId } : {}),
+        ...(sort ? { sort } : {}),
+        ...(genre ? { genre } : {}),
       },
       ...options,
     });

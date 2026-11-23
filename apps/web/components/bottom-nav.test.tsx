@@ -44,13 +44,13 @@ describe("BottomNav", () => {
     );
   });
 
-  it("mantiene Inicio, Buscar y el botón Crear", () => {
+  it("mantiene Inicio, Explorar y el botón Crear", () => {
     render(<BottomNav user={user} isAdmin={false} />);
     expect(screen.getByRole("link", { name: /inicio/i })).toHaveAttribute(
       "href",
       "/dashboard"
     );
-    expect(screen.getByRole("link", { name: /buscar/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /explorar/i })).toHaveAttribute(
       "href",
       "/search"
     );

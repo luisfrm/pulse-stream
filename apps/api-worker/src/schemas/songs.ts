@@ -85,3 +85,15 @@ export type SongRead = z.infer<typeof SongReadSchema>;
 export type SongCreate = z.infer<typeof SongCreateSchema>;
 export type SongUpdate = z.infer<typeof SongUpdateSchema>;
 export type SongWithPlays = z.infer<typeof SongWithPlaysSchema>;
+
+/**
+ * Orden alternativo del listado (`GET /songs?sort=`).
+ *
+ * Enum de zod (nunca en DB) y con un único valor: `plays` = `play_count DESC`.
+ * Ausente = el orden de siempre (`created_at DESC`), así que no cambia nada
+ * para quien no manda el param. Sin `.openapi("Name")` a propósito: no suma
+ * un componente nuevo al contrato (el gate compara `components.schemas`).
+ */
+export const SongListSortSchema = z.enum(["plays"]);
+
+export type SongListSort = z.infer<typeof SongListSortSchema>;

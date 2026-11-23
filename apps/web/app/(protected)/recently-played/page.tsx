@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
 
-import { Pagination } from "@/components/pagination";
-import { SongCard } from "@/components/song-card";
 import { listensService } from "@/lib/services/listens-service";
 import { Headphones } from "lucide-react";
 

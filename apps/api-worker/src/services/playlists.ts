@@ -157,15 +157,21 @@ async function getMutable(
   return playlist;
 }
 
-/** Feed público: playlists públicas de TODOS (system primero). */
+/**
+ * Feed público: playlists públicas de TODOS (system primero).
+ *
+ * `search` filtra por nombre (`contains`, case-insensitive) en el listado Y en
+ * el total, sin tocar el orden (`systemFirstOrder`).
+ */
 export async function listPublicCommunity(
   config: AppConfig,
   offset: number,
   limit: number,
+  search?: string | null,
 ): Promise<PlaylistPage> {
   const [items, total] = await Promise.all([
-    listPublicPlaylists(config, { offset, limit }),
-    countPublicPlaylists(config),
+    listPublicPlaylists(config, { offset, limit, search }),
+    countPublicPlaylists(config, undefined, search),
   ]);
   return { items, total };
 }

@@ -57,9 +57,13 @@ export const playlistsService = {
     });
   },
 
-  /** Feed público: playlists de toda la comunidad (con autor). */
+  /**
+   * Feed público: playlists de toda la comunidad (con autor).
+   * `q` filtra por nombre (contains, case-insensitive) y el `total` respeta el
+   * filtro; el orden (system primero) no cambia.
+   */
   async getPublicPlaylists(
-    params?: { offset?: number; limit?: number },
+    params?: { offset?: number; limit?: number; q?: string },
     options?: ApiFetchOptions,
   ): Promise<Page<Playlist>> {
     return await api<Page<Playlist>>("/playlists/public", {

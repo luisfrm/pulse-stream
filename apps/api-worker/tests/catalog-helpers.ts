@@ -94,6 +94,8 @@ export async function createSong(
 export interface SeedSongSpec {
   title?: string;
   playCount?: number;
+  /** Géneros de la canción (la API los valida contra el enum; acá van crudos). */
+  genres?: string[];
   /** Artistas que ya existen (colaboradores de la canción). */
   collaboratorIds?: string[];
 }
@@ -128,9 +130,11 @@ export interface SeededCatalog {
  *   - `createAlbumRecord` (`services/albums.ts`): `id`, `title`, `artistId`,
  *     `coverKey: null`;
  *   - `createSongRecord` (`services/songs.ts`): `id`, `title`, `artistId`,
- *     `albumId`, `genres: []`, `lyrics: null`, `objectKey`, `durationSeconds:
- *     null` y `playCount` (en la API es 0 y se sube con un UPDATE aparte; acá
- *     va directo en el INSERT, el resultado es la misma fila).
+ *     `albumId`, `genres` (`[]` por default; el spec puede pedir otros, igual
+ *     que `genres` en el body del alta), `lyrics: null`, `objectKey`,
+ *     `durationSeconds: null` y `playCount` (en la API es 0 y se sube con un
+ *     UPDATE aparte; acá va directo en el INSERT, el resultado es la misma
+ *     fila).
  *
  * Única diferencia deliberada: `created_at` explícito y creciente (+1 ms por
  * canción). La API inserta cada canción en su propia transacción (`now()`
@@ -153,7 +157,7 @@ export async function seedCatalogBatch(
     title: song.title ?? `Canción ${index}`,
     artistId,
     albumId,
-    genres: [] as string[],
+    genres: song.genres ?? ([] as string[]),
     lyrics: null,
     objectKey: `songs/seed-${suffix}-${index}.mp3`,
     durationSeconds: null,

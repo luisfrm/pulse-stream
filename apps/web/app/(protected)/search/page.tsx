@@ -1,142 +1,348 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import Link from "next/link";
+import { updateTag } from "next/cache";
 
-import { BackLink } from "@/components/back-link";
-import { NoCover } from "@/components/no-cover";
-import { MediaCardSkeleton, SongItemSkeleton } from "@/components/loading-skeletons";
+import { ArtistCard } from "@/components/artist-card";
+import { AlbumCard } from "@/components/album-card";
+import { Carousel } from "@/components/carousel";
+import { GenreCard } from "@/components/genre-card";
+import {
+  CarouselSkeleton,
+  SongItemSkeleton,
+} from "@/components/loading-skeletons";
+import { MediaCard } from "@/components/media-card";
 import { SearchInput } from "@/components/search-input";
+import { Section } from "@/components/section";
+import { SongItem } from "@/components/song-item";
 import { Skeleton } from "@/components/ui";
+import { albumsService } from "@/lib/services/albums-service";
 import { artistsService } from "@/lib/services/artists-service";
+import { genresService } from "@/lib/services/genres-service";
+import { getUserLibrary } from "@/lib/services/library";
+import { playlistsService } from "@/lib/services/playlists-service";
 import { songsService } from "@/lib/services/songs-service";
 import { CACHE_TAGS } from "@/lib/services/tags";
+import type { Album, Playlist } from "@/lib/services/types";
+import { authorHandle } from "@/lib/utils/format";
 
 import { SearchSongsResults } from "./search-songs-results";
 
-export const metadata: Metadata = { title: "Buscar" };
+export const metadata: Metadata = { title: "Explorar" };
 export const dynamic = "force-dynamic";
 
-const PAGE_LIMIT = 24;
+const ARTIST_LIMIT = 12;
+/** Cada fuente de "Incluye" se pide con este tope; el merge se corta en MIX_TOTAL. */
+const MIX_LIMIT = 6;
+const MIX_TOTAL = 12;
+const SONGS_LIMIT = 24;
+/** Landing: filas de canciones (populares 7d), álbumes nuevos y mosaico de géneros. */
+const POPULAR_LIMIT = 10;
+const NEW_ALBUMS_LIMIT = 10;
+
+/** Item de carrusel de artista: card cuadrada chiquita (no circular). */
+const ARTIST_ITEM = "w-[150px] shrink-0 snap-start sm:w-[168px]";
+/** Item de la shelf "Incluye": cover de ~150px, estilo Spotify. */
+const SHELF_ITEM = "w-[140px] shrink-0 snap-start sm:w-[156px]";
+/** Item del carrusel de álbumes: el ancho estándar de las cards boxed. */
+const ALBUM_ITEM = "w-[46%] shrink-0 snap-start sm:w-[31%] lg:w-[196px]";
 
 export default async function SearchPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string | string[] }>;
 }) {
   const params = await searchParams;
-  const query = params.q?.trim() ?? "";
+  // Param repetido (`?q=a&q=b`): se toma el primero, como en el resto de la app.
+  const rawQuery = params.q;
+  const query = (Array.isArray(rawQuery) ? rawQuery[0] : rawQuery)?.trim() ?? "";
 
   return (
     <div className="flex flex-col gap-8">
-      <BackLink href="/dashboard" />
       <header>
-        <h1 className="font-display text-3xl font-extrabold tracking-tight">Buscar</h1>
+        <h1 className="font-display text-3xl font-extrabold tracking-tight">
+          Explorar
+        </h1>
         <p className="mt-1.5 text-sm text-text-subdued">
-          Encontrá canciones por título, o artistas por nombre.
+          Buscá artistas, álbumes, playlists y canciones. Las canciones se
+          ordenan por reproducciones.
         </p>
       </header>
 
-      {/* El input vive FUERA del boundary: al navegar no pierde el foco ni lo
-          tipeado; solo los resultados re-suspenden y muestran el skeleton. */}
+      {/* El input vive FUERA de los boundaries: al navegar no pierde el foco ni
+          lo tipeado; cada sección re-suspende con su propio skeleton. */}
       <SearchInput
         initialValue={query}
-        placeholder="Canciones, artistas…"
+        placeholder="Artistas, álbumes, playlists o canciones…"
       />
 
       {query ? (
-        <Suspense fallback={<SearchResultsSkeleton />}>
-          <SearchResults query={query} />
-        </Suspense>
+        <div className="flex flex-col gap-10">
+          <Suspense fallback={<CarouselSkeleton title="Artistas" />}>
+            <ArtistsSection query={query} />
+          </Suspense>
+
+          <Suspense
+            fallback={<CarouselSkeleton title={`Incluye "${query}"`} />}
+          >
+            <IncludesSection query={query} />
+          </Suspense>
+
+          <Suspense fallback={<SongsSectionSkeleton />}>
+            <SongsSection query={query} />
+          </Suspense>
+        </div>
       ) : (
-        <p className="rounded-2xl border border-bg-highlight bg-bg-elevated/50 px-5 py-10 text-center text-sm text-text-subdued">
-          Escribí algo para empezar a buscar. Probalo con un artista o una canción.
-        </p>
+        <div className="flex flex-col gap-10">
+          <Suspense fallback={<SongsSectionSkeleton />}>
+            <PopularSection />
+          </Suspense>
+
+          <Suspense fallback={<CarouselSkeleton title="Recién llegado" />}>
+            <NewAlbumsSection />
+          </Suspense>
+
+          <Suspense fallback={<GenresSkeleton />}>
+            <GenresSection />
+          </Suspense>
+        </div>
       )}
     </div>
   );
 }
 
-function SearchResultsSkeleton() {
+/** Sección 1: artistas que matchean, card cuadrada chiquita. */
+async function ArtistsSection({ query }: { query: string }) {
+  const { items } = await artistsService.getArtists(
+    { query, limit: ARTIST_LIMIT },
+    { next: { revalidate: 300, tags: [CACHE_TAGS.artists] } },
+  );
+
+  if (items.length === 0) return null;
+
   return (
-    <div className="flex flex-col gap-8">
-      <section>
-        <Skeleton className="mb-4 h-7 w-64" />
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
-          {Array.from({ length: 10 }).map((_, i) => (
-            <MediaCardSkeleton key={i} />
-          ))}
-        </div>
-      </section>
-      <section className="hidden sm:block">
-        <Skeleton className="mb-4 h-7 w-32" />
-        <div className="space-y-2">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <SongItemSkeleton key={i} />
-          ))}
-        </div>
-      </section>
-    </div>
+    <Section title="Artistas">
+      <Carousel>
+        {items.map((artist, index) => (
+          <div key={artist.id} className={ARTIST_ITEM}>
+            <ArtistCard artist={artist} priority={index < 4} />
+          </div>
+        ))}
+      </Carousel>
+    </Section>
   );
 }
 
-async function SearchResults({ query }: { query: string }) {
-  const [{ items: songs, total }, { items: artists }] = await Promise.all([
-    songsService.getSongs(
-      { query: query || undefined, offset: 0, limit: PAGE_LIMIT },
-      { next: { revalidate: 300, tags: [CACHE_TAGS.songs] } },
+type MixedItem =
+  | { kind: "album"; album: Album }
+  | { kind: "playlist"; playlist: Playlist };
+
+/** Sección 2: álbumes + playlists que incluyen la búsqueda en el nombre. */
+async function IncludesSection({ query }: { query: string }) {
+  const [albums, playlists] = await Promise.all([
+    albumsService.getAlbums(
+      { query, limit: MIX_LIMIT },
+      { next: { revalidate: 300, tags: [CACHE_TAGS.albums] } },
     ),
-    artistsService.getArtists(
-      { query: query || undefined, limit: 6 },
-      { next: { revalidate: 300, tags: [CACHE_TAGS.artists] } },
+    playlistsService.getPublicPlaylists(
+      { q: query, limit: MIX_LIMIT },
+      { next: { revalidate: 300, tags: [CACHE_TAGS.playlists] } },
     ),
   ]);
 
-  return (
-    <>
-      <section>
-        <h2 className="mb-4 font-display text-xl font-bold">
-          Canciones para “{query}”
-        </h2>
-        <SearchSongsResults
-          initialPage={{ items: songs, total, offset: 0, limit: PAGE_LIMIT }}
-          query={query}
-        />
-      </section>
+  const mixed = shuffle<MixedItem>([
+    ...albums.items.map((album) => ({ kind: "album" as const, album })),
+    ...playlists.items.map((playlist) => ({
+      kind: "playlist" as const,
+      playlist,
+    })),
+  ]).slice(0, MIX_TOTAL);
 
-      {artists.length > 0 && (
-        <section>
-          <h2 className="mb-4 font-display text-xl font-bold">Artistas</h2>
-          <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {artists.map((artist, idx) => (
-              <li key={artist.id}>
-                <Link
-                  href={`/artist/${artist.id}`}
-                  className="card-lift flex items-center gap-3 rounded-2xl border border-bg-highlight bg-bg-elevated p-3"
-                >
-                  {artist.cover_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={artist.cover_url}
-                      alt=""
-                      loading={idx < 4 ? "eager" : "lazy"}
-                      fetchPriority={idx < 4 ? "high" : "auto"}
-                      decoding="async"
-                      sizes="48px"
-                      className="h-12 w-12 rounded-full object-cover"
-                    />
-                  ) : (
-                    <NoCover shape="circle" size="md" />
-                  )}
-                  <span className="min-w-0">
-                    <span className="block truncate font-medium">{artist.name}</span>
-                    <span className="block text-xs text-text-subdued">Artista</span>
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-    </>
+  if (mixed.length === 0) return null;
+
+  return (
+    <Section title={`Incluye "${query}"`}>
+      <Carousel>
+        {mixed.map((item) =>
+          item.kind === "album" ? (
+            <div key={`album-${item.album.id}`} className={SHELF_ITEM}>
+              <MediaCard
+                title={item.album.title}
+                href={`/album/${item.album.id}`}
+                coverUrl={item.album.cover_url}
+                subtitle={`${item.album.artist.name} · Álbum`}
+              />
+            </div>
+          ) : (
+            <div key={`playlist-${item.playlist.id}`} className={SHELF_ITEM}>
+              <MediaCard
+                title={item.playlist.name}
+                href={`/playlists/${item.playlist.id}`}
+                coverUrl={item.playlist.cover_url}
+                subtitle={`Lista de ${authorHandle(item.playlist.owner_email)}`}
+              />
+            </div>
+          ),
+        )}
+      </Carousel>
+    </Section>
   );
+}
+
+/** Sección 3: canciones (título o artista), más reproducidas primero. */
+async function SongsSection({ query }: { query: string }) {
+  // Catálogo cacheado por tag + biblioteca privada (no-store) en paralelo.
+  const [library, initialPage] = await Promise.all([
+    getUserLibrary(),
+    songsService.getSongs(
+      { query, offset: 0, limit: SONGS_LIMIT, sort: "plays" },
+      { next: { revalidate: 300, tags: [CACHE_TAGS.songs] } },
+    ),
+  ]);
+
+  const refreshLibrary = async () => {
+    "use server";
+    updateTag(CACHE_TAGS.favorites);
+    updateTag(CACHE_TAGS.playlists);
+  };
+
+  return (
+    <Section title="Canciones">
+      {initialPage.items.length === 0 ? (
+        <p className="rounded-2xl border border-bg-highlight bg-bg-elevated/50 px-5 py-8 text-center text-sm text-text-subdued">
+          Sin canciones para “{query}”.
+        </p>
+      ) : (
+        <SearchSongsResults
+          key={query}
+          initialPage={initialPage}
+          query={query}
+          playlists={library?.playlists}
+          favoriteIds={library?.favoriteIds}
+          onMutated={refreshLibrary}
+        />
+      )}
+    </Section>
+  );
+}
+
+function SongsSectionSkeleton() {
+  return (
+    <section>
+      <Skeleton className="mb-4 h-7 w-40" />
+      <div className="flex flex-col gap-2">
+        {Array.from({ length: 5 }).map((_, index) => (
+          <SongItemSkeleton key={index} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** Landing 1: ranking público de la última semana, en filas con acciones. */
+async function PopularSection() {
+  const [library, songs] = await Promise.all([
+    getUserLibrary(),
+    songsService
+      .getPopular(
+        { days: 7, limit: POPULAR_LIMIT },
+        { next: { revalidate: 300, tags: [CACHE_TAGS.songs] } },
+      )
+      // El ranking es descubrimiento: si falla, la sección se omite en vez de
+      // romper la landing (los otros dos bloques siguen en sus boundaries).
+      .catch(() => []),
+  ]);
+
+  if (songs.length === 0) return null;
+
+  const refreshLibrary = async () => {
+    "use server";
+    updateTag(CACHE_TAGS.favorites);
+    updateTag(CACHE_TAGS.playlists);
+  };
+
+  return (
+    <Section title="Populares ahora" eyebrow="Los más escuchados de la semana">
+      <ul className="flex flex-col gap-2">
+        {songs.map((song) => (
+          <SongItem
+            key={song.id}
+            song={song}
+            queue={songs}
+            playlists={library?.playlists}
+            favoriteIds={library?.favoriteIds}
+            onMutated={refreshLibrary}
+          />
+        ))}
+      </ul>
+    </Section>
+  );
+}
+
+/** Landing 2: últimos álbumes del catálogo, cards en shelf horizontal. */
+async function NewAlbumsSection() {
+  const { items } = await albumsService.getAlbums(
+    { limit: NEW_ALBUMS_LIMIT },
+    { next: { revalidate: 300, tags: [CACHE_TAGS.albums] } },
+  );
+
+  if (items.length === 0) return null;
+
+  return (
+    <Section title="Recién llegado" eyebrow="Álbumes nuevos en el catálogo">
+      <Carousel>
+        {items.map((album, index) => (
+          <div key={album.id} className={ALBUM_ITEM}>
+            <AlbumCard album={album} priority={index < 4} />
+          </div>
+        ))}
+      </Carousel>
+    </Section>
+  );
+}
+
+/** Landing 3: mosaico de géneros (grid que wrappea) → listado filtrado. */
+async function GenresSection() {
+  const genres = await genresService
+    .getGenres({ next: { revalidate: 300, tags: [CACHE_TAGS.genres] } })
+    .catch(() => []);
+
+  if (genres.length === 0) return null;
+
+  return (
+    <Section title="Explorar todo">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+        {genres.map((genre) => (
+          <GenreCard key={genre} genre={genre} />
+        ))}
+      </div>
+    </Section>
+  );
+}
+
+function GenresSkeleton() {
+  return (
+    <section>
+      <Skeleton className="mb-4 h-7 w-48" />
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+        {Array.from({ length: 10 }).map((_, index) => (
+          <Skeleton key={index} className="aspect-square" />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Fisher-Yates sobre el merge ya armado.
+ *
+ * La página es `force-dynamic`: el orden cambia en cada request, mientras los
+ * fetch de álbumes/playlists siguen cacheados por tag (revalidate: 300). Se
+ * mezcla en el RSC a propósito: nada de esto viaja al cliente.
+ */
+function shuffle<T>(items: T[]): T[] {
+  for (let i = items.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [items[i], items[j]] = [items[j], items[i]];
+  }
+  return items;
 }
