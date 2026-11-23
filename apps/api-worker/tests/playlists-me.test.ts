@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Integración de `/me/playlists` y `/me/playlists/page` (espejo de
  * `apps/api/tests/test_playlists_me.py` + la variante paginada).
  *
@@ -21,7 +21,7 @@ import {
   testConfig,
   type TestClient,
 } from "./helpers";
-import { createAlbum, createArtist, createSong } from "./catalog-helpers";
+import { seedCatalogBatch } from "./catalog-helpers";
 import { addSongToPlaylist, createPlaylist } from "./library-helpers";
 
 describeDb("me/playlists", () => {
@@ -34,29 +34,19 @@ describeDb("me/playlists", () => {
 
   it("expone song_ids en orden de posición", async () => {
     await registerAndLogin(client, { admin: true });
-    const artist = await createArtist(client, `Artista ${crypto.randomUUID().slice(0, 6)}`);
-    const album = await createAlbum(client, artist.id);
-    const s1 = await createSong(client, {
-      title: "Uno",
-      artistId: artist.id,
-      albumId: album.id,
-      objectKey: `songs/${crypto.randomUUID()}-1.mp3`,
+    const seeded = await seedCatalogBatch({
+      songs: [{ title: "Uno" }, { title: "Dos" }],
     });
-    const s2 = await createSong(client, {
-      title: "Dos",
-      artistId: artist.id,
-      albumId: album.id,
-      objectKey: `songs/${crypto.randomUUID()}-2.mp3`,
-    });
+    const [s1, s2] = seeded.songIds;
 
     await registerAndLogin(client);
     const playA = await createPlaylist(client, "Playlist A");
     const playB = await createPlaylist(client, "Playlist B");
     const empty = await createPlaylist(client, "Vacía");
 
-    await addSongToPlaylist(client, playA.id, s1.id); // A: [s1]
-    await addSongToPlaylist(client, playB.id, s2.id); // B: [s2]
-    await addSongToPlaylist(client, playB.id, s1.id); // B: [s2, s1]
+    await addSongToPlaylist(client, playA.id, s1!); // A: [s1]
+    await addSongToPlaylist(client, playB.id, s2!); // B: [s2]
+    await addSongToPlaylist(client, playB.id, s1!); // B: [s2, s1]
 
     const response = await client.get("/me/playlists");
     expect(response.status).toBe(200);
@@ -67,8 +57,8 @@ describeDb("me/playlists", () => {
       ]),
     );
 
-    expect(byId.get(playA.id)?.song_ids).toEqual([s1.id]);
-    expect(byId.get(playB.id)?.song_ids).toEqual([s2.id, s1.id]);
+    expect(byId.get(playA.id)?.song_ids).toEqual([s1!]);
+    expect(byId.get(playB.id)?.song_ids).toEqual([s2!, s1!]);
     expect(byId.get(empty.id)?.song_ids).toEqual([]);
     // El resto del contrato de PlaylistRead se mantiene intacto.
     expect(byId.get(playB.id)?.song_count).toBe(2);
@@ -78,18 +68,12 @@ describeDb("me/playlists", () => {
 
   it("el schema con song_ids no se filtra a /playlists ni al detalle", async () => {
     await registerAndLogin(client, { admin: true });
-    const artist = await createArtist(client, `Artista ${crypto.randomUUID().slice(0, 6)}`);
-    const album = await createAlbum(client, artist.id);
-    const song = await createSong(client, {
-      title: "Tema",
-      artistId: artist.id,
-      albumId: album.id,
-      objectKey: `songs/${crypto.randomUUID()}.mp3`,
-    });
+    const seeded = await seedCatalogBatch({ songs: [{ title: "Tema" }] });
+    const [songId] = seeded.songIds;
 
     await registerAndLogin(client);
     const playlist = await createPlaylist(client, "Para no filtrar");
-    await addSongToPlaylist(client, playlist.id, song.id);
+    await addSongToPlaylist(client, playlist.id, songId!);
 
     const listed = await readJson<Array<Record<string, unknown>>>(
       await client.get("/playlists"),
@@ -110,14 +94,8 @@ describeDb("me/playlists", () => {
 
   it("la versión paginada devuelve Page<MyPlaylistRead> con song_ids", async () => {
     await registerAndLogin(client, { admin: true });
-    const artist = await createArtist(client, `Artista ${crypto.randomUUID().slice(0, 6)}`);
-    const album = await createAlbum(client, artist.id);
-    const song = await createSong(client, {
-      title: "Tema",
-      artistId: artist.id,
-      albumId: album.id,
-      objectKey: `songs/${crypto.randomUUID()}.mp3`,
-    });
+    const seeded = await seedCatalogBatch({ songs: [{ title: "Tema" }] });
+    const [songId] = seeded.songIds;
 
     await registerAndLogin(client);
     for (const name of ["P1", "P2", "P3"]) {
@@ -128,7 +106,7 @@ describeDb("me/playlists", () => {
     );
     // P2 queda en la página (offset 1 saltea la más nueva, P3).
     const target = first[1]!;
-    await addSongToPlaylist(client, target.id, song.id);
+    await addSongToPlaylist(client, target.id, songId!);
 
     const page = await readJson<{
       items: MyPlaylistRead[];
@@ -147,7 +125,7 @@ describeDb("me/playlists", () => {
 
     // El `song_ids` sigue viajando en la página.
     expect(page.items.map((playlist) => playlist.song_ids)).toContainEqual([
-      song.id,
+      songId!,
     ]);
 
     // Default de limit = 20 y límites del contrato (1..100).

@@ -22,29 +22,20 @@ import {
   testConfig,
   type TestClient,
 } from "./helpers";
-import { createAlbum, createArtist, createSong } from "./catalog-helpers";
+import { seedCatalogBatch } from "./catalog-helpers";
 
 /** Admin + N canciones (el dueño de las canciones no es el que escucha). */
 async function seedSongs(
   client: TestClient,
   count: number,
-): Promise<SongRead[]> {
+): Promise<{ id: string }[]> {
   await registerAndLogin(client, { admin: true });
-  const artist = await createArtist(client, `Artista ${crypto.randomUUID().slice(0, 6)}`);
-  const album = await createAlbum(client, artist.id);
-
-  const songs: SongRead[] = [];
-  for (let index = 0; index < count; index += 1) {
-    songs.push(
-      await createSong(client, {
-        title: `Canción ${index}`,
-        artistId: artist.id,
-        albumId: album.id,
-        objectKey: `songs/listens-${crypto.randomUUID()}.mp3`,
-      }),
-    );
-  }
-  return songs;
+  const { songIds } = await seedCatalogBatch({
+    songs: Array.from({ length: count }, (_, index) => ({
+      title: `Canción ${index}`,
+    })),
+  });
+  return songIds.map((id) => ({ id }));
 }
 
 /**

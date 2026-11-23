@@ -16,7 +16,7 @@ import {
   resetDb,
   type TestClient,
 } from "./helpers";
-import { createAlbum, createArtist, createSong } from "./catalog-helpers";
+import { seedCatalogBatch } from "./catalog-helpers";
 
 describeDb("favorites (songs)", () => {
   let client: TestClient;
@@ -27,26 +27,16 @@ describeDb("favorites (songs)", () => {
   });
 
   /** 3 canciones creadas por un admin (el usuario normal solo las likea). */
-  async function seedSongs(): Promise<SongRead[]> {
+  async function seedSongs(): Promise<{ id: string }[]> {
     await registerAndLogin(client, { admin: true });
-    const artist = await createArtist(client, `Test Band ${crypto.randomUUID().slice(0, 6)}`);
-    const album = await createAlbum(client, artist.id);
-    const songs: SongRead[] = [];
-    for (const title of [
-      "De Música Ligera",
-      "Nada Personal",
-      "Persiana Americana",
-    ]) {
-      songs.push(
-        await createSong(client, {
-          title,
-          artistId: artist.id,
-          albumId: album.id,
-          objectKey: `songs/${crypto.randomUUID()}.mp3`,
-        }),
-      );
-    }
-    return songs;
+    const { songIds } = await seedCatalogBatch({
+      songs: [
+        { title: "De Música Ligera" },
+        { title: "Nada Personal" },
+        { title: "Persiana Americana" },
+      ],
+    });
+    return songIds.map((id) => ({ id }));
   }
 
   it("agrega, lista y quita favoritos", async () => {
@@ -139,23 +129,20 @@ describeDb("favorites (songs)", () => {
 
   it("el listado trae SongRead completo (álbum del favorito)", async () => {
     await registerAndLogin(client, { admin: true });
-    const artist = await createArtist(client, `Artista ${crypto.randomUUID().slice(0, 6)}`);
-    const album = await createAlbum(client, artist.id, "Disco");
-    const song = await createSong(client, {
-      title: "Tema",
-      artistId: artist.id,
-      albumId: album.id,
-      objectKey: `songs/${crypto.randomUUID()}.mp3`,
+    const { artistId, albumId, songIds } = await seedCatalogBatch({
+      albumTitle: "Disco",
+      songs: [{ title: "Tema" }],
     });
+    const songId = songIds[0]!;
 
     await registerAndLogin(client);
-    await client.request(`/me/favorites/${song.id}`, { method: "PUT" });
+    await client.request(`/me/favorites/${songId}`, { method: "PUT" });
 
     const page = await readJson<{ items: SongRead[] }>(
       await client.get("/me/favorites?limit=10"),
     );
-    expect(page.items[0]?.id).toBe(song.id);
-    expect(page.items[0]?.album?.id).toBe(album.id);
-    expect(page.items[0]?.artist.id).toBe(artist.id);
+    expect(page.items[0]?.id).toBe(songId);
+    expect(page.items[0]?.album?.id).toBe(albumId);
+    expect(page.items[0]?.artist.id).toBe(artistId);
   });
 });
