@@ -27,7 +27,7 @@ interface NavItem {
 
 /**
  * Barra de navegación inferior (móvil) — el estándar en pantallas chicas:
- * Inicio / Buscar / Catálogo / Crear (+) / Panel (admin) + Cuenta (→ /account).
+ * Inicio / Explorar / Catálogo / Crear (+) / Panel (admin) + Cuenta (→ /account).
  * El botón "+" abre un popup justo encima de la barra (con overlay) para crear
  * playlists y un acceso a Blend (próximamente, disabled).
  */
@@ -51,7 +51,7 @@ export function BottomNav({ user, isAdmin }: BottomNavProps) {
 
   const items: NavItem[] = [
     { href: "/dashboard", label: "Inicio", icon: Home, exact: true },
-    { href: "/search", label: "Buscar", icon: Search },
+    { href: "/search", label: "Explorar", icon: Search },
     { href: "/catalog", label: "Catálogo", brand: true },
   ];
 

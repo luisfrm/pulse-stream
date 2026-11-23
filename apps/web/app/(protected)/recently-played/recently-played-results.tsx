@@ -59,7 +59,7 @@ export function RecentlyPlayedResults({
           href="/search"
           className="mt-5 inline-block rounded-pill bg-brand-400 px-6 py-2.5 text-sm font-semibold text-bg-base transition-colors hover:bg-brand-200"
         >
-          Buscar canciones
+          Explorar canciones
         </Link>
       </div>
     );

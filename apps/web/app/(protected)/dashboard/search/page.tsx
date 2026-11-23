@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-export const metadata = { title: "Buscar" };
+export const metadata = { title: "Explorar" };
 
 /**
  * Fase 5.5: la búsqueda vive en `/search` (top-level). Esta ruta queda como

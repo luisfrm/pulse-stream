@@ -38,7 +38,7 @@ interface NavItem {
 function useNavItems(isAdmin: boolean): NavItem[] {
   return [
     { href: "/dashboard", label: "Inicio", icon: Home, exact: true },
-    { href: "/search", label: "Buscar", icon: Search },
+    { href: "/search", label: "Explorar", icon: Search },
     // "Mi catálogo" abre la sección Biblioteca, antes de Canciones.
     { href: "/catalog", label: "Mi catálogo", icon: LibraryBig, group: "Biblioteca" },
     { href: "/songs", label: "Canciones", icon: Music2, group: "Biblioteca" },
