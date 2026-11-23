@@ -282,7 +282,7 @@ están documentados en el gate de contrato.
 | Item | Alcance | Estado |
 |---|---|---|
 | **Tests** | `.github/workflows/tests.yml`: solo unitarios (worker `test:unit` + web vitest) en cada `pull_request`, sin DB ni secrets | Hecho |
-| **CI (integracion)** | `ci.yml` pasa a `push: main` + `workflow_dispatch`: pytest, vitest con Neon, typecheck/lint/build del web y `generated.ts` pinneado | Hecho |
+| **CI (integracion)** | `ci.yml` pasa a `push: master` + `workflow_dispatch`: pytest, vitest con Neon, typecheck/lint/build del web y `generated.ts` pinneado | Hecho (job `api` de pytest eliminado al deprecar el backend Python — ver *Pendientes de infraestructura*) |
 | **Deploy API Worker** | `.github/workflows/deploy-api-worker.yml`: migraciones con la URL directa, `wrangler deploy`, `wrangler secret bulk` desde GitHub, smoke `/health`/`/genres`/`/artists`; environment `production` | Hecho |
 | **Config del Worker** | `wrangler.jsonc` con `routes` del custom domain y `vars` no secretas; secretos de runtime solo en GitHub (fuente de verdad) | Hecho |
 | **Deploy web** | Vercel con su integracion de Git (sin workflow); envs `NEXT_PUBLIC_API_URL`, `ENV=prod`, `COOKIE_DOMAIN`, `COOKIE_SAMESITE` | Manual (dashboard) |
@@ -345,3 +345,34 @@ viewport) en vez del tamaño estándar de las demás secciones.
 | **Destacados normalizado** | Carrusel estándar de `ContextMediaCard` (196px, idéntico al resto de las secciones). `CollageCard` y `CollageCardSkeleton` eliminados: el home tiene una sola clase de card | Hecho (reviewer: approved) |
 | **A11y** | Links de cover con `aria-label` en `song-item` y `artists-results` (eran focusables sin nombre accesible) | Hecho |
 | **Datos** | Ambas Essentials regeneradas 100% desde el panel (Bad Bunny y Daddy Yankee) | Hecho |
+
+## Pasada de hardening — Resuelta
+
+Seis hallazgos investigados con evidencia (4 aplican, 1 aplica como tradeoff de diseño, 1 no aplica en lo esencial pero sí su camino de error). Fixes verificados en vivo y aprobados por review.
+
+| Item | Fix | Estado |
+|---|---|---|
+| **Posiciones de `playlist_songs`** (adds concurrentes duplicaban `position` sin error) | Migración `0005`: renumeración global (repara duplicados) + `UNIQUE (playlist_id, position)`; retry del INSERT ante unique violation; offset `+1_000_000` en el remove para la colisión transitoria del índice non-deferrable (testeado quitando la PRIMERA canción). `replacePlaylistSongs` no lo necesita (DELETE-all en la misma transacción) | Hecho (reviewer: approved) |
+| **Curación con respuestas fuera de orden** | Guard `if (pendingSongId) return;` + `finally` funcional en el panel; segundo click no dispara otra mutación | Hecho |
+| **Borrado de artista** | `onMutated()` no bloquea la salida, modal se cierra en error, sin `router.refresh()` redundante | Hecho |
+| **Resize del PlaylistPicker** (`Node.contains(window)` lanzaba TypeError y el panel quedaba anclado) | Handler dedicado `onResize` + `maxHeight` calculado al abrir en ambas ramas | Hecho |
+| **Saludo con hora del server** (UTC en Vercel → 3h de error en ART) | `Greeting` client: `initial` del server (sin mismatch) y recálculo con la hora del browser vía rAF | Hecho |
+| **Chips sin feedback durante la navegación RSC** | `useTransition` + `aria-busy` + atenuado (el filtrado server-side queda igual) | Hecho |
+
+Nota: el test de renumeración que falló con timeout durante la pasada era
+latencia de red (15 requests secuenciales a Neon a ~1.3s), no un hang —
+reproducido contra el worker: el DELETE del remove responde en ~1.3s. Se
+amplió su timeout a 40s con comentario.
+
+## Pendientes de infraestructura (CI / migraciones)
+
+| # | Tarea | Estado |
+|---|---|---|
+| 1 | Migración Drizzle **`0000_baseline`** (esquema completo en un solo baseline) | Pendiente — es lo que permite dropear el bootstrap Alembic de la base de test y el paso `Python schema` de `ci.yml`; hasta entonces el Worker depende de `apps/api` solo como infraestructura de test |
+| 2 | Secret **`TEST_DATABASE_URL`** de GitHub | Sin uso tras quitar el job `api` de `ci.yml` (el Worker usa `TEST_DATABASE_URL_WORKER`) y purgable cuando el baseline esté; se deja por si hace falta un checkout del Python deprecado |
+| 3 | Workflow manual **`db-migrate.yml`** (aplicar migraciones Drizzle sin deploy) | Cancelado por ahora; planeado para una fase posterior. Hasta entonces `db:migrate` se corre a mano con guard (`CONFIRM_TARGET`) |
+
+> **Verificación de cada fase**: `pnpm typecheck` no incluye el Worker, así que
+> cada fase cierra con `pnpm --filter @pulse-stream/api-worker typecheck`
+> además de su suite. `vitest` transpila sin chequear tipos: un fixture
+> incompleto (`PlaylistRow` sin `artistId`) pasaba los tests y solo rompía `tsc`.

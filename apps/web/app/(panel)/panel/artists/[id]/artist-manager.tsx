@@ -89,11 +89,14 @@ export function ArtistManager({
       // El DELETE cascadea álbumes/canciones y, desde F3.1, la Essentials del
       // artista: sin purga, "Destacados" y el feed muestran la playlist muerta
       // hasta 5 min. La action del artista ya purga artists/albums/songs/playlists.
-      await onMutated();
+      // Si la purga falla, el artista YA se borró: no se bloquea la salida.
+      await onMutated().catch(() => {});
       router.push("/panel/artists");
-      router.refresh();
+      // Sin router.refresh(): encolaría un refresh del destino, no de esta
+      // página; los updateTag de onMutated ya invalidaron lo necesario.
     } catch (err) {
       setError(friendlyError(err));
+      setDeleting(false);
       setPending(false);
     }
   }

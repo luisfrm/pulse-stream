@@ -148,7 +148,7 @@ pnpm gen:types:worker
 | Workflow | Dispara | Qué corre | Secrets |
 |---|---|---|---|
 | `Tests` | **pull_request** | unitarios: worker `test:unit` (202) + web vitest (58). Sin red ni DB | ninguno |
-| `CI (integración)` | **push a master** / manual | pytest + vitest de integración con Neon, typecheck/lint/build del web, dry-run del worker y `generated.ts` pinneado | repository: `TEST_DATABASE_URL`, `TEST_DATABASE_URL_WORKER` |
+| `CI (integración)` | **push a master** / manual | vitest de integración con Neon, typecheck/lint/build del web, dry-run del worker y `generated.ts` pinneado (job `api` de pytest eliminado: backend Python deprecado) | repository: `TEST_DATABASE_URL_WORKER` (`TEST_DATABASE_URL` quedó sin uso, purgable) |
 | `Deploy API Worker` | **push a master** (paths del worker) / manual | typecheck + unit + migraciones + `wrangler deploy` + sync de secrets + smoke | environment `production`: `CLOUDFLARE_API_TOKEN`, `MIGRATE_DATABASE_URL`, `DATABASE_URL`, `AUTH_SECRET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `RESEND_API_KEY`; variable `CLOUDFLARE_ACCOUNT_ID` |
 
 **El web lo deploya Vercel** con su integración de Git; no hay workflow de deploy
@@ -184,7 +184,7 @@ misma base se rompen mutuamente.
 | `R2_SECRET_ACCESS_KEY` | Fase 1 | Secret del API Token de R2 |
 | `R2_BUCKET_NAME` | Fase 1 | Nombre del bucket creado en R2 |
 | `R2_MAX_UPLOAD_BYTES` | no | Tamaño máximo de subida (default 50 MB) |
-| `TEST_DATABASE_URL` | solo tests | Base de tests (ej. branch efímera de Neon). Sin ella, `pytest` se salta |
+| `TEST_DATABASE_URL` | solo tests | Base de tests (ej. branch efímera de Neon). Sin ella, `pytest` se salta. **Ya sin uso en CI** (job eliminado); sólo quedan los tests locales del `apps/api` deprecado |
 
 ### `apps/web/.env.local`
 

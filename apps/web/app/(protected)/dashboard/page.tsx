@@ -7,6 +7,7 @@ import { Heart, Plus } from "lucide-react";
 import { Carousel } from "@/components/carousel";
 import { Chips } from "@/components/chips";
 import { ContextMediaCard } from "@/components/context-media-card";
+import { Greeting } from "@/components/greeting";
 import { CarouselSkeleton } from "@/components/loading-skeletons";
 import { NoCover } from "@/components/no-cover";
 import { Section } from "@/components/section";
@@ -94,7 +95,10 @@ export default async function DashboardHome({
     <div className="flex flex-col">
       <header>
         <h1 className="font-display text-2xl font-bold sm:text-3xl">
-          {greetingForHour(new Date().getHours())}, {displayName}
+          <Greeting
+            initial={greetingForHour(new Date().getHours())}
+            name={displayName}
+          />
         </h1>
       </header>
 

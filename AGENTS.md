@@ -38,7 +38,10 @@ uv run pytest                          # integración; exige TEST_DATABASE_URL
 - Frontend usa **alias `@/*` → `apps/web/*`** (tsconfig paths).
 - Solo un paquete: `pnpm --filter @pulse-stream/web <lint|typecheck|test|build>`
   (`test` del web = `vitest run`). El CI (`.github/workflows/ci.yml`) corre
-  exactamente: API `uv run pytest` + web `typecheck → lint → build`.
+  exactamente: web `typecheck → lint → build` y `api-worker` `typecheck →
+  vitest de integración (Neon) → dry-run build`. El job de pytest de la API
+  Python fue eliminado (backend deprecado); Alembic sobrevive sólo como
+  bootstrap del esquema de la base de test del worker.
 
 ---
 
@@ -452,8 +455,9 @@ integración `tests/auth-password-reset.test.ts` cubre el reset con token válid
 (si alguien revierte el shim, ese test es el que rompe). Sin `RESEND_API_KEY` en
 local el link se loguea y no se manda mail.
 
-**CI/CD**: `Tests` (solo unitarios, en cada PR), `CI (integracion)` (pytest +
-vitest con Neon, push a master) y `Deploy API Worker` (migraciones + `wrangler
+**CI/CD**: `Tests` (solo unitarios, en cada PR), `CI (integracion)` (vitest con
+Neon + checks del web y del worker, push a master) y `Deploy API Worker`
+(migraciones + `wrangler
 deploy` + `wrangler secret bulk` + smoke, environment `production`). El web lo
 deploya Vercel. La config NO secreta del Worker vive en `wrangler.jsonc`
 (`vars` + `routes`); los secretos de runtime se sincronizan desde GitHub en cada

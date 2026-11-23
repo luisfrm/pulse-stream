@@ -1,5 +1,6 @@
 "use client";
 
+import { useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { cn } from "@/components/ui";
@@ -26,6 +27,7 @@ export function Chips({ chips, param = "tipo" }: ChipsProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const active = searchParams.get(param) ?? "";
+  const [pending, startTransition] = useTransition();
 
   function select(value: string) {
     const params = new URLSearchParams(searchParams.toString());
@@ -33,14 +35,22 @@ export function Chips({ chips, param = "tipo" }: ChipsProps) {
     if (!value || params.get(param) === value) params.delete(param);
     else params.set(param, value);
     const query = params.toString();
-    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    startTransition(() => {
+      router.replace(query ? `${pathname}?${query}` : pathname, {
+        scroll: false,
+      });
+    });
   }
 
   return (
     <div
       role="group"
       aria-label="Filtros"
-      className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4"
+      aria-busy={pending}
+      className={cn(
+        "no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 transition-opacity",
+        pending && "opacity-70"
+      )}
     >
       {chips.map((chip) => {
         const isActive = active === chip.value;

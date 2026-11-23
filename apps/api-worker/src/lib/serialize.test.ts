@@ -217,6 +217,7 @@ describe("playlists", () => {
     coverKey: null,
     isPublic: false,
     ownerId: userRow.id,
+    artistId: null,
     createdAt,
     updatedAt: createdAt,
   };

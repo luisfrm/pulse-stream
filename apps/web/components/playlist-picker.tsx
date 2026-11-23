@@ -76,15 +76,18 @@ export function PlaylistPicker({
       if (panelRef.current?.contains(e.target as Node)) return;
       setOpen(false);
     };
+    // En `resize` el target es `window` (no un Node): `Node.contains(window)`
+    // lanza TypeError. Handler dedicado (zoom/rotación cierran el panel).
+    const onResize = () => setOpen(false);
     document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
     document.addEventListener("scroll", onScroll, true);
-    window.addEventListener("resize", onScroll);
+    window.addEventListener("resize", onResize);
     return () => {
       document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
       document.removeEventListener("scroll", onScroll, true);
-      window.removeEventListener("resize", onScroll);
+      window.removeEventListener("resize", onResize);
     };
   }, [isMobile, open]);
 
@@ -100,27 +103,25 @@ export function PlaylistPicker({
         Math.max(8, rect.right - width),
         window.innerWidth - width - 8
       );
-      // El panel se clampea al viewport: si no entra abajo, flipea arriba
-      // ANCLADO AL TRIGGER (por su borde inferior, no por una altura estimada
-      // fija — si no, un panel corto queda a la deriva con un hueco enorme).
       const PANEL_MAX = 320;
       const below = rect.bottom + 8;
       const fitsBelow = below + PANEL_MAX <= window.innerHeight;
-      const top = fitsBelow
-        ? below
-        : Math.max(8, rect.top - PANEL_MAX - 8);
-      setPanelPos({
-        top,
-        left,
-        // En el flip se ancla por abajo (CSS `bottom`), así el panel pega con
-        // el trigger sin importar su altura real.
-        ...(fitsBelow
-          ? {}
-          : {
-              bottom: window.innerHeight - rect.top + 8,
-              maxHeight: rect.top - 16,
-            }),
-      });
+
+      if (fitsBelow) {
+        const top = below;
+        setPanelPos({
+          top,
+          left,
+          maxHeight: window.innerHeight - top - 8,
+        });
+      } else {
+        setPanelPos({
+          // Flip: anclado por abajo al trigger, sin hueco.
+          bottom: window.innerHeight - rect.top + 8,
+          left,
+          maxHeight: rect.top - 16,
+        });
+      }
     }
     setOpen(true);
     setError(null);
@@ -337,13 +338,10 @@ export function PlaylistPicker({
             style={{
               // Normal: anclado por arriba; flip: por abajo, pegado al trigger.
               ...(panelPos.bottom !== undefined
-                ? { bottom: panelPos.bottom, maxHeight: panelPos.maxHeight }
-                : {
-                    top: panelPos.top,
-                    maxHeight:
-                      window.innerHeight - (panelPos.top ?? 0) - 8,
-                  }),
+                ? { bottom: panelPos.bottom }
+                : { top: panelPos.top }),
               left: panelPos.left,
+              maxHeight: panelPos.maxHeight,
             }}
             className="animate-dropdown-in fixed z-50 w-72 overflow-y-auto rounded-2xl border border-bg-highlight bg-bg-elevated p-2 shadow-2xl"
           >
