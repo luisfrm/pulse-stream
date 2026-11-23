@@ -37,5 +37,5 @@ async function ProtectedShell({ children }: { children: React.ReactNode }) {
 
   const isAdmin = user.role === "admin" || user.is_superuser;
 
-  return <DashboardShell user={user} isAdmin={isAdmin}>{children}</DashboardShell>;
+  return <DashboardShell isAdmin={isAdmin}>{children}</DashboardShell>;
 }

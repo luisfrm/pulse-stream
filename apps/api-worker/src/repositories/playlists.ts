@@ -20,6 +20,8 @@ import {
   ARTIST_TOP_QUERY,
   playlistSongs,
   playlists,
+  songCollaborators,
+  songs,
   users,
   type NewPlaylistRow,
   type PlaylistRow,
@@ -168,6 +170,54 @@ export interface PublicPlaylistFilters {
   ownerId?: string;
   /** Contains por nombre (`GET /playlists/public?q=`), case-insensitive. */
   search?: string | null;
+  /**
+   * Playlists cuyo CONTENIDO incluye ≥1 canción donde el artista participa
+   * (principal o colaborador) — `GET /playlists/public?artist_id=`.
+   */
+  artistId?: string | null;
+}
+
+/**
+ * Filtros del feed público compartidos por el listado y el count (mismo WHERE
+ * ⇒ `total` consistente por construcción).
+ */
+export type PublicPlaylistConditions = Omit<
+  PublicPlaylistFilters,
+  "offset" | "limit"
+>;
+
+function publicPlaylistConditions(filters: PublicPlaylistConditions) {
+  const conditions = [eq(playlists.isPublic, true)];
+
+  if (filters.ownerId) {
+    conditions.push(eq(playlists.ownerId, filters.ownerId));
+  }
+  if (filters.search) {
+    conditions.push(sql`${playlists.name} ILIKE ${`%${filters.search}%`}`);
+  }
+  if (filters.artistId) {
+    // Membership: la playlist tiene alguna canción del artista. El `EXISTS`
+    // anidado cubre "participa" (principal O colaborador) y evita joins que
+    // dupliquen filas de playlists (`LIMIT`/`count` intactos).
+    const artistId = filters.artistId;
+    conditions.push(sql`EXISTS (
+      SELECT 1
+      FROM ${playlistSongs} AS "ps"
+      INNER JOIN ${songs} AS "s" ON "s"."id" = "ps"."song_id"
+      WHERE "ps"."playlist_id" = ${playlists.id}
+        AND (
+          "s"."artist_id" = ${artistId}::uuid
+          OR EXISTS (
+            SELECT 1
+            FROM ${songCollaborators} AS "sc"
+            WHERE "sc"."song_id" = "s"."id"
+              AND "sc"."artist_id" = ${artistId}::uuid
+          )
+        )
+    )`);
+  }
+
+  return conditions;
 }
 
 /**
@@ -178,17 +228,11 @@ export async function listPublicPlaylists(
   config: AppConfig,
   filters: PublicPlaylistFilters,
 ): Promise<PlaylistWithItems[]> {
-  const conditions = [eq(playlists.isPublic, true)];
-  if (filters.ownerId) conditions.push(eq(playlists.ownerId, filters.ownerId));
-  if (filters.search) {
-    conditions.push(sql`${playlists.name} ILIKE ${`%${filters.search}%`}`);
-  }
-
   const rows = await createDb(config)
     .select({ playlist: playlists, ownerEmail: users.email })
     .from(playlists)
     .innerJoin(users, eq(playlists.ownerId, users.id))
-    .where(and(...conditions))
+    .where(and(...publicPlaylistConditions(filters)))
     .orderBy(...systemFirstOrder())
     .offset(filters.offset)
     .limit(filters.limit);
@@ -205,22 +249,15 @@ export async function listPublicPlaylists(
   }));
 }
 
+/** `total` del feed público: MISMO WHERE que `listPublicPlaylists`. */
 export async function countPublicPlaylists(
   config: AppConfig,
-  ownerId?: string,
-  /** Mismo `q` que `listPublicPlaylists` (el total refleja el filtro). */
-  search?: string | null,
+  filters: PublicPlaylistConditions,
 ): Promise<number> {
-  const conditions = [eq(playlists.isPublic, true)];
-  if (ownerId) conditions.push(eq(playlists.ownerId, ownerId));
-  if (search) {
-    conditions.push(sql`${playlists.name} ILIKE ${`%${search}%`}`);
-  }
-
   const rows = await createDb(config)
     .select({ value: count() })
     .from(playlists)
-    .where(and(...conditions));
+    .where(and(...publicPlaylistConditions(filters)));
   return rows[0]?.value ?? 0;
 }
 

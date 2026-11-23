@@ -224,6 +224,11 @@ const listPublicPlaylistsRoute = createRoute({
   request: {
     query: pageQuerySchema().extend({
       q: searchQuery("Filtra por nombre de la playlist (contains)"),
+      artist_id: UuidSchema.nullable().optional().openapi({
+        description:
+          "Playlists cuyo contenido incluye canciones del artista " +
+          "(principal o colaborador)",
+      }),
     }),
   },
   responses: {
@@ -464,8 +469,13 @@ export function registerPlaylistRoutes(app: OpenAPIHono<AppEnv>): void {
 
   app.openapi(listPublicPlaylistsRoute, async (c) => {
     const config = c.get("config");
-    const { offset, limit, q } = c.req.valid("query");
-    const page = await listPublicCommunity(config, offset, limit, q);
+    const { offset, limit, q, artist_id } = c.req.valid("query");
+    const page = await listPublicCommunity(config, {
+      offset,
+      limit,
+      search: q,
+      artistId: artist_id,
+    });
     return c.json(
       paginate(
         page.items.map((playlist) => toPlaylistDto(playlist, config)),

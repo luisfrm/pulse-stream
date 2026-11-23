@@ -3234,6 +3234,8 @@ export interface operations {
                 limit?: number;
                 /** @description Filtra por nombre de la playlist (contains) */
                 q?: string | null;
+                /** @description Playlists cuyo contenido incluye canciones del artista (principal o colaborador) */
+                artist_id?: string | null;
             };
             header?: never;
             path?: never;

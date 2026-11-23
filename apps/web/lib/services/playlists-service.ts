@@ -59,15 +59,23 @@ export const playlistsService = {
 
   /**
    * Feed público: playlists de toda la comunidad (con autor).
-   * `q` filtra por nombre (contains, case-insensitive) y el `total` respeta el
-   * filtro; el orden (system primero) no cambia.
+   * `q` filtra por nombre (contains, case-insensitive) y `artistId` por
+   * CONTENIDO (playlists con alguna canción donde el artista participa); el
+   * `total` respeta el filtro y el orden (system primero) no cambia.
    */
   async getPublicPlaylists(
-    params?: { offset?: number; limit?: number; q?: string },
+    params?: {
+      offset?: number;
+      limit?: number;
+      q?: string;
+      /** Wire name: `artist_id`. */
+      artistId?: string;
+    },
     options?: ApiFetchOptions,
   ): Promise<Page<Playlist>> {
+    const { artistId, ...rest } = params ?? {};
     return await api<Page<Playlist>>("/playlists/public", {
-      query: params,
+      query: { ...rest, ...(artistId ? { artist_id: artistId } : {}) },
       ...options,
     });
   },

@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import { updateTag } from "next/cache";
 import Link from "next/link";
 
 import { AlbumCard } from "@/components/album-card";
@@ -11,8 +10,8 @@ import { SongItem } from "@/components/song-item";
 import { Skeleton, Title } from "@/components/ui";
 import { favoritesService } from "@/lib/services/favorites-service";
 import { getUserLibrary } from "@/lib/services/library";
-import { CACHE_TAGS } from "@/lib/services/tags";
 
+import { refreshLibrary } from "@/app/(protected)/actions";
 import { CreatePlaylistForm } from "@/app/(protected)/playlists/create-playlist-form";
 
 export const metadata: Metadata = { title: "Mi catálogo" };
@@ -112,12 +111,6 @@ async function CatalogContent({ query }: { query: string }) {
     favoritesService.getFavoritePlaylists({ limit: LIBRARY_LIMIT }),
     favoritesService.getFavoriteAlbums({ limit: LIBRARY_LIMIT }),
   ]);
-
-  const refreshLibrary = async () => {
-    "use server";
-    updateTag(CACHE_TAGS.favorites);
-    updateTag(CACHE_TAGS.playlists);
-  };
 
   const q = query.toLowerCase();
   const matches = (value: string) => value.toLowerCase().includes(q);

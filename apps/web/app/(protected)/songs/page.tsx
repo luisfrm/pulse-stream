@@ -1,9 +1,9 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { updateTag } from "next/cache";
 import { X } from "lucide-react";
 
+import { refreshLibrary } from "@/app/(protected)/actions";
 import { SearchInput } from "@/components/search-input";
 import { genresService } from "@/lib/services/genres-service";
 import { getUserLibrary } from "@/lib/services/library";
@@ -99,12 +99,6 @@ async function SongsContent({ query, genre }: { query: string; genre: string }) 
       { next: { revalidate: 300, tags: [CACHE_TAGS.songs] } },
     ),
   ]);
-
-  const refreshLibrary = async () => {
-    "use server";
-    updateTag(CACHE_TAGS.favorites);
-    updateTag(CACHE_TAGS.playlists);
-  };
 
   if (initialPage.items.length === 0) {
     return (

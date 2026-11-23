@@ -14,14 +14,19 @@ interface LoadMoreButtonProps {
   hasMore: boolean;
   /** Texto del botón (default "Ver más"). */
   label?: string;
-  /** Texto final cuando ya no hay más (default "No hay más resultados"). */
-  doneLabel?: string;
+  /**
+   * Texto final cuando ya no hay más (default "No hay más resultados").
+   * `null` lo oculta: útil cuando la página inicial ya trae todo (p. ej. la
+   * discografía de un artista con pocos álbumes) y el mensaje sería ruido.
+   */
+  doneLabel?: string | null;
   className?: string;
 }
 
 /**
  * Botón "Ver más" estándar para listas paginadas client-side.
- * Cuando no hay más, se renderiza solo el mensaje sutil centrado.
+ * Cuando no hay más, se renderiza solo el mensaje sutil centrado (o nada, si
+ * `doneLabel` es `null`).
  */
 export function LoadMoreButton({
   onClick,
@@ -32,6 +37,7 @@ export function LoadMoreButton({
   className,
 }: LoadMoreButtonProps) {
   if (!hasMore) {
+    if (doneLabel === null) return null;
     return (
       <p className="py-4 text-center text-xs text-text-subdued">{doneLabel}</p>
     );
