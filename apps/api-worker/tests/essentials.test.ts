@@ -20,7 +20,7 @@ import {
   testConfig,
   type TestClient,
 } from "./helpers";
-import { createAlbum, createArtist, createSong } from "./catalog-helpers";
+import { createArtist, seedCatalogBatch } from "./catalog-helpers";
 
 const ADMIN_REQUIRED = "Requiere permisos de administrador";
 
@@ -31,31 +31,20 @@ async function setPlayCount(songId: string, playCount: number): Promise<void> {
     .where(eq(songs.id, songId));
 }
 
-/** Admin + artista + álbum + una canción por cada `playCounts` indicado. */
+/**
+ * Admin + artista + álbum + una canción por cada `playCounts` indicado.
+ *
+ * El alta es solo preparación (lo que se testea es el snapshot), así que va en
+ * UN `seedCatalogBatch` en vez de un request por canción.
+ */
 async function seedArtistWithSongs(
   client: TestClient,
   playCounts: number[],
 ): Promise<{ artistId: string; artistName: string; songIds: string[] }> {
   await registerAndLogin(client, { admin: true });
-  const artist = await createArtist(
-    client,
-    `Artista ${crypto.randomUUID().slice(0, 6)}`,
-  );
-  const album = await createAlbum(client, artist.id);
-
-  const songIds: string[] = [];
-  for (const [index, playCount] of playCounts.entries()) {
-    const song = await createSong(client, {
-      title: `Canción ${index}`,
-      artistId: artist.id,
-      albumId: album.id,
-      objectKey: `songs/essentials-${crypto.randomUUID()}.mp3`,
-    });
-    await setPlayCount(song.id, playCount);
-    songIds.push(song.id);
-  }
-
-  return { artistId: artist.id, artistName: artist.name, songIds };
+  return seedCatalogBatch({
+    songs: playCounts.map((playCount) => ({ playCount })),
+  });
 }
 
 function createEssentials(
@@ -287,20 +276,10 @@ describeDb("playlists essentials", () => {
       await createEssentials(client, { artist_id: artistId }),
     );
 
-    // Curación manual: una canción de otro artista.
-    const otherArtist = await createArtist(
-      client,
-      `Artista ${crypto.randomUUID().slice(0, 6)}`,
-    );
-    const otherAlbum = await createAlbum(client, otherArtist.id);
-    const otherSong = await createSong(client, {
-      title: "Invitada",
-      artistId: otherArtist.id,
-      albumId: otherAlbum.id,
-      objectKey: `songs/essentials-other-${crypto.randomUUID()}.mp3`,
-    });
+    // Curación manual: una canción de otro artista (alta = preparación).
+    const other = await seedCatalogBatch({ songs: [{ title: "Invitada" }] });
     await client.postJson(`/playlists/${created.id}/songs`, {
-      song_id: otherSong.id,
+      song_id: other.songIds[0]!,
     });
 
     // El artista se queda sin canciones: el ranking queda vacío.
@@ -320,7 +299,7 @@ describeDb("playlists essentials", () => {
     const detail = await readJson<PlaylistDetail>(
       await client.get(`/playlists/${created.id}`),
     );
-    expect(detail.songs?.map((song) => song.id)).toEqual([otherSong.id]);
+    expect(detail.songs?.map((song) => song.id)).toEqual([other.songIds[0]!]);
   });
 
   it("lookup sin sesión -> 401", async () => {

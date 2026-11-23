@@ -23,7 +23,7 @@ import {
   testConfig,
   type TestClient,
 } from "./helpers";
-import { createAlbum, createArtist, createSong } from "./catalog-helpers";
+import { createArtist, seedCatalogBatch } from "./catalog-helpers";
 import { addSongToPlaylist, createPlaylist } from "./library-helpers";
 
 const FORBIDDEN = "No tenés acceso a esta playlist";
@@ -54,24 +54,17 @@ describeDb("playlists", () => {
 
   it("agrega y quita canciones respetando el orden", async () => {
     await registerAndLogin(client, { admin: true });
-    const artist = await createArtist(client, `Cerati ${crypto.randomUUID().slice(0, 6)}`);
-    const album = await createAlbum(client, artist.id, "Bocanada");
-    const s1 = await createSong(client, {
-      title: "Crimen",
-      artistId: artist.id,
-      albumId: album.id,
-      objectKey: `songs/${crypto.randomUUID()}.mp3`,
+    const { artistName, songIds } = await seedCatalogBatch({
+      artistName: `Cerati ${crypto.randomUUID().slice(0, 6)}`,
+      albumTitle: "Bocanada",
+      songs: [{ title: "Crimen" }, { title: "Adiós" }],
     });
-    const s2 = await createSong(client, {
-      title: "Adiós",
-      artistId: artist.id,
-      albumId: album.id,
-      objectKey: `songs/${crypto.randomUUID()}.mp3`,
-    });
+    const s1 = { id: songIds[0]! };
+    const s2 = { id: songIds[1]! };
 
     // Usuario normal dueño de la playlist.
     await registerAndLogin(client);
-    const playlist = await createPlaylist(client, `Favoritas de ${artist.name}`);
+    const playlist = await createPlaylist(client, `Favoritas de ${artistName}`);
 
     const first = await addSongToPlaylist(client, playlist.id, s1.id);
     expect(first.song_count).toBe(1);
@@ -109,26 +102,10 @@ describeDb("playlists", () => {
 
   it("posiciones 0..n-1 y el unique (playlist_id, position) las protege", async () => {
     await registerAndLogin(client, { admin: true });
-    const artist = await createArtist(client, `Artista ${crypto.randomUUID().slice(0, 6)}`);
-    const album = await createAlbum(client, artist.id);
-    const s1 = await createSong(client, {
-      title: "Uno",
-      artistId: artist.id,
-      albumId: album.id,
-      objectKey: `songs/${crypto.randomUUID()}-p1.mp3`,
+    const seeded = await seedCatalogBatch({
+      songs: [{ title: "Uno" }, { title: "Dos" }, { title: "Tres" }],
     });
-    const s2 = await createSong(client, {
-      title: "Dos",
-      artistId: artist.id,
-      albumId: album.id,
-      objectKey: `songs/${crypto.randomUUID()}-p2.mp3`,
-    });
-    const s3 = await createSong(client, {
-      title: "Tres",
-      artistId: artist.id,
-      albumId: album.id,
-      objectKey: `songs/${crypto.randomUUID()}-p3.mp3`,
-    });
+    const [s1, s2, s3] = seeded.songIds.map((id) => ({ id }));
 
     await registerAndLogin(client); // dueño de la playlist
     const playlist = await createPlaylist(client, "Orden estable");
@@ -313,19 +290,16 @@ describeDb("playlists", () => {
 
   it("quitar canciones renumera las posiciones (detalle y song_ids)", async () => {
     await registerAndLogin(client, { admin: true });
-    const artist = await createArtist(client, `Renumber ${crypto.randomUUID().slice(0, 6)}`);
-    const album = await createAlbum(client, artist.id, "Cuatro");
-    const created: SongRead[] = [];
-    for (const title of ["Uno", "Dos", "Tres", "Cuatro"]) {
-      created.push(
-        await createSong(client, {
-          title,
-          artistId: artist.id,
-          albumId: album.id,
-          objectKey: `songs/${crypto.randomUUID()}.mp3`,
-        }),
-      );
-    }
+    const seeded = await seedCatalogBatch({
+      albumTitle: "Cuatro",
+      songs: [
+        { title: "Uno" },
+        { title: "Dos" },
+        { title: "Tres" },
+        { title: "Cuatro" },
+      ],
+    });
+    const created = seeded.songIds.map((id) => ({ id }));
 
     await registerAndLogin(client);
     const playlist = await createPlaylist(client, "Renumerada");
@@ -377,22 +351,11 @@ describeDb("playlists", () => {
     // un solo UPDATE puede pisar `ux_playlist_songs_position` (la fila en 1
     // todavía ocupa el destino 1 de la fila en 2).
     await registerAndLogin(client, { admin: true });
-    const artist = await createArtist(
-      client,
-      `Offset ${crypto.randomUUID().slice(0, 6)}`,
-    );
-    const album = await createAlbum(client, artist.id, "Tres");
-    const created: SongRead[] = [];
-    for (const title of ["Uno", "Dos", "Tres"]) {
-      created.push(
-        await createSong(client, {
-          title,
-          artistId: artist.id,
-          albumId: album.id,
-          objectKey: `songs/${crypto.randomUUID()}.mp3`,
-        }),
-      );
-    }
+    const seeded = await seedCatalogBatch({
+      albumTitle: "Tres",
+      songs: [{ title: "Uno" }, { title: "Dos" }, { title: "Tres" }],
+    });
+    const created = seeded.songIds.map((id) => ({ id }));
 
     await registerAndLogin(client);
     const playlist = await createPlaylist(client, "Offset renumber");
@@ -414,23 +377,20 @@ describeDb("playlists", () => {
 
   it("el detalle expone SongRead completo (álbum y colaboradores)", async () => {
     await registerAndLogin(client, { admin: true });
-    const artist = await createArtist(client, `Detalle ${crypto.randomUUID().slice(0, 6)}`);
     const guest = await createArtist(client, `Feat ${crypto.randomUUID().slice(0, 6)}`);
-    const album = await createAlbum(client, artist.id, "Disco");
-    const song = await createSong(client, {
-      title: "Con Feat",
-      artistId: artist.id,
-      albumId: album.id,
-      objectKey: `songs/${crypto.randomUUID()}.mp3`,
-      collaboratorIds: [guest.id],
+    const seeded = await seedCatalogBatch({
+      albumTitle: "Disco",
+      songs: [{ title: "Con Feat", collaboratorIds: [guest.id] }],
     });
+    const songId = seeded.songIds[0]!;
+    const albumId = seeded.albumId;
 
     await registerAndLogin(client);
     const playlist = await createPlaylist(client);
-    const detail = await addSongToPlaylist(client, playlist.id, song.id);
+    const detail = await addSongToPlaylist(client, playlist.id, songId);
 
     const item = detail.songs?.[0] as SongRead | undefined;
-    expect(item?.album?.id).toBe(album.id);
+    expect(item?.album?.id).toBe(albumId);
     expect(item?.collaborators?.map((artistRow) => artistRow.id)).toEqual([
       guest.id,
     ]);

@@ -392,3 +392,18 @@ amplió su timeout a 40s con comentario.
 
 Recordatorio para CI-1/CI-3: el nombre mostrado del job es el contrato con
 branch protection; si cambia, hay que actualizar la regla.
+
+## Aceleración de la suite de integración — Fase 1 (seeds con `db.batch`) — Resuelta
+
+Cada fixture seedeaba el catálogo por API (artista + álbum + canciones ×N +
+play_counts = 6-8 HTTP por seed); con ~1.4 s/round-trip en redes lentas, el
+test "lookup por artista" de essentials encadenaba ~13 requests ≈ 19.5 s y
+explotaba el `testTimeout: 20_000`.
+
+| Item | Alcance | Estado |
+|---|---|---|
+| **`seedCatalogBatch`** (`tests/catalog-helpers.ts`) | UN `db.batch` (1 round-trip, transacción del lado de Neon): artist → album → songs con `play_count` directo → `song_collaborators`. Filas idénticas a las que crean los services; única diferencia documentada: `created_at`/`updated_at` explícitos crecientes (+1 ms por canción — en un batch todas comparten `now()` y el snapshot `new` desempataría por uuid → flaky). Las ventanas de `days` no se afectan: filtran por `listens.played_at` (inserts con `now()` real) | Hecho (reviewer: approved) |
+| **8/8 suites de arrangement migradas** | essentials, listens, plays, favorites, favorites-library, playlists, playlists-me, playlists-system. Las de alta (songs/artists/albums/covers/zip/uploads/auth/users) siguen por API a propósito: ahí el alta ES el test. `setPlayCount` sobrevive solo en essentials (comportamiento, no preparación) | Hecho |
+| **Medición** (red ~1.4 s/round-trip) | `playlists.test.ts` 123.7 s → **93.0 s** (−25%); el test del timeout pasó de ~13 requests ≈ 19.5 s a **~7 ≈ 10 s** (0 timeouts); suite completa 488/488 | — |
+| **Fix del fix** | El `noUncheckedIndexedAccess` obligó a `s1!` en bindings desestructurados; un fix por regex de PowerShell rompió el UTF-8 de 2 archivos (mojibake en 4 asserts) — restaurados y re-aplicados con herramienta de edición. Lección: regex masivos sobre UTF-8 van con herramientas de edición, nunca `Set-Content` | Resuelto |
+| Diferido (cosmético) | `songIds.map((id) => ({ id }))` unificable en 4 archivos (favorites, listens, plays, playlists) — sin efecto en asserts ni tiempo | Anotado |

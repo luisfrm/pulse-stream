@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Integración de las playlists del sistema (espejo de
  * `apps/api/tests/test_playlists_system.py`).
  *
@@ -21,7 +21,7 @@ import {
   testConfig,
   type TestClient,
 } from "./helpers";
-import { createAlbum, createArtist, createSong } from "./catalog-helpers";
+import { seedCatalogBatch } from "./catalog-helpers";
 import { createPlaylist, insertListens } from "./library-helpers";
 
 const FORBIDDEN = "No tenés acceso a esta playlist";
@@ -49,23 +49,13 @@ describeDb("playlists system", () => {
 
   it("crea el snapshot top_week (pública, kind=system, ordenada por plays)", async () => {
     const admin = await registerAndLogin(client, { admin: true });
-    const artist = await createArtist(client, `Artista ${crypto.randomUUID().slice(0, 6)}`);
-    const album = await createAlbum(client, artist.id);
-    const s1 = await createSong(client, {
-      title: "Uno",
-      artistId: artist.id,
-      albumId: album.id,
-      objectKey: `songs/${crypto.randomUUID()}-1.mp3`,
+    const seeded = await seedCatalogBatch({
+      songs: [{ title: "Uno" }, { title: "Dos" }],
     });
-    const s2 = await createSong(client, {
-      title: "Dos",
-      artistId: artist.id,
-      albumId: album.id,
-      objectKey: `songs/${crypto.randomUUID()}-2.mp3`,
-    });
+    const [s1, s2] = seeded.songIds;
 
     // s1 se toca dos veces, s2 una -> top_week = [s1, s2]
-    await insertListens(admin.id, [s1.id, s2.id, s1.id]);
+    await insertListens(admin.id, [s1!, s2!, s1!]);
 
     const response = await client.postJson("/playlists/system", {
       name: "Top de la semana",
@@ -82,25 +72,15 @@ describeDb("playlists system", () => {
     expect(body.song_count).toBe(2);
 
     const ids = (body.songs ?? []).map((song) => song.id);
-    expect(ids).toEqual([s1.id, s2.id]);
+    expect(ids).toEqual([s1!, s2!]);
   });
 
   it("crea el snapshot new (canciones recién agregadas)", async () => {
     await registerAndLogin(client, { admin: true });
-    const artist = await createArtist(client, `Artista ${crypto.randomUUID().slice(0, 6)}`);
-    const album = await createAlbum(client, artist.id);
-    const older = await createSong(client, {
-      title: "Vieja",
-      artistId: artist.id,
-      albumId: album.id,
-      objectKey: `songs/${crypto.randomUUID()}-old.mp3`,
+    const seeded = await seedCatalogBatch({
+      songs: [{ title: "Vieja" }, { title: "Nueva" }],
     });
-    const newer = await createSong(client, {
-      title: "Nueva",
-      artistId: artist.id,
-      albumId: album.id,
-      objectKey: `songs/${crypto.randomUUID()}-new.mp3`,
-    });
+    const [older, newer] = seeded.songIds;
 
     const response = await client.postJson("/playlists/system", {
       name: "Recién agregadas",
@@ -111,19 +91,12 @@ describeDb("playlists system", () => {
     const body = await readJson<PlaylistDetail>(response);
     expect(body.kind).toBe("system");
     expect(body.query).toBe("new");
-    expect(body.songs?.map((song) => song.id)).toEqual([newer.id, older.id]);
+    expect(body.songs?.map((song) => song.id)).toEqual([newer!, older!]);
   });
 
   it("las system van primero en el feed público", async () => {
     await registerAndLogin(client, { admin: true });
-    const artist = await createArtist(client, `Artista ${crypto.randomUUID().slice(0, 6)}`);
-    const album = await createAlbum(client, artist.id);
-    await createSong(client, {
-      title: "Tema",
-      artistId: artist.id,
-      albumId: album.id,
-      objectKey: `songs/${crypto.randomUUID()}.mp3`,
-    });
+    await seedCatalogBatch({ songs: [{ title: "Tema" }] });
 
     const system = await client.postJson("/playlists/system", {
       name: "Feed system",
@@ -144,14 +117,8 @@ describeDb("playlists system", () => {
 
   it("un usuario normal no puede mutar una playlist system (pero sí verla)", async () => {
     await registerAndLogin(client, { admin: true });
-    const artist = await createArtist(client, `Artista ${crypto.randomUUID().slice(0, 6)}`);
-    const album = await createAlbum(client, artist.id);
-    const song = await createSong(client, {
-      title: "Tema",
-      artistId: artist.id,
-      albumId: album.id,
-      objectKey: `songs/${crypto.randomUUID()}.mp3`,
-    });
+    const seeded = await seedCatalogBatch({ songs: [{ title: "Tema" }] });
+    const [songId] = seeded.songIds;
 
     const created = await readJson<PlaylistDetail>(
       await client.postJson("/playlists/system", {
@@ -169,7 +136,7 @@ describeDb("playlists system", () => {
     expect((await client.del(`/playlists/${created.id}`)).status).toBe(403);
     expect(
       (await client.postJson(`/playlists/${created.id}/songs`, {
-        song_id: song.id,
+        song_id: songId!,
       })).status,
     ).toBe(403);
 
@@ -179,22 +146,12 @@ describeDb("playlists system", () => {
 
   it("top_month: más reproducidas del mes calendario, por count desc", async () => {
     const admin = await registerAndLogin(client, { admin: true });
-    const artist = await createArtist(client, `Artista ${crypto.randomUUID().slice(0, 6)}`);
-    const album = await createAlbum(client, artist.id);
-    const s1 = await createSong(client, {
-      title: "Mes 1",
-      artistId: artist.id,
-      albumId: album.id,
-      objectKey: `songs/${crypto.randomUUID()}-m1.mp3`,
+    const seeded = await seedCatalogBatch({
+      songs: [{ title: "Mes 1" }, { title: "Mes 2" }],
     });
-    const s2 = await createSong(client, {
-      title: "Mes 2",
-      artistId: artist.id,
-      albumId: album.id,
-      objectKey: `songs/${crypto.randomUUID()}-m2.mp3`,
-    });
+    const [s1, s2] = seeded.songIds;
 
-    await insertListens(admin.id, [s1.id, s2.id, s1.id, s2.id, s1.id]);
+    await insertListens(admin.id, [s1!, s2!, s1!, s2!, s1!]);
 
     const response = await client.postJson("/playlists/system", {
       name: "Top del mes",
@@ -205,37 +162,19 @@ describeDb("playlists system", () => {
     const body = await readJson<PlaylistDetail>(response);
     expect(body.query).toBe("top_month");
     const ids = (body.songs ?? []).map((song) => song.id);
-    expect(ids).toEqual([s1.id, s2.id]);
+    expect(ids).toEqual([s1!, s2!]);
   });
 
   it("refresh reemplaza las canciones en la MISMA playlist (sin duplicar)", async () => {
     const admin = await registerAndLogin(client, { admin: true });
-    const artist = await createArtist(client, `Artista ${crypto.randomUUID().slice(0, 6)}`);
-    const album = await createAlbum(client, artist.id);
-    const [s1, s2, s3] = [
-      await createSong(client, {
-        title: "Uno",
-        artistId: artist.id,
-        albumId: album.id,
-        objectKey: `songs/${crypto.randomUUID()}-r1.mp3`,
-      }),
-      await createSong(client, {
-        title: "Dos",
-        artistId: artist.id,
-        albumId: album.id,
-        objectKey: `songs/${crypto.randomUUID()}-r2.mp3`,
-      }),
-      await createSong(client, {
-        title: "Tres",
-        artistId: artist.id,
-        albumId: album.id,
-        objectKey: `songs/${crypto.randomUUID()}-r3.mp3`,
-      }),
-    ];
+    const seeded = await seedCatalogBatch({
+      songs: [{ title: "Uno" }, { title: "Dos" }, { title: "Tres" }],
+    });
+    const [s1, s2, s3] = seeded.songIds;
 
     // s1 con 2 plays y s2 con 1: el orden no depende del desempate por `id`
     // (los UUID son aleatorios). s3 no tiene plays -> no entra al snapshot.
-    await insertListens(admin.id, [s1!.id, s1!.id, s2!.id]);
+    await insertListens(admin.id, [s1!, s1!, s2!]);
 
     const created = await readJson<PlaylistDetail>(
       await client.postJson("/playlists/system", {
@@ -244,21 +183,21 @@ describeDb("playlists system", () => {
       }),
     );
     const idsBefore = (created.songs ?? []).map((song) => song.id);
-    expect(idsBefore).toEqual([s1!.id, s2!.id]);
-    expect(idsBefore).not.toContain(s3!.id);
+    expect(idsBefore).toEqual([s1!, s2!]);
+    expect(idsBefore).not.toContain(s3!);
 
     // s3 pasa a ser la más escuchada: totales s3=5 > s1=4 > s2=2 (sin empates,
     // porque el desempate por `song_id` es aleatorio).
     await insertListens(admin.id, [
-      s3!.id,
-      s1!.id,
-      s3!.id,
-      s2!.id,
-      s3!.id,
-      s1!.id,
-      s3!.id,
-      s2!.id,
-      s3!.id,
+      s3!,
+      s1!,
+      s3!,
+      s2!,
+      s3!,
+      s1!,
+      s3!,
+      s2!,
+      s3!,
     ]);
 
     const refreshed = await client.post(`/playlists/system/${created.id}/refresh`);
@@ -272,7 +211,7 @@ describeDb("playlists system", () => {
     const idsAfter = (body.songs ?? []).map((song) => song.id);
     expect(body.song_count).toBe(idsAfter.length);
     expect(new Set(idsAfter).size).toBe(idsAfter.length); // sin duplicados
-    expect(idsAfter).toEqual([s3!.id, s1!.id, s2!.id]);
+    expect(idsAfter).toEqual([s3!, s1!, s2!]);
   });
 
   it("refresh requiere admin", async () => {
@@ -293,14 +232,8 @@ describeDb("playlists system", () => {
   it("otro admin no puede mutar la system de su dueño (gana el dueño)", async () => {
     // Admin A crea la playlist system (queda como owner).
     await registerAndLogin(client, { admin: true });
-    const artist = await createArtist(client, `Artista ${crypto.randomUUID().slice(0, 6)}`);
-    const album = await createAlbum(client, artist.id);
-    const song = await createSong(client, {
-      title: "Tema",
-      artistId: artist.id,
-      albumId: album.id,
-      objectKey: `songs/${crypto.randomUUID()}.mp3`,
-    });
+    const seeded = await seedCatalogBatch({ songs: [{ title: "Tema" }] });
+    const [songId] = seeded.songIds;
     const created = await readJson<PlaylistDetail>(
       await client.postJson("/playlists/system", {
         name: "Dueña A",
@@ -315,7 +248,7 @@ describeDb("playlists system", () => {
       await client.patchJson(`/playlists/${created.id}`, { name: "Hackeada" }),
       await client.del(`/playlists/${created.id}`),
       await client.postJson(`/playlists/${created.id}/songs`, {
-        song_id: song.id,
+        song_id: songId!,
       }),
       await client.post(`/playlists/system/${created.id}/refresh`),
     ]) {
@@ -328,7 +261,7 @@ describeDb("playlists system", () => {
       await client.get(`/playlists/${created.id}`),
     );
     expect(detail.name).toBe("Dueña A");
-    expect(detail.songs?.map((entry) => entry.id)).toEqual([song.id]);
+    expect(detail.songs?.map((entry) => entry.id)).toEqual([songId!]);
   });
 
   it("refresh de una playlist de usuario -> 400 con el motivo", async () => {

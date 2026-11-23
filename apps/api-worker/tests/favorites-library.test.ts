@@ -24,7 +24,7 @@ import {
   resetDb,
   type TestClient,
 } from "./helpers";
-import { createAlbum, createArtist, createSong } from "./catalog-helpers";
+import { seedCatalogBatch } from "./catalog-helpers";
 import { createPlaylist } from "./library-helpers";
 
 const FORBIDDEN = "No tenés acceso a esta playlist";
@@ -39,13 +39,9 @@ describeDb("favorites (library)", () => {
 
   it("like/unlike de álbumes: listado, ids, song_count y 404", async () => {
     await registerAndLogin(client, { admin: true });
-    const artist = await createArtist(client, `Artista ${crypto.randomUUID().slice(0, 6)}`);
-    const album = await createAlbum(client, artist.id, "Disco Uno");
-    await createSong(client, {
-      title: "Tema Uno",
-      artistId: artist.id,
-      albumId: album.id,
-      objectKey: `songs/${crypto.randomUUID()}.mp3`,
+    const { artistId, albumId, albumTitle } = await seedCatalogBatch({
+      albumTitle: "Disco Uno",
+      songs: [{ title: "Tema Uno" }],
     });
 
     await registerAndLogin(client); // usuario normal
@@ -54,7 +50,7 @@ describeDb("favorites (library)", () => {
         .total,
     ).toBe(0);
 
-    const liked = await client.request(`/me/favorites/albums/${album.id}`, {
+    const liked = await client.request(`/me/favorites/albums/${albumId}`, {
       method: "PUT",
     });
     expect(liked.status, await liked.clone().text()).toBe(204);
@@ -63,18 +59,18 @@ describeDb("favorites (library)", () => {
       await client.get("/me/favorites/albums"),
     );
     expect(listed.total).toBe(1);
-    expect(listed.items[0]?.id).toBe(album.id);
-    expect(listed.items[0]?.title).toBe("Disco Uno");
+    expect(listed.items[0]?.id).toBe(albumId);
+    expect(listed.items[0]?.title).toBe(albumTitle);
     expect(listed.items[0]?.song_count).toBe(1);
-    expect(listed.items[0]?.artist.id).toBe(artist.id);
+    expect(listed.items[0]?.artist.id).toBe(artistId);
 
     const ids = await readJson<string[]>(
       await client.get("/me/favorites/albums/ids"),
     );
-    expect(ids).toEqual([album.id]);
+    expect(ids).toEqual([albumId]);
 
     expect(
-      (await client.del(`/me/favorites/albums/${album.id}`)).status,
+      (await client.del(`/me/favorites/albums/${albumId}`)).status,
     ).toBe(204);
     expect(
       (await readJson<{ total: number }>(await client.get("/me/favorites/albums")))
@@ -82,10 +78,10 @@ describeDb("favorites (library)", () => {
     ).toBe(0);
 
     // Unlike de un like inexistente -> 404 con el detail de Álbum.
-    const second = await client.del(`/me/favorites/albums/${album.id}`);
+    const second = await client.del(`/me/favorites/albums/${albumId}`);
     expect(second.status).toBe(404);
     expect(await readJson(second)).toEqual({
-      detail: `Álbum ${album.id} no existe`,
+      detail: `Álbum ${albumId} no existe`,
     });
   });
 
@@ -203,14 +199,11 @@ describeDb("favorites (library)", () => {
 
   it("like a una system: permitido, pero no muta el contenido", async () => {
     await registerAndLogin(client, { admin: true });
-    const artist = await createArtist(client, `Artista ${crypto.randomUUID().slice(0, 6)}`);
-    const album = await createAlbum(client, artist.id, "Disco System");
-    const song = await createSong(client, {
-      title: "Tema",
-      artistId: artist.id,
-      albumId: album.id,
-      objectKey: `songs/${crypto.randomUUID()}.mp3`,
+    const seeded = await seedCatalogBatch({
+      albumTitle: "Disco System",
+      songs: [{ title: "Tema" }],
     });
+    const songId = seeded.songIds[0]!;
     const system = await readJson<{ id: string; query?: string | null }>(
       await client.postJson("/playlists/system", {
         name: "Novedades",
@@ -229,7 +222,7 @@ describeDb("favorites (library)", () => {
 
     expect(
       (await client.postJson(`/playlists/${system.id}/songs`, {
-        song_id: song.id,
+        song_id: songId,
       })).status,
     ).toBe(403);
     expect(
@@ -247,14 +240,12 @@ describeDb("favorites (library)", () => {
 
   it("/me/library/ids devuelve los 3 sets ordenados", async () => {
     await registerAndLogin(client, { admin: true });
-    const artist = await createArtist(client, `Artista ${crypto.randomUUID().slice(0, 6)}`);
-    const album = await createAlbum(client, artist.id, "Disco");
-    const song = await createSong(client, {
-      title: "Tema",
-      artistId: artist.id,
-      albumId: album.id,
-      objectKey: `songs/${crypto.randomUUID()}.mp3`,
+    const seeded = await seedCatalogBatch({
+      albumTitle: "Disco",
+      songs: [{ title: "Tema" }],
     });
+    const songId = seeded.songIds[0]!;
+    const albumId = seeded.albumId;
 
     await registerAndLogin(client); // usuario normal
     expect(await readJson<unknown>(await client.get("/me/library/ids"))).toEqual({
@@ -264,8 +255,8 @@ describeDb("favorites (library)", () => {
     });
 
     const playlist = await createPlaylist(client, "Mía");
-    await client.request(`/me/favorites/${song.id}`, { method: "PUT" });
-    await client.request(`/me/favorites/albums/${album.id}`, { method: "PUT" });
+    await client.request(`/me/favorites/${songId}`, { method: "PUT" });
+    await client.request(`/me/favorites/albums/${albumId}`, { method: "PUT" });
     await client.request(`/me/favorites/playlists/${playlist.id}`, {
       method: "PUT",
     });
@@ -281,12 +272,12 @@ describeDb("favorites (library)", () => {
       "playlist_ids",
       "song_ids",
     ]);
-    expect(body.song_ids).toEqual([song.id]);
-    expect(body.album_ids).toEqual([album.id]);
+    expect(body.song_ids).toEqual([songId]);
+    expect(body.album_ids).toEqual([albumId]);
     expect(body.playlist_ids).toEqual([playlist.id]);
 
     // Quitar el like de la canción actualiza el set.
-    await client.del(`/me/favorites/${song.id}`);
+    await client.del(`/me/favorites/${songId}`);
     expect(
       (
         await readJson<{ song_ids: string[] }>(
@@ -320,21 +311,18 @@ describeDb("favorites (library)", () => {
 
   it("el favorito de una canción con álbum lista el álbum", async () => {
     await registerAndLogin(client, { admin: true });
-    const artist = await createArtist(client, `Artista ${crypto.randomUUID().slice(0, 6)}`);
-    const album = await createAlbum(client, artist.id, "Disco");
-    const song = await createSong(client, {
-      title: "Tema",
-      artistId: artist.id,
-      albumId: album.id,
-      objectKey: `songs/${crypto.randomUUID()}.mp3`,
+    const seeded = await seedCatalogBatch({
+      albumTitle: "Disco",
+      songs: [{ title: "Tema" }],
     });
+    const songId = seeded.songIds[0]!;
 
     await registerAndLogin(client);
-    await client.request(`/me/favorites/${song.id}`, { method: "PUT" });
+    await client.request(`/me/favorites/${songId}`, { method: "PUT" });
 
     const page = await readJson<{ items: SongRead[] }>(
       await client.get("/me/favorites?limit=10"),
     );
-    expect(page.items[0]?.album?.id).toBe(album.id);
+    expect(page.items[0]?.album?.id).toBe(seeded.albumId);
   });
 });
