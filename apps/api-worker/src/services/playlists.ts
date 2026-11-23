@@ -44,6 +44,7 @@ import {
   type PlaylistPatch,
   type PlaylistWithItems,
   type PlaylistWithOwner,
+  type PublicPlaylistFilters,
 } from "@/repositories/playlists";
 import {
   findSongsByPlaylistId,
@@ -160,18 +161,21 @@ async function getMutable(
 /**
  * Feed público: playlists públicas de TODOS (system primero).
  *
- * `search` filtra por nombre (`contains`, case-insensitive) en el listado Y en
- * el total, sin tocar el orden (`systemFirstOrder`).
+ * `search` filtra por nombre (`contains`, case-insensitive) y `artistId` por
+ * CONTENIDO (alguna canción donde el artista participa, principal o
+ * colaborador). Ambos aplican al listado y al total; el orden
+ * (`systemFirstOrder`) no cambia.
  */
 export async function listPublicCommunity(
   config: AppConfig,
-  offset: number,
-  limit: number,
-  search?: string | null,
+  filters: PublicPlaylistFilters,
 ): Promise<PlaylistPage> {
   const [items, total] = await Promise.all([
-    listPublicPlaylists(config, { offset, limit, search }),
-    countPublicPlaylists(config, undefined, search),
+    listPublicPlaylists(config, filters),
+    // `PublicPlaylistFilters` es asignable a `PublicPlaylistConditions` (los
+    // extra offset/limit se ignoran): pasar el objeto completo evita que un
+    // filtro futuro aplique al listado y no al total en silencio.
+    countPublicPlaylists(config, filters),
   ]);
   return { items, total };
 }

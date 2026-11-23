@@ -60,6 +60,14 @@ describeDb("search", () => {
     return readJson<PlaylistPage>(response);
   }
 
+  async function listPlaylistsQuery(
+    queryString: string,
+  ): Promise<PlaylistPage> {
+    const response = await client.get(`/playlists/public${queryString}`);
+    expect(response.status, await response.clone().text()).toBe(200);
+    return readJson<PlaylistPage>(response);
+  }
+
   describe("GET /songs?q=", () => {
     it("matchea por título, por artista principal y por colaborador", async () => {
       // Canción cuyo TÍTULO contiene "Crimen".
@@ -322,6 +330,102 @@ describeDb("search", () => {
       const none = await publicFeed("zzzz-no-existe");
       expect(none.total).toBe(0);
       expect(none.items).toEqual([]);
+    });
+  });
+
+  describe("GET /playlists/public?artist_id=", () => {
+    it("matchea por contenido (principal o colaborador), excluye privadas y el total coincide", async () => {
+      // Artista principal: su canción está en una playlist pública.
+      const main = await seedCatalogBatch({
+        artistName: "Artista Main",
+        songs: [{ title: "Tema Propio" }],
+      });
+      // Invitado: SOLO participa como colaborador de una canción de otro artista.
+      const guest = await seedCatalogBatch({
+        artistName: "Artista Invitado",
+        songs: [],
+      });
+      const host = await seedCatalogBatch({
+        artistName: "Artista Anfitrion",
+        songs: [{ title: "Feat", collaboratorIds: [guest.artistId] }],
+      });
+      // Canción que no involucra a ninguno de los dos.
+      const outsider = await seedCatalogBatch({
+        artistName: "Artista Ajeno",
+        songs: [{ title: "Ajeno" }],
+      });
+
+      await registerAndLogin(client);
+      const own = await createPlaylist(client, "Rock Propio", {
+        is_public: true,
+      });
+      await addSongToPlaylist(client, own.id, main.songIds[0]!);
+      const featuring = await createPlaylist(client, "Rock Invitado", {
+        is_public: true,
+      });
+      await addSongToPlaylist(client, featuring.id, host.songIds[0]!);
+      const unrelated = await createPlaylist(client, "Pop Ajeno", {
+        is_public: true,
+      });
+      await addSongToPlaylist(client, unrelated.id, outsider.songIds[0]!);
+      // Privada con canción del artista principal: nunca aparece.
+      const hidden = await createPlaylist(client, "Rock Privado", {
+        is_public: false,
+      });
+      await addSongToPlaylist(client, hidden.id, main.songIds[0]!);
+
+      // Principal: solo la playlist con SU canción (ni la ajena ni la privada).
+      const byMain = await listPlaylistsQuery(`?artist_id=${main.artistId}`);
+      expect(byMain.total).toBe(1);
+      expect(byMain.items.map((playlist) => playlist.id)).toEqual([own.id]);
+
+      // Colaborador: el único camino es el EXISTS anidado sobre
+      // `song_collaborators` (la canción es del anfitrión).
+      const byGuest = await listPlaylistsQuery(`?artist_id=${guest.artistId}`);
+      expect(byGuest.total).toBe(1);
+      expect(byGuest.items[0]?.id).toBe(featuring.id);
+
+      // Artista sin playlists públicas: vacío y total 0.
+      const none = await listPlaylistsQuery(
+        `?artist_id=${crypto.randomUUID()}`,
+      );
+      expect(none.total).toBe(0);
+      expect(none.items).toEqual([]);
+    });
+
+    it("artist_id que no es uuid -> 422", async () => {
+      expect((await client.get("/playlists/public?artist_id=reggae")).status).toBe(
+        422,
+      );
+    });
+
+    it("combina artist_id con q (AND)", async () => {
+      const main = await seedCatalogBatch({ songs: [{ title: "Propia" }] });
+      const other = await seedCatalogBatch({ songs: [{ title: "Otra" }] });
+
+      await registerAndLogin(client);
+      const mine = await createPlaylist(client, "Rock Propio", {
+        is_public: true,
+      });
+      await addSongToPlaylist(client, mine.id, main.songIds[0]!);
+      const theirs = await createPlaylist(client, "Rock Ajeno", {
+        is_public: true,
+      });
+      await addSongToPlaylist(client, theirs.id, other.songIds[0]!);
+
+      // `q` solo: las dos "Rock…".
+      const byName = await publicFeed("Rock");
+      expect(byName.total).toBe(2);
+      expect(byName.items.map((playlist) => playlist.id).sort()).toEqual(
+        [mine.id, theirs.id].sort(),
+      );
+
+      // `q` + `artist_id`: el nombre matchea las dos, el contenido acota a una.
+      const combined = await listPlaylistsQuery(
+        `?q=Rock&artist_id=${main.artistId}`,
+      );
+      expect(combined.total).toBe(1);
+      expect(combined.items[0]?.id).toBe(mine.id);
     });
   });
 });
