@@ -1,0 +1,117 @@
+name: Deploy API Worker
+
+# Deploy del backend sobre Cloudflare Workers. Reusable: lo llama
+# `deploy-pipeline.yml` gateado por `needs` (con la integración verde).
+#
+# ⚠️ El `workflow_dispatch` directo es el **bypass de emergencia**: corre el
+# deploy SIN pasar por el CI. El camino normal es siempre a través del pipeline
+# (push a master → changes → ci-master → deploy). Usarlo solo para un hotfix
+# cuando el CI no puede correr (p. ej. infraestructura de test caída).
+#
+# Requiere el environment `production` con los secrets:
+#   CLOUDFLARE_API_TOKEN, DATABASE_URL, AUTH_SECRET,
+#   R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, RESEND_API_KEY
+# y la variable CLOUDFLARE_ACCOUNT_ID (environment o repositorio).
+# (MIGRATE_DATABASE_URL ya NO lo usa este workflow: las migraciones las aplica
+# `database-migrations.yml` por paths.)
+on:
+  workflow_call:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-api-worker
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to Cloudflare Workers
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Sin `environment` los secrets de environment no existen para el job.
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.5.3
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Typecheck y unit tests NO se repiten acá: los corre `ci-master.yml`
+      # (needs del caller) y `wrangler deploy` bundlea con esbuild, sin chequear
+      # tipos.
+      #
+      # Migraciones: NO corren acá a propósito. Las aplica
+      # `database-migrations.yml` (paths `apps/api-worker/migrations/**` +
+      # `src/db/schema.ts`) — decisión de diseño: "migraciones en su propio
+      # workflow". Antes este step migraba también y un push de migraciones
+      # aplicaba `db:migrate` DOS veces en paralelo (deploy + migrations, sin
+      # advisory lock). La política de migraciones aditivas (columnas nullable,
+      # índices tras renumerar) hace el orden código↔esquema no crítico.
+
+      # Con `ENV=prod` el worker hace fail-fast si falta configuración y
+      # responde 500 en todos los endpoints. Mejor no publicar que dejar el
+      # sitio caído por un secret olvidado.
+      - name: Preflight secrets
+        env:
+          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: |
+          for v in AUTH_SECRET DATABASE_URL R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY RESEND_API_KEY; do
+            [ -n "${!v}" ] || { echo "::error::Falta el secret $v"; exit 1; }
+          done
+
+      - name: Deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: apps/api-worker
+          command: deploy
+
+      # GitHub es la fuente de verdad de los secrets de runtime: se pisan en
+      # cada deploy (idempotente) y así rotar es cambiar el secret + push.
+      # `jq` arma el JSON para no romper con comillas/backslashes en la URL.
+      - name: Sync Worker secrets
+        working-directory: apps/api-worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: |
+          for v in AUTH_SECRET DATABASE_URL R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY RESEND_API_KEY; do
+            [ -n "${!v}" ] || { echo "::error::Falta el secret $v"; exit 1; }
+          done
+          jq -n --arg a "$AUTH_SECRET" --arg d "$DATABASE_URL" \
+                --arg i "$R2_ACCESS_KEY_ID" --arg s "$R2_SECRET_ACCESS_KEY" \
+                --arg r "$RESEND_API_KEY" \
+                '{AUTH_SECRET:$a, DATABASE_URL:$d, R2_ACCESS_KEY_ID:$i, R2_SECRET_ACCESS_KEY:$s, RESEND_API_KEY:$r}' > secrets.json
+          npx wrangler secret bulk secrets.json
+          rm -f secrets.json
+
+      # `/health` valida el fail-fast de config (ENV=prod exige todos los
+      # secretos) y `/artists` valida la conexión a Neon. En el primer deploy el
+      # certificado del custom domain puede tardar: se reintenta ~2 min.
+      - name: Smoke
+        run: |
+          for url in \
+            "https://pulse-stream-api.luisrivas.site/health" \
+            "https://pulse-stream-api.luisrivas.site/genres" \
+            "https://pulse-stream-api.luisrivas.site/artists?limit=1"; do
+            curl -fsS --retry 12 --retry-delay 10 --retry-all-errors --retry-max-time 150 "$url" > /dev/null
+          done
+          echo "Smoke OK"

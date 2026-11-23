@@ -283,13 +283,14 @@ están documentados en el gate de contrato.
 |---|---|---|
 | **Tests** | `.github/workflows/tests.yml`: solo unitarios (worker `test:unit` + web vitest) en cada `pull_request`, sin DB ni secrets | Hecho |
 | **CI (integracion)** | `ci.yml` pasa a `push: master` + `workflow_dispatch`: pytest, vitest con Neon, typecheck/lint/build del web y `generated.ts` pinneado | Hecho (job `api` de pytest eliminado al deprecar el backend Python — ver *Pendientes de infraestructura*) |
-| **Deploy API Worker** | `.github/workflows/deploy-api-worker.yml`: migraciones con la URL directa, `wrangler deploy`, `wrangler secret bulk` desde GitHub, smoke `/health`/`/genres`/`/artists`; environment `production` | Hecho (fundido en `master.yml` con gating `needs` — ver *Pipeline CI/CD sellado*, CI-2) |
+| **Deploy API Worker** | `.github/workflows/deploy-api-worker.yml`: migraciones con la URL directa, `wrangler deploy`, `wrangler secret bulk` desde GitHub, smoke `/health`/`/genres`/`/artists`; environment `production` | Hecho (hoy es reusable, gateado por el hub — ver *Pipeline CI/CD sellado*, CI-2) |
 | **Config del Worker** | `wrangler.jsonc` con `routes` del custom domain y `vars` no secretas; secretos de runtime solo en GitHub (fuente de verdad) | Hecho |
 | **Deploy web** | Vercel con su integracion de Git (sin workflow); envs `NEXT_PUBLIC_API_URL`, `ENV=prod`, `COOKIE_DOMAIN`, `COOKIE_SAMESITE` | Manual (dashboard) |
 
-> Estos tres workflows (`Tests`, `CI (integración)`, `Deploy API Worker`) fueron
-> reemplazados por **`PR checks`** (`tests.yml`) y **`Master CI + Deploy`**
-> (`master.yml`) en el pipeline CI-1..CI-3 — ver la sección al final del ledger.
+> Estos workflows quedaron reemplazados en el pipeline CI-1..CI-3 por
+> **`PR checks`** (`tests.yml`) y el hub **`Master Pipeline`**
+> (`deploy-pipeline.yml`) + sus spokes (`ci-master.yml`, `deploy-api-worker.yml`,
+> `database-migrations.yml`) — ver la sección al final del ledger.
 
 ## Rediseño del home estilo Spotify (F0-F2) — Resuelta
 
@@ -372,7 +373,7 @@ amplió su timeout a 40s con comentario.
 
 | # | Tarea | Estado |
 |---|---|---|
-| 1 | Migración Drizzle **`0000_baseline`** (esquema completo en un solo baseline) | Pendiente — es lo que permite dropear el bootstrap Alembic de la base de test y el paso `Python schema` de `master.yml`; hasta entonces el Worker depende de `apps/api` solo como infraestructura de test |
+| 1 | Migración Drizzle **`0000_baseline`** (esquema completo en un solo baseline) | Pendiente — es lo que permite dropear el bootstrap Alembic de la base de test y el paso `Python schema` de `ci-master.yml`; hasta entonces el Worker depende de `apps/api` solo como infraestructura de test |
 | 2 | Secret **`TEST_DATABASE_URL`** de GitHub | Sin uso desde que se eliminó el job de pytest de la API Python (el Worker usa `TEST_DATABASE_URL_WORKER`) y purgable cuando el baseline esté; se deja por si hace falta un checkout del Python deprecado |
 | 3 | Workflow manual **`db-migrate.yml`** (aplicar migraciones Drizzle sin deploy) | Cancelado por ahora; planeado para una fase posterior. Hasta entonces `db:migrate` se corre a mano con guard (`CONFIRM_TARGET`) |
 
@@ -386,8 +387,8 @@ amplió su timeout a 40s con comentario.
 | Fase | Alcance | Estado |
 |---|---|---|
 | **CI-1** | `tests.yml`: job único renombrado **"PR checks"** con todo lo barato que antes solo corría en master (menos la integración con Neon): worker `typecheck` + `test:unit`, web `typecheck → lint → test`, `export:openapi` + `gen:types:worker` + `git diff --exit-code` sobre `generated.ts`, `timeout-minutes: 10`, sin DB ni secrets. Lección del fixture `artistId`: `tsc` del worker entra al PR | Hecho (approved, verificado en el runner) |
-| **CI-2** | `master.yml` ("Master CI + Deploy") funde `ci.yml` + `deploy-api-worker.yml` en un workflow con gating: `changes` (dorny/paths-filter) → `web` + `api-worker` (integración Neon + Alembic bootstrap) → `deploy` con `needs: [changes, web, api-worker]` e `if` (cambios del worker o `force_deploy`), `environment: production`, migraciones → deploy → secret bulk → smoke. Sin `paths:` en el `on:` (master siempre verifica). Typecheck/unit del deploy eliminados (ya corren en `api-worker`). Docs al día | Hecho (esta fase) |
-| **CI-3** | Branch protection: required check **"PR checks"** (el rename de "Unit tests" ya está hecho) y verificación end-to-end real de master al mergear `master.yml` (integración → migraciones → deploy → smoke de prod) | Pendiente |
+| **CI-2** | Pipeline de master en **hub-and-spokes** (decisión del usuario, rework sobre el workflow único): `deploy-pipeline.yml` es el **único** con `on: push` — hub de ruteo sin steps (`changes` con paths-filter + `fetch-depth: 0` → `ci` → `deploy-api-worker`) y `if` compartido + `needs` como gating; `ci-master.yml` reusable (`workflow_call` + dispatch de debug, `concurrency: master-ci` serializada) con `web` + `api-worker` verbatim; `deploy-api-worker.yml` reusable (`environment: production`, dispatch directo = **bypass de emergencia** sin CI); `database-migrations.yml` por paths de `migrations/**`/`schema.ts` con gate `db:check` → `db:migrate`; secrets por `inherit` (repository) y `environment` sólo en los jobs de deploy/migración. `master.yml` eliminado. Docs al día | Hecho (esta fase) |
+| **CI-3** | Branch protection: required check **"PR checks"** (el rename de "Unit tests" ya está hecho) y verificación end-to-end real de master al mergear el pipeline (hub → `ci-master` → `deploy-api-worker` → smoke de prod) | Pendiente |
 
 Recordatorio para CI-1/CI-3: el nombre mostrado del job es el contrato con
 branch protection; si cambia, hay que actualizar la regla.

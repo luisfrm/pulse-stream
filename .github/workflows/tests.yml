@@ -4,9 +4,10 @@ name: Tests
 # - CI (este workflow, en cada `pull_request`): todo lo barato y sin base de
 #   datos — typecheck/lint/unitarios/builds del worker y del web + `generated.ts`
 #   pinneado. Corre en PRs de cualquiera, sin secrets.
-# - CD (`master.yml`, solo master): `changes` → `web` + `api-worker` (integración
-#   con Neon, costosa) → `deploy` gated por `needs` (migraciones prod → wrangler
-#   → smoke). Paridad: un PR verde implica master compilando.
+# - CD (hub-and-spokes, solo master): `deploy-pipeline.yml` (hub) → `ci-master.yml`
+#   (integración con Neon, costosa) → `deploy-api-worker.yml` (production), más
+#   `database-migrations.yml` por paths. Paridad: un PR verde implica master
+#   compilando.
 # El `name` del job ("PR checks") se usa como required check en branch
 # protection: no cambiarlo sin actualizar esa regla.
 on:

@@ -20,7 +20,8 @@
   ],
   // Config NO secreta y versionada. Los secretos (AUTH_SECRET, DATABASE_URL,
   // R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, RESEND_API_KEY) los sincroniza el
-  // workflow `Master CI + Deploy` desde GitHub; en local los pisa `.dev.vars`.
+  // workflow `deploy-api-worker.yml` (llamado por `deploy-pipeline`) desde
+  // GitHub; en local los pisa `.dev.vars`.
   "vars": {
     "ENV": "prod",
     "API_URL": "https://pulse-stream-api.luisrivas.site",
