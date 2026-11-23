@@ -44,9 +44,9 @@ function releaseYear(createdAt: string): string {
 }
 
 /**
- * Secciones de la página de artista, en el orden medido en Spotify:
- * Populares (filas por plays) → Discografía (carrusel) → Incluye a {artista}
- * (shelf) → Colaboraciones. Cada lista pagina client-side con "Ver más".
+ * Secciones de la página de artista: Discografía (carrusel) → Incluye a
+ * {artista} (shelf) → Populares (filas por plays) → Colaboraciones. Cada lista
+ * con "Ver más" pagina client-side.
  */
 export function ArtistDetails({
   artistId,
@@ -60,16 +60,16 @@ export function ArtistDetails({
 }: ArtistDetailsProps) {
   return (
     <>
+      <DiscographySection artistId={artistId} initial={initialAlbums} />
+
+      <FeaturedInSection artistName={artistName} playlists={initialPlaylists} />
+
       <TopSongsSection
         artistId={artistId}
         initial={initialSongs}
         library={library}
         onMutated={onMutated}
       />
-
-      <DiscographySection artistId={artistId} initial={initialAlbums} />
-
-      <FeaturedInSection artistName={artistName} playlists={initialPlaylists} />
 
       <CollaborationsSection
         artistId={artistId}
@@ -222,7 +222,14 @@ function DiscographySection({
           </div>
         ))}
       </Carousel>
-      <LoadMoreButton onClick={loadMore} loading={loadingMore} hasMore={hasMore} />
+      {/* Sin mensaje final: con pocos álbumes la página inicial ya trae todo
+          y "No hay más resultados" debajo del carrusel es ruido. */}
+      <LoadMoreButton
+        onClick={loadMore}
+        loading={loadingMore}
+        hasMore={hasMore}
+        doneLabel={null}
+      />
       {error && (
         <p className="mt-2 rounded-xl bg-brand-900/30 px-3.5 py-2.5 text-center text-sm text-brand-200">
           {error}

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { refreshLibrary } from "@/app/(protected)/actions";
 import { BackLink } from "@/components/back-link";
+import { NoCover } from "@/components/no-cover";
 import { albumsService } from "@/lib/services/albums-service";
 import { artistsService } from "@/lib/services/artists-service";
 import { getUserLibrary } from "@/lib/services/library";
@@ -119,43 +120,41 @@ export default async function ArtistPage({ params }: ArtistPageProps) {
     <div className="flex flex-col gap-10">
       <BackLink href="/songs" />
 
-      <section className="relative -mx-4 overflow-hidden px-6 py-12 text-bg-base lg:-mx-8">
-        {artist.cover_url ? (
-          <>
-            {/* Cover del artista como fondo (decorativa: el nombre va como texto). */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={artist.cover_url}
-              alt=""
-              loading="eager"
-              fetchPriority="high"
-              decoding="async"
-              className="absolute inset-0 h-full w-full object-cover"
-            />
-            {/* Overlay con el MISMO gradiente de marca: el texto oscuro sigue
-                legible sobre la foto y se conserva la identidad del hero. */}
-            <div
-              aria-hidden="true"
-              className="bg-brand-gradient absolute inset-0 opacity-90"
-            />
-          </>
-        ) : (
-          <div aria-hidden="true" className="bg-brand-gradient absolute inset-0" />
-        )}
+      {/* Hero: foto del artista a la IZQUIERDA y la info a la derecha. El
+          gradiente de marca es el fondo (identidad del hero), así que la foto
+          va como elemento visible, no como textura detrás del texto. */}
+      <section className="bg-brand-gradient -mx-4 px-6 py-10 text-bg-base lg:-mx-8 lg:py-12">
+        <div className="mx-auto flex max-w-6xl items-end gap-4 sm:gap-6">
+          <div className="h-28 w-28 shrink-0 overflow-hidden rounded-lg shadow-xl shadow-black/25 ring-1 ring-black/10 sm:h-40 sm:w-40">
+            {artist.cover_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={artist.cover_url}
+                alt={`Foto de ${artist.name}`}
+                loading="eager"
+                fetchPriority="high"
+                decoding="async"
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <NoCover shape="square" size="lg" className="rounded-lg" />
+            )}
+          </div>
 
-        <div className="relative mx-auto max-w-6xl">
-          <p className="text-xs font-semibold uppercase tracking-widest opacity-80">
-            Artista
-          </p>
-          <h1 className="font-display mt-2 text-4xl font-extrabold tracking-tight sm:text-6xl">
-            {artist.name}
-          </h1>
-          <p className="mt-3 text-bg-base/80">
-            {totalSongs} {totalSongs === 1 ? "canción" : "canciones"} en el
-            catálogo
-            {initialAlbums.total > 0 &&
-              ` · ${initialAlbums.total} ${initialAlbums.total === 1 ? "álbum" : "álbumes"}`}
-          </p>
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-widest opacity-80">
+              Artista
+            </p>
+            <h1 className="font-display mt-2 text-4xl font-extrabold tracking-tight break-words sm:text-6xl">
+              {artist.name}
+            </h1>
+            <p className="mt-3 text-bg-base/80">
+              {totalSongs} {totalSongs === 1 ? "canción" : "canciones"} en el
+              catálogo
+              {initialAlbums.total > 0 &&
+                ` · ${initialAlbums.total} ${initialAlbums.total === 1 ? "álbum" : "álbumes"}`}
+            </p>
+          </div>
         </div>
       </section>
 
