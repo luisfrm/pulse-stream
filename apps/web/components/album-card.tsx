@@ -6,12 +6,22 @@ import type { Album } from "@/lib/services/types";
 
 interface AlbumCardProps {
   album: Album;
+  /**
+   * Subtítulo custom (p. ej. `"12 canciones · 2024"` en la discografía del
+   * artista). Default: `"<artista> · N canciones"`.
+   */
+  subtitle?: React.ReactNode;
   className?: string;
   priority?: boolean;
 }
 
 /** Tarjeta de álbum: cover, título y artista (mismo patrón que PlaylistCard). */
-export function AlbumCard({ album, className, priority = false }: AlbumCardProps) {
+export function AlbumCard({
+  album,
+  subtitle,
+  className,
+  priority = false,
+}: AlbumCardProps) {
   return (
     <Link
       href={`/album/${album.id}`}
@@ -40,9 +50,13 @@ export function AlbumCard({ album, className, priority = false }: AlbumCardProps
       <div className="min-w-0 flex-1">
         <p className="truncate font-display text-sm font-bold">{album.title}</p>
         <p className="truncate text-xs text-text-subdued">
-          {album.artist.name}
-          {" · "}
-          {album.song_count} {album.song_count === 1 ? "canción" : "canciones"}
+          {subtitle ?? (
+            <>
+              {album.artist.name}
+              {" · "}
+              {album.song_count} {album.song_count === 1 ? "canción" : "canciones"}
+            </>
+          )}
         </p>
       </div>
     </Link>

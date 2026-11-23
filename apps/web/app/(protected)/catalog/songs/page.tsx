@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
-import { updateTag } from "next/cache";
 
+import { refreshLibrary } from "@/app/(protected)/actions";
 import { getUserLibrary } from "@/lib/services/library";
-import { CACHE_TAGS } from "@/lib/services/tags";
 
 import { SongsList } from "./songs-list";
 
@@ -16,13 +15,6 @@ export const dynamic = "force-dynamic";
  */
 export default async function CatalogSongsPage() {
   const library = await getUserLibrary();
-
-  // Server Action: purga tags tras una mutación (like/playlist/descarga).
-  const refreshLibrary = async () => {
-    "use server";
-    updateTag(CACHE_TAGS.favorites);
-    updateTag(CACHE_TAGS.playlists);
-  };
 
   return (
     <div className="flex flex-col gap-8">

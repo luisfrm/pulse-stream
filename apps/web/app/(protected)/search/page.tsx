@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import { updateTag } from "next/cache";
 
+import { refreshLibrary } from "@/app/(protected)/actions";
 import { ArtistCard } from "@/components/artist-card";
 import { AlbumCard } from "@/components/album-card";
 import { Carousel } from "@/components/carousel";
@@ -199,12 +199,6 @@ async function SongsSection({ query }: { query: string }) {
     ),
   ]);
 
-  const refreshLibrary = async () => {
-    "use server";
-    updateTag(CACHE_TAGS.favorites);
-    updateTag(CACHE_TAGS.playlists);
-  };
-
   return (
     <Section title="Canciones">
       {initialPage.items.length === 0 ? (
@@ -253,12 +247,6 @@ async function PopularSection() {
   ]);
 
   if (songs.length === 0) return null;
-
-  const refreshLibrary = async () => {
-    "use server";
-    updateTag(CACHE_TAGS.favorites);
-    updateTag(CACHE_TAGS.playlists);
-  };
 
   return (
     <Section title="Populares ahora" eyebrow="Los más escuchados de la semana">
