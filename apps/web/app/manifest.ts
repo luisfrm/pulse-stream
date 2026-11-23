@@ -38,7 +38,7 @@ export default function manifest(): MetadataRoute.Manifest {
     ],
     shortcuts: [
       {
-        name: "Explorar canciones",
+        name: "Explorar",
         short_name: "Explorar",
         url: "/search",
       },
