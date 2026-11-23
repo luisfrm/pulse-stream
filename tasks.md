@@ -407,3 +407,24 @@ explotaba el `testTimeout: 20_000`.
 | **Medición** (red ~1.4 s/round-trip) | `playlists.test.ts` 123.7 s → **93.0 s** (−25%); el test del timeout pasó de ~13 requests ≈ 19.5 s a **~7 ≈ 10 s** (0 timeouts); suite completa 488/488 | — |
 | **Fix del fix** | El `noUncheckedIndexedAccess` obligó a `s1!` en bindings desestructurados; un fix por regex de PowerShell rompió el UTF-8 de 2 archivos (mojibake en 4 asserts) — restaurados y re-aplicados con herramienta de edición. Lección: regex masivos sobre UTF-8 van con herramientas de edición, nunca `Set-Content` | Resuelto |
 | Diferido (cosmético) | `songIds.map((id) => ({ id }))` unificable en 4 archivos (favorites, listens, plays, playlists) — sin efecto en asserts ni tiempo | Anotado |
+
+## Sección Explorar — rediseño de la búsqueda estilo Spotify
+
+Investigación con browse MCP (perfil autenticado, medición en vivo): la vista
+"Todo" de `/search/Fe` es fila hero del artista matcheado (foto **cuadrada**
+72px, no circular) → shelf **"Incluye a Feid"** (~10 playlists editoriales,
+covers 109px) → canciones (match título O artista) → mezcla álbumes/listas.
+"Incluye" solo aparece con un match de artista dominante (con "Far" no existe)
+→ sin personalización, nuestra traducción es "Incluye {q}" siempre, con
+álbumes+playlists barajeados. La vista filtrada Artistas = grid de cards
+cuadradas 166px. La landing `/intl-es/search` se titula "Explorar todo"
+(grid de géneros). Nota: `open.spotify.com/search/results/*` ya no existe.
+Evidencia: `docs/spotify-auth/20-23`.
+
+| Fase | Alcance | Estado |
+|---|---|---|
+| **F-B1** backend | `GET /songs?q=` extendido a título/artista/colaborador (EXISTS correlacionado, contains) + `sort=plays` (play_count DESC, id ASC; con `playlist_id` gana position); `GET /playlists/public?q=` por nombre manteniendo `systemFirstOrder`. Params aditivos, sin migraciones, sin componentes nuevos del contrato (el gate NO compara query params — verificado en `contract.ts`). Tests: `tests/search.test.ts` (7) + nits del review (parentización del OR con `artist_id`, system-first bajo `q`). Reviewer: **approved** | Hecho (commit `14bf1a7`) |
+| **F-B2** frontend | `/search` reescrito: h1 "Explorar", sin BackLink, 3 secciones con `<Suspense>` propio — Artistas (`ArtistCard` cuadrada nueva sobre MediaCard, carousel 150/168px), Incluye "{q}" (álbumes+playlists merge tipado + Fisher-Yates por request, cap 12, MediaCard directo para silueta uniforme), Canciones (filas `SongItem` con acciones completas, `sort=plays`, paginación client-side). **Bug del review cazado con reproducción en vivo**: faltaba `key={query}` en `SearchSongsResults` → el estado (songs/offset/total) persistía al cambiar la query sin recargar; fix de 1 línea + verificación del flujo completo (bad→daddy→bad + "Ver más" 24→38 sin contaminación). Reviewer: resto approved (datos por usuario no-store, shuffle no rompe cache, `SearchSongsSkeleton` muerto eliminado) | Hecho (commit `0bf2c20`) |
+| **F-B3** rename nav | Label "Buscar" → **"Explorar"** en sidebar/drawer (`dashboard-shell.tsx`) + bottom nav + su test + CTA de recently-played ("Explorar canciones") + limpieza de los 2 imports muertos de `recently-played/page.tsx` (warnings de lint). La **ruta `/search` NO cambia** (proxy/redirects intactos) | En curso |
+| Diferido | Landing "Explorar todo" con cards de género (exigiría param `genre` en `GET /songs`: `q` busca títulos, no tags) — fase opcional F-B4 si el usuario la quiere. Nits del review F-B2: constante compartida para `sort:"plays"`, `.catch` por sección, `Carousel` sin `aria-label`, `SearchInput` no sincroniza `value` con back-button | Anotado |
+
