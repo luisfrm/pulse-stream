@@ -58,6 +58,20 @@ jobs:
       - name: Web unit tests
         run: pnpm --filter @pulse-stream/web test
 
+      # Builds sin DB ni secrets: `next build` caza errores que `tsc` no ve
+      # (límites de Suspense con useSearchParams, boundaries RSC/cliente,
+      # metadata de rutas) y el dry-run del worker valida el bundle de esbuild.
+      # Paridad con master: sin estos dos, un PR verde no garantiza master verde.
+      # `NEXT_PUBLIC_API_URL` se inlinea en build (valor público): sin ella el
+      # bundle apunta al propio origen y el build "pasa" en falso.
+      - name: Web build
+        env:
+          NEXT_PUBLIC_API_URL: https://pulse-stream-api.luisrivas.site
+        run: pnpm --filter @pulse-stream/web build
+
+      - name: Worker build (dry-run)
+        run: pnpm --filter @pulse-stream/api-worker build
+
       # El OpenAPI se exporta sin server (`createApp()`) y de ahí se regeneran
       # los tipos. Si alguien cambió rutas/contratos y no commiteó el
       # `generated.ts`, el `git diff` falla (misma regla que en master).
