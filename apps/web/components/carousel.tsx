@@ -11,8 +11,10 @@ interface CarouselProps {
 }
 
 /**
- * Carrusel horizontal con scroll-snap y flechas (solo desktop) que aparecen al
- * hover/focus. Los items los pone el consumidor (`snap-start shrink-0`).
+ * Carrusel horizontal con scroll-snap, flechas (solo desktop) que aparecen al
+ * hover/focus y fades de borde permanentes mientras haya contenido pendiente
+ * (esa es la señal de scroll en mobile, donde no hay flechas). Los items los
+ * pone el consumidor (`snap-start shrink-0`).
  */
 export function Carousel({ children, className }: CarouselProps) {
   const scrollerRef = React.useRef<HTMLDivElement>(null);
@@ -59,6 +61,24 @@ export function Carousel({ children, className }: CarouselProps) {
       >
         {children}
       </div>
+
+      {/* Fades de borde: señal de scroll pendiente NO hover-gated (en mobile no
+          hay flechas, son LA señal). Van debajo de las flechas (z-10) y solo se
+          encienden cuando ese lado tiene contenido por scrollear. */}
+      <div
+        aria-hidden="true"
+        className={cn(
+          "pointer-events-none absolute inset-y-0 left-0 w-10 bg-gradient-to-r from-bg-base to-transparent transition-opacity duration-200",
+          canScrollLeft ? "opacity-100" : "opacity-0"
+        )}
+      />
+      <div
+        aria-hidden="true"
+        className={cn(
+          "pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-bg-base to-transparent transition-opacity duration-200",
+          canScrollRight ? "opacity-100" : "opacity-0"
+        )}
+      />
 
       <button
         type="button"
