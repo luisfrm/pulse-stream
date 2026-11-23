@@ -18,6 +18,11 @@ on:
   workflow_call:
   workflow_dispatch:
 
+# Hardening para el dispatch directo (el camino llamado hereda el del caller):
+# el GITHUB_TOKEN no necesita más que lectura.
+permissions:
+  contents: read
+
 concurrency:
   group: deploy-api-worker
   cancel-in-progress: false
@@ -53,8 +58,10 @@ jobs:
       # `src/db/schema.ts`) — decisión de diseño: "migraciones en su propio
       # workflow". Antes este step migraba también y un push de migraciones
       # aplicaba `db:migrate` DOS veces en paralelo (deploy + migrations, sin
-      # advisory lock). La política de migraciones aditivas (columnas nullable,
-      # índices tras renumerar) hace el orden código↔esquema no crítico.
+      # advisory lock). El orden código↔esquema no es crítico MIENTRAS el
+      # release tolere el esquema previo (migraciones aditivas: columnas
+      # nullable, índices tras renumerar). OJO: si la migración falla, este
+      # deploy NO se bloquea — mergear la migración antes del código que la usa.
 
       # Con `ENV=prod` el worker hace fail-fast si falta configuración y
       # responde 500 en todos los endpoints. Mejor no publicar que dejar el

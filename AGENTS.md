@@ -41,7 +41,8 @@ uv run pytest                          # integración; exige TEST_DATABASE_URL
   **CI en cada PR** (`.github/workflows/tests.yml`, check **"PR checks"**):
   worker `typecheck` + `test:unit`, web `typecheck → lint → test` y
   `generated.ts` pinneado — sin DB, sin secrets, sin builds. **CD en master**:
-  `deploy-pipeline.yml` es el **único** con `on: push` (hub de ruteo, sin steps
+  `deploy-pipeline.yml` es el **único workflow de CI+deploy disparado por
+  push** (hub de ruteo, sin steps
   propios) → `changes` (paths del worker) → `ci-master.yml` (reusable: `web`
   `typecheck → lint → build` + `api-worker` `typecheck → vitest de integración
   con Neon → dry-run build`) → `deploy-api-worker.yml` (reusable, `needs:
@@ -473,8 +474,9 @@ local el link se loguea y no se manda mail.
   `typecheck → lint → test` y `export:openapi` + `gen:types:worker` +
   `git diff --exit-code` (tipos pinneados). Sin secrets. Es el required check
   de branch protection.
-- **`Master Pipeline`** (`.github/workflows/deploy-pipeline.yml`): el **único**
-  disparado por `push` a master. Hub de ruteo sin steps propios (~40 líneas):
+- **`Master Pipeline`** (`.github/workflows/deploy-pipeline.yml`): el **único
+  workflow de CI+deploy** disparado por `push` a master (`database-migrations.yml`
+  también escucha push, pero sólo con paths de migraciones). Hub de ruteo sin steps propios (~40 líneas):
   `changes` (dorny/paths-filter con `fetch-depth: 0`) → `ci` (`uses:
   ./ci-master.yml`, `secrets: inherit`) → `deploy-api-worker` (`uses:
   ./deploy-api-worker.yml`, `needs: [changes, ci]`). El mismo `if` en CI y
