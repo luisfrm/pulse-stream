@@ -3,7 +3,9 @@ import type { Metadata } from "next";
 import { updateTag } from "next/cache";
 
 import { ArtistCard } from "@/components/artist-card";
+import { AlbumCard } from "@/components/album-card";
 import { Carousel } from "@/components/carousel";
+import { GenreCard } from "@/components/genre-card";
 import {
   CarouselSkeleton,
   SongItemSkeleton,
@@ -11,9 +13,11 @@ import {
 import { MediaCard } from "@/components/media-card";
 import { SearchInput } from "@/components/search-input";
 import { Section } from "@/components/section";
+import { SongItem } from "@/components/song-item";
 import { Skeleton } from "@/components/ui";
 import { albumsService } from "@/lib/services/albums-service";
 import { artistsService } from "@/lib/services/artists-service";
+import { genresService } from "@/lib/services/genres-service";
 import { getUserLibrary } from "@/lib/services/library";
 import { playlistsService } from "@/lib/services/playlists-service";
 import { songsService } from "@/lib/services/songs-service";
@@ -31,11 +35,16 @@ const ARTIST_LIMIT = 12;
 const MIX_LIMIT = 6;
 const MIX_TOTAL = 12;
 const SONGS_LIMIT = 24;
+/** Landing: filas de canciones (populares 7d), álbumes nuevos y mosaico de géneros. */
+const POPULAR_LIMIT = 10;
+const NEW_ALBUMS_LIMIT = 10;
 
 /** Item de carrusel de artista: card cuadrada chiquita (no circular). */
 const ARTIST_ITEM = "w-[150px] shrink-0 snap-start sm:w-[168px]";
 /** Item de la shelf "Incluye": cover de ~150px, estilo Spotify. */
 const SHELF_ITEM = "w-[140px] shrink-0 snap-start sm:w-[156px]";
+/** Item del carrusel de álbumes: el ancho estándar de las cards boxed. */
+const ALBUM_ITEM = "w-[46%] shrink-0 snap-start sm:w-[31%] lg:w-[196px]";
 
 export default async function SearchPage({
   searchParams,
@@ -83,9 +92,19 @@ export default async function SearchPage({
           </Suspense>
         </div>
       ) : (
-        <p className="rounded-2xl border border-bg-highlight bg-bg-elevated/50 px-5 py-10 text-center text-sm text-text-subdued">
-          Escribí algo para empezar a explorar…
-        </p>
+        <div className="flex flex-col gap-10">
+          <Suspense fallback={<SongsSectionSkeleton />}>
+            <PopularSection />
+          </Suspense>
+
+          <Suspense fallback={<CarouselSkeleton title="Recién llegado" />}>
+            <NewAlbumsSection />
+          </Suspense>
+
+          <Suspense fallback={<GenresSkeleton />}>
+            <GenresSection />
+          </Suspense>
+        </div>
       )}
     </div>
   );
@@ -213,6 +232,100 @@ function SongsSectionSkeleton() {
       <div className="flex flex-col gap-2">
         {Array.from({ length: 5 }).map((_, index) => (
           <SongItemSkeleton key={index} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** Landing 1: ranking público de la última semana, en filas con acciones. */
+async function PopularSection() {
+  const [library, songs] = await Promise.all([
+    getUserLibrary(),
+    songsService
+      .getPopular(
+        { days: 7, limit: POPULAR_LIMIT },
+        { next: { revalidate: 300, tags: [CACHE_TAGS.songs] } },
+      )
+      // El ranking es descubrimiento: si falla, la sección se omite en vez de
+      // romper la landing (los otros dos bloques siguen en sus boundaries).
+      .catch(() => []),
+  ]);
+
+  if (songs.length === 0) return null;
+
+  const refreshLibrary = async () => {
+    "use server";
+    updateTag(CACHE_TAGS.favorites);
+    updateTag(CACHE_TAGS.playlists);
+  };
+
+  return (
+    <Section title="Populares ahora" eyebrow="Los más escuchados de la semana">
+      <ul className="flex flex-col gap-2">
+        {songs.map((song) => (
+          <SongItem
+            key={song.id}
+            song={song}
+            queue={songs}
+            playlists={library?.playlists}
+            favoriteIds={library?.favoriteIds}
+            onMutated={refreshLibrary}
+          />
+        ))}
+      </ul>
+    </Section>
+  );
+}
+
+/** Landing 2: últimos álbumes del catálogo, cards en shelf horizontal. */
+async function NewAlbumsSection() {
+  const { items } = await albumsService.getAlbums(
+    { limit: NEW_ALBUMS_LIMIT },
+    { next: { revalidate: 300, tags: [CACHE_TAGS.albums] } },
+  );
+
+  if (items.length === 0) return null;
+
+  return (
+    <Section title="Recién llegado" eyebrow="Álbumes nuevos en el catálogo">
+      <Carousel>
+        {items.map((album, index) => (
+          <div key={album.id} className={ALBUM_ITEM}>
+            <AlbumCard album={album} priority={index < 4} />
+          </div>
+        ))}
+      </Carousel>
+    </Section>
+  );
+}
+
+/** Landing 3: mosaico de géneros (grid que wrappea) → listado filtrado. */
+async function GenresSection() {
+  const genres = await genresService
+    .getGenres({ next: { revalidate: 300, tags: [CACHE_TAGS.genres] } })
+    .catch(() => []);
+
+  if (genres.length === 0) return null;
+
+  return (
+    <Section title="Explorar todo">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+        {genres.map((genre) => (
+          <GenreCard key={genre} genre={genre} />
+        ))}
+      </div>
+    </Section>
+  );
+}
+
+function GenresSkeleton() {
+  return (
+    <section>
+      <Skeleton className="mb-4 h-7 w-48" />
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+        {Array.from({ length: 10 }).map((_, index) => (
+          <Skeleton key={index} className="aspect-square" />
         ))}
       </div>
     </section>

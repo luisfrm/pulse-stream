@@ -22,6 +22,12 @@ export interface GetSongsParams {
    * `playlist_id` (gana el orden de posición).
    */
   sort?: SongsListQuery["sort"];
+  /**
+   * Género (`GET /songs?genre=`). El enum canónico vive en la API: un valor
+   * desconocido responde 422, así que los llamadores deben pasar solo valores
+   * de `GET /genres`.
+   */
+  genre?: string;
 }
 
 export interface GetPopularParams {
@@ -73,6 +79,7 @@ export const songsService = {
       playlistId,
       query,
       sort,
+      genre,
       ...rest
     } = params ?? {};
     return await api<Page<Song>>("/songs", {
@@ -87,6 +94,7 @@ export const songsService = {
         ...(albumId ? { album_id: albumId } : {}),
         ...(playlistId ? { playlist_id: playlistId } : {}),
         ...(sort ? { sort } : {}),
+        ...(genre ? { genre } : {}),
       },
       ...options,
     });
