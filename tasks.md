@@ -283,7 +283,7 @@ están documentados en el gate de contrato.
 |---|---|---|
 | **Tests** | `.github/workflows/tests.yml`: solo unitarios (worker `test:unit` + web vitest) en cada `pull_request`, sin DB ni secrets | Hecho |
 | **CI (integracion)** | `ci.yml` pasa a `push: master` + `workflow_dispatch`: pytest, vitest con Neon, typecheck/lint/build del web y `generated.ts` pinneado | Hecho (job `api` de pytest eliminado al deprecar el backend Python — ver *Pendientes de infraestructura*) |
-| **Deploy API Worker** | `.github/workflows/deploy-api-worker.yml`: migraciones con la URL directa, `wrangler deploy`, `wrangler secret bulk` desde GitHub, smoke `/health`/`/genres`/`/artists`; environment `production` | Hecho |
+| **Deploy API Worker** | `.github/workflows/deploy-api-worker.yml`: migraciones con la URL directa, `wrangler deploy`, `wrangler secret bulk` desde GitHub, smoke `/health`/`/genres`/`/artists`; environment `production` | Hecho (fundido en `master.yml` con gating `needs` — ver *Pipeline CI/CD sellado*, CI-2) |
 | **Config del Worker** | `wrangler.jsonc` con `routes` del custom domain y `vars` no secretas; secretos de runtime solo en GitHub (fuente de verdad) | Hecho |
 | **Deploy web** | Vercel con su integracion de Git (sin workflow); envs `NEXT_PUBLIC_API_URL`, `ENV=prod`, `COOKIE_DOMAIN`, `COOKIE_SAMESITE` | Manual (dashboard) |
 

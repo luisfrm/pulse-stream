@@ -41,7 +41,14 @@ jobs:
     outputs:
       worker: ${{ steps.filter.outputs.worker }}
     steps:
+      # fetch-depth: 0 — con el shallow clone por defecto, un `workflow_dispatch`
+      # diffea el commit boundary (todos los archivos como "A") y `worker`
+      # quedaría en `true` siempre: cualquier dispatch manual deployaría y
+      # `force_deploy` sería decorativo. Con historia completa, el dispatch
+      # diffea el último commit real.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: dorny/paths-filter@v3
         id: filter
