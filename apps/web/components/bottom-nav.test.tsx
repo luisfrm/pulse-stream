@@ -1,8 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import type { User } from "@/lib/services/types";
-
 // next/navigation: BottomNav usa usePathname (activo) y useRouter (crear).
 vi.mock("next/navigation", () => ({
   usePathname: () => "/dashboard",
@@ -19,33 +17,17 @@ vi.mock("next/image", () => ({
 
 import { BottomNav } from "./bottom-nav";
 
-const user = {
-  id: "u1",
-  email: "maria@example.com",
-  username: "maria",
-  role: null,
-  is_superuser: false,
-} as User;
-
 describe("BottomNav", () => {
   it("navega a /catalog desde el item Catálogo", () => {
-    render(<BottomNav user={user} isAdmin={false} />);
+    render(<BottomNav />);
     expect(screen.getByRole("link", { name: /catálogo/i })).toHaveAttribute(
       "href",
       "/catalog"
     );
   });
 
-  it("navega a /account desde el item Cuenta", () => {
-    render(<BottomNav user={user} isAdmin={false} />);
-    expect(screen.getByRole("link", { name: /cuenta/i })).toHaveAttribute(
-      "href",
-      "/account"
-    );
-  });
-
   it("mantiene Inicio, Explorar y el botón Crear", () => {
-    render(<BottomNav user={user} isAdmin={false} />);
+    render(<BottomNav />);
     expect(screen.getByRole("link", { name: /inicio/i })).toHaveAttribute(
       "href",
       "/dashboard"
@@ -57,14 +39,13 @@ describe("BottomNav", () => {
     expect(screen.getByRole("button", { name: /crear/i })).toBeInTheDocument();
   });
 
-  it("muestra Panel solo para admins", () => {
-    const { rerender } = render(<BottomNav user={user} isAdmin={false} />);
-    expect(screen.queryByRole("link", { name: /panel/i })).not.toBeInTheDocument();
-
-    rerender(<BottomNav user={user} isAdmin={true} />);
-    expect(screen.getByRole("link", { name: /panel/i })).toHaveAttribute(
-      "href",
-      "/panel"
-    );
+  it("no incluye Cuenta ni Panel: viven en el sidebar", () => {
+    render(<BottomNav />);
+    expect(
+      screen.queryByRole("link", { name: /cuenta/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /panel/i })
+    ).not.toBeInTheDocument();
   });
 });

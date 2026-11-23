@@ -13,16 +13,15 @@ import {
   Search,
   Settings,
   Shield,
+  User,
   X,
 } from "lucide-react";
 
 import { cn } from "@/components/ui";
-import type { User } from "@/lib/services/types";
 import { BottomNav } from "./bottom-nav";
 import { BrandLogo } from "./brand-logo";
 
 interface DashboardShellProps {
-  user: User;
   isAdmin: boolean;
   children: React.ReactNode;
 }
@@ -39,6 +38,9 @@ function useNavItems(isAdmin: boolean): NavItem[] {
   return [
     { href: "/dashboard", label: "Inicio", icon: Home, exact: true },
     { href: "/search", label: "Explorar", icon: Search },
+    // Cuenta vive en el sidebar (y en el drawer móvil): la bottom nav ya no la
+    // tiene, así queda Inicio · Explorar · Catálogo · +.
+    { href: "/account", label: "Cuenta", icon: User },
     // "Mi catálogo" abre la sección Biblioteca, antes de Canciones.
     { href: "/catalog", label: "Mi catálogo", icon: LibraryBig, group: "Biblioteca" },
     { href: "/songs", label: "Canciones", icon: Music2, group: "Biblioteca" },
@@ -110,7 +112,7 @@ function SidebarNav({
 }
 
 /** App shell del área protegida: sidebar (desktop) + drawer (móvil). */
-export function DashboardShell({ user, isAdmin, children }: DashboardShellProps) {
+export function DashboardShell({ isAdmin, children }: DashboardShellProps) {
   const [drawerOpen, setDrawerOpen] = React.useState(false);
 
   return (
@@ -165,8 +167,8 @@ export function DashboardShell({ user, isAdmin, children }: DashboardShellProps)
         <SidebarNav isAdmin={isAdmin} />
       </aside>
 
-      {/* Barra superior móvil: la hamburguesa abre el drawer (la cuenta vive en
-          la bottom nav y en Configuración). */}
+      {/* Barra superior móvil: la hamburguesa abre el drawer (Cuenta y Panel
+          viven en el sidebar/drawer; la bottom nav quedó en navegación pura). */}
       <header className="sticky top-0 z-40 flex items-center justify-between gap-3 border-b border-bg-highlight bg-bg-base/95 px-4 py-3 backdrop-blur-md lg:hidden">
         <Link
           href="/dashboard"
@@ -191,7 +193,7 @@ export function DashboardShell({ user, isAdmin, children }: DashboardShellProps)
       </main>
 
       {/* Navegación inferior (móvil) */}
-      <BottomNav user={user} isAdmin={isAdmin} />
+      <BottomNav />
     </div>
   );
 }
