@@ -8,7 +8,8 @@ import { NoCover } from "./no-cover";
 
 interface MediaCardProps {
   title: string;
-  href: string;
+  /** Destino del título cuando la card navega (cards sin `onSelect`). */
+  href?: string;
   coverUrl?: string | null;
   /** `circle` para artistas. */
   shape?: "square" | "circle";
@@ -22,6 +23,11 @@ interface MediaCardProps {
   onPlay?: () => void;
   /** Deshabilita el play (p. ej. mientras se carga la cola). */
   playDisabled?: boolean;
+  /**
+   * Si viene, el título y el cover REPRODUCEN en vez de navegar (canciones:
+   * no tienen página de detalle). Sin `onSelect` la card sigue linkeando.
+   */
+  onSelect?: () => void;
   className?: string;
   priority?: boolean;
 }
@@ -43,9 +49,14 @@ export function MediaCard({
   playing = false,
   onPlay,
   playDisabled = false,
+  onSelect,
   className,
   priority = false,
 }: MediaCardProps) {
+  const titleClass =
+    "flex min-h-6 items-center font-display text-base font-bold leading-6";
+  const titleText = <span className="truncate">{title}</span>;
+
   return (
     <div className={cn("group relative flex h-full min-w-0 flex-col gap-3", className)}>
       <div className="relative aspect-square w-full">
@@ -89,6 +100,23 @@ export function MediaCard({
           <div className="absolute right-2 top-2 z-10 flex items-center gap-1">{actions}</div>
         )}
 
+        {/*
+         * Cover clickeable (solo modo reproducción). Va DEBAJO del play y de
+         * `actions` en el hit-test: el play lo pisa por orden de DOM y las
+         * acciones por `z-10`, así el popover del picker sigue funcionando.
+         */}
+        {onSelect && (
+          <button
+            type="button"
+            onClick={onSelect}
+            aria-label={`Reproducir ${title}`}
+            className={cn(
+              "absolute inset-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-200",
+              shape === "circle" ? "rounded-full" : "rounded-md"
+            )}
+          />
+        )}
+
         {onPlay && (
           <button
             type="button"
@@ -113,12 +141,25 @@ export function MediaCard({
 
       <div className="min-w-0">
         {/* min-h-6: WCAG 2.2 AA exige targets ≥24px; el span interno conserva el ellipsis. */}
-        <Link
-          href={href}
-          className="flex min-h-6 items-center font-display text-base font-bold leading-6 hover:underline"
-        >
-          <span className="truncate">{title}</span>
-        </Link>
+        {onSelect ? (
+          <button
+            type="button"
+            onClick={onSelect}
+            aria-label={`Reproducir ${title}`}
+            className={cn(
+              titleClass,
+              "w-full text-left hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-400"
+            )}
+          >
+            {titleText}
+          </button>
+        ) : href ? (
+          <Link href={href} className={cn(titleClass, "hover:underline")}>
+            {titleText}
+          </Link>
+        ) : (
+          <span className={titleClass}>{titleText}</span>
+        )}
         {subtitle != null && (
           <div className="line-clamp-2 text-sm text-text-subdued">{subtitle}</div>
         )}

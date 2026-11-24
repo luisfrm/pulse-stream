@@ -271,7 +271,7 @@ responde 202 igual y loguea `resend_failed` (no hay mail). En local, sin
 - [x] **Roles**: `role` nullable (`null` = usuario normal, `"admin"` = panel). Migración 0003 normaliza los `'user'` legacy → `NULL`. Endpoint `PATCH /admin/users/{id}/role` (promover/revocar, sin auto-revocación)
 - [x] **Dos áreas separadas**: `(protected)` → `/dashboard` (configuraciones del usuario normal, cualquier sesión) y `(panel)` → `/panel/*` (solo `role=admin`; sin sesión → `/login`, sin rol → `/`)
 - [x] **Home público** (`/`): hero + búsqueda con estado en URL + catálogo de canciones con play + sidebar de artistas
-- [x] **Páginas públicas**: `/artist/[id]` (canciones del artista, filtro `artist_id`) y `/song/[id]` (detalle + letra)
+- [x] **Páginas públicas**: `/artist/[id]` (canciones del artista, filtro `artist_id`). Las canciones no tienen página de detalle: se reproducen desde las listas/cards (una URL `/song/{id}` cae en el 404 branded)
 - [x] **Reproductor persistente** (`components/player/`): barra fija inferior, cola por lista, **Media Session API** (controles de pantalla de bloqueo/notificación)
 - [x] **UI kit** (`components/ui/`): Button/Badge/Card/Input/Title con `cva` + `cn` + `Slot` (asChild) según la guía de `packages/ui`
 - [x] Verificado end-to-end real: guards de `/panel` (sin cookie → login, usuario normal → home, admin → 200), subida real a R2 con CORS, páginas de artista/canción con datos reales

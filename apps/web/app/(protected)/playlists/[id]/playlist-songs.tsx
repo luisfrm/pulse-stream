@@ -81,7 +81,6 @@ export function PlaylistSongs({
             favoriteIds={library?.favoriteIds}
             playlists={library?.playlists}
             onMutated={onMutated}
-            playOnClick
           />
         ))}
       </ul>

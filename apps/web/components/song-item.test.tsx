@@ -44,7 +44,7 @@ beforeEach(() => {
 });
 
 describe("SongItem", () => {
-  it("sin cover renderiza NoCover y el play queda después del slot", () => {
+  it("sin cover renderiza NoCover dentro del área que reproduce y el ▶ al lado", () => {
     const { container } = render(
       <SongItem song={{ ...song, cover_url: null }} />
     );
@@ -52,10 +52,10 @@ describe("SongItem", () => {
     const noCover = container.querySelector('[data-slot="no-cover"]');
     expect(noCover).not.toBeNull();
 
-    const coverLink = noCover!.closest("a");
+    const area = screen.getByRole("button", { name: "Reproducir Pompeii" });
     const play = screen.getByRole("button", { name: "Reproducir" });
-    expect(coverLink).not.toBeNull();
-    expect(coverLink!.nextElementSibling).toBe(play);
+    expect(noCover!.closest("button")).toBe(area);
+    expect(area.nextElementSibling).toBe(play);
   });
 
   it("con cover renderiza la imagen y no el placeholder", () => {
@@ -72,25 +72,11 @@ describe("SongItem", () => {
     expect(container.querySelector("img")).not.toBeNull();
   });
 
-  it("por defecto el título es un link al detalle", () => {
-    render(<SongItem song={song} />);
-
-    expect(screen.getByRole("link", { name: "Pompeii" })).toHaveAttribute(
-      "href",
-      "/song/s1"
-    );
-    expect(
-      screen.getByRole("link", { name: "Bastille" })
-    ).toHaveAttribute("href", "/artist/a1");
-  });
-
-  it("con playOnClick no hay links y tocar el área reproduce con el contexto", () => {
+  it("tocar el área reproduce con el contexto y la fila no navega", () => {
     const context = { label: "Playlist: Mix", seed: [song] };
-    const { container } = render(
-      <SongItem song={song} playOnClick context={context} />
-    );
+    const { container } = render(<SongItem song={song} context={context} />);
 
-    // Cover y textos dejan de navegar: la fila es solo reproducción.
+    // Cover y textos no navegan: la fila es solo reproducción.
     expect(container.querySelector("a")).toBeNull();
     expect(screen.getByText("Pompeii")).toBeInTheDocument();
 
@@ -101,10 +87,10 @@ describe("SongItem", () => {
     expect(player.toggle).not.toHaveBeenCalled();
   });
 
-  it("con playOnClick y la canción sonando, tocar el área pausa", () => {
+  it("con la canción sonando, tocar el área pausa", () => {
     player.current = song;
     player.playing = true;
-    render(<SongItem song={song} playOnClick />);
+    render(<SongItem song={song} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Pausar Pompeii" }));
     expect(player.toggle).toHaveBeenCalledTimes(1);

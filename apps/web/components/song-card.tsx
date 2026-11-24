@@ -68,7 +68,6 @@ export function SongCard({
   return (
     <MediaCard
       title={song.title}
-      href={`/song/${song.id}`}
       coverUrl={song.cover_url}
       subtitle={
         <Link
@@ -103,6 +102,7 @@ export function SongCard({
       }
       playing={isPlaying}
       onPlay={handlePlay}
+      onSelect={handlePlay}
       className={className}
       priority={priority}
     />
