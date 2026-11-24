@@ -37,9 +37,12 @@ export function BottomSheet({ open, onClose, title, children, className }: Botto
 
   if (!open) return null;
 
+  // z-[55]: por encima de la bottom nav (z-50) y del player bar (z-40), por
+  // debajo del PlayerFullscreen (z-[60]). Sin esto la nav flota sobre la hoja
+  // y tapa las últimas filas (el tap lo intercepta el nav).
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
+      className="fixed inset-0 z-[55] flex items-end justify-center"
       role="dialog"
       aria-modal="true"
       aria-label={title ?? "Panel inferior"}

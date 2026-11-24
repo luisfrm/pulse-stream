@@ -19,6 +19,11 @@ interface OfflineButtonProps {
   withLabel?: boolean;
   /** Modo icono compacto (filas/cards): sin borde ni label, estilo icon-button. */
   compact?: boolean;
+  /**
+   * `icon` = botón suelto (comportamiento de siempre). `menu` = fila de menú
+   * con label, para el BottomSheet de acciones en mobile.
+   */
+  variant?: "icon" | "menu";
 }
 
 /** Botón "descargar para escuchar offline": guarda el audio en la Cache API. */
@@ -27,6 +32,7 @@ export function OfflineButton({
   className,
   withLabel,
   compact,
+  variant = "icon",
 }: OfflineButtonProps) {
   const [saved, setSaved] = React.useState(false);
   const [pending, setPending] = React.useState(false);
@@ -64,6 +70,33 @@ export function OfflineButton({
   }
 
   const label = saved ? "Quitar descarga offline" : "Descargar para escuchar offline";
+
+  if (variant === "menu") {
+    return (
+      <span className={cn("flex w-full flex-col gap-1", className)}>
+        <button
+          type="button"
+          onClick={toggle}
+          disabled={pending}
+          aria-pressed={saved}
+          className={cn(
+            "flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors hover:bg-bg-highlight focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-400 disabled:opacity-50",
+            saved ? "text-brand-400" : "text-text-primary"
+          )}
+        >
+          {pending ? (
+            <Loader2 size={16} className="animate-spin" />
+          ) : saved ? (
+            <Check size={16} />
+          ) : (
+            <Download size={16} />
+          )}
+          <span className="flex-1">{saved ? "Descargada" : "Descargar"}</span>
+        </button>
+        {error && <p className="px-3 text-xs text-brand-200">{error}</p>}
+      </span>
+    );
+  }
 
   return (
     <span className={cn("inline-flex flex-col items-center gap-1", className)}>

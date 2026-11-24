@@ -42,7 +42,7 @@ export function SongItem({
   );
 
   return (
-    <li className="flex items-center gap-4 rounded-xl border border-bg-highlight bg-bg-elevated px-4 py-3">
+    <li className="flex items-center gap-3 rounded-xl border border-bg-highlight bg-bg-elevated px-4 py-3 sm:gap-4">
       <button
         type="button"
         onClick={playSong}
