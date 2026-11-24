@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import { BackLink } from "@/components/back-link";
 import { NoCover } from "@/components/no-cover";
+import { refreshLibrary } from "@/app/(protected)/actions";
 import { albumsService } from "@/lib/services/albums-service";
 import { getUserLibrary } from "@/lib/services/library";
 import { songsService } from "@/lib/services/songs-service";
@@ -108,6 +109,7 @@ export default async function AlbumPage({ params }: AlbumPageProps) {
         albumTitle={album.title}
         initialPage={initialSongs}
         library={library}
+        onMutated={refreshLibrary}
       />
     </div>
   );

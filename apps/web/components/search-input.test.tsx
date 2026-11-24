@@ -68,6 +68,49 @@ describe("SearchInput", () => {
     expect(replace).not.toHaveBeenCalled();
   });
 
+  it("después de adoptar, tipear vuelve a navegar (flag no trabado)", async () => {
+    params = new URLSearchParams("q=a");
+    const { rerender } = render(<SearchInput initialValue="a" />);
+
+    params = new URLSearchParams("q=b");
+    rerender(<SearchInput initialValue="b" />);
+    await act(async () => {
+      vi.advanceTimersByTime(500);
+    });
+    expect(replace).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "rock" },
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(500);
+    });
+    expect(replace).toHaveBeenCalledTimes(1);
+    expect(replace).toHaveBeenCalledWith("?q=rock", { scroll: false });
+  });
+
+  it("un cambio externo durante el tipeo no navega ni deja la URL vieja", async () => {
+    params = new URLSearchParams();
+    const { rerender } = render(<SearchInput initialValue="" />);
+
+    // El usuario alcanza a tipear antes de que el debounce dispare…
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "roc" },
+    });
+
+    // …y llega un cambio externo (Atrás a otra entrada) antes de los 400 ms.
+    params = new URLSearchParams("q=daddy");
+    rerender(<SearchInput initialValue="daddy" />);
+
+    await act(async () => {
+      vi.advanceTimersByTime(500);
+    });
+
+    // La URL externa gana (se adopta) y no se dispara un replace fantasma.
+    expect(screen.getByRole("textbox")).toHaveValue("daddy");
+    expect(replace).not.toHaveBeenCalled();
+  });
+
   it("navega con debounce cuando el usuario tipea", async () => {
     render(<SearchInput initialValue="" />);
 

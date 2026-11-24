@@ -62,19 +62,24 @@ export function SearchInput({
     // replace con el valor VIEJO justo cuando la URL cambió por fuera.
     if (debouncedValue !== value) return;
 
+    // Se navega con el valor trimeado (las páginas trimean el `initialValue`):
+    // sin esto, un espacio final navegaba, la adopción borraba el espacio al
+    // usuario y un segundo replace seguía — dos navegaciones por una búsqueda.
+    const next = debouncedValue.trim();
+
     const currentQuery = searchParams.get(paramName) ?? "";
-    if (debouncedValue === currentQuery) return;
+    if (next === currentQuery.trim()) return;
     // La URL cambió por fuera (Atrás/Adelante): `useSearchParams` flipa antes
     // de que llegue el prop RSC con el `initialValue` nuevo. Si el debounce es
     // igual a lo último que navegamos y la URL ya no coincide, NO re-navegar:
     // sería el replace fantasma al valor viejo (la adopción lo aplica después).
-    if (debouncedValue === lastNavigatedRef.current) return;
+    if (next === lastNavigatedRef.current) return;
 
     const params = new URLSearchParams(searchParams.toString());
     // Se mergea sobre los params actuales: filtros que no son `paramName`
     // (p. ej. `genre` en /songs) se conservan al buscar.
-    if (debouncedValue) {
-      params.set(paramName, debouncedValue);
+    if (next) {
+      params.set(paramName, next);
     } else {
       params.delete(paramName);
     }
@@ -83,7 +88,7 @@ export function SearchInput({
 
     // Se registra ANTES del replace: cuando el RSC re-renderice con el nuevo
     // `initialValue`, el effect de arriba lo reconoce como eco propio.
-    lastNavigatedRef.current = debouncedValue;
+    lastNavigatedRef.current = next;
 
     const qs = params.toString();
     router.replace(qs ? `?${qs}` : "?", { scroll: false });

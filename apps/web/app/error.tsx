@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { Button, Card, CardContent, Title } from "@/components/ui";
 
 /**
@@ -19,6 +21,12 @@ export default function RootError({ reset }: { reset: () => void }) {
             No pudimos cargar la página. Revisá tu conexión y volvé a intentar.
           </p>
           <Button onClick={reset}>Reintentar</Button>
+          <Link
+            href="/"
+            className="text-sm text-text-subdued underline-offset-4 hover:text-text-primary hover:underline"
+          >
+            Volver al inicio
+          </Link>
         </CardContent>
       </Card>
     </div>

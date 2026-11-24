@@ -44,7 +44,9 @@ function PillSkeleton() {
 }
 
 async function PublicNav() {
-  const user = await getSession();
+  // Público: un blip transitorio de `/users/me` degrada a anónimo (nunca debe
+  // tirar la landing/login por la lectura de sesión).
+  const user = await getSession().catch(() => null);
 
   return (
     <header className="pointer-events-none fixed inset-x-0 top-4 z-40 flex justify-center px-4">

@@ -44,7 +44,10 @@ export default async function HomePage() {
 
   const cookieStore = await cookies();
   const hasSessionCookie = cookieStore.has("session");
-  const user = hasSessionCookie ? await getSession() : null;
+  // Público: mismo criterio que el layout — un error de sesión no rompe la home.
+  const user = hasSessionCookie
+    ? await getSession().catch(() => null)
+    : null;
   if (user) redirect("/dashboard");
 
   const [{ items: songs }, { items: artists }, publicPlaylists] =

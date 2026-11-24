@@ -30,9 +30,9 @@ export const api = ofetch.create({
      * `options.timeout` de ofetch se limpia cuando llegan los headers: si el
      * worker cuelga a mitad del BODY, la promesa nunca settlea y las páginas
      * quedan en skeleton eterno. Un `signal` de abort corta también la lectura
-     * del body. Es NUESTRO signal (no un `TimeoutError` de ofetch), así que
-     * `retry: 1` no la reintenta: el cuelgue termina en ~30s con error → los
-     * `.catch` de las páginas caen a estado vacío / error boundary.
+     * del body. (El retry de ofetch reusa el signal ya abortado y muere al
+     * instante: el deadline duro de ~30s se cumple igual.) El cuelgue termina
+     * en error → los `.catch`/boundaries caen a estado vacío o error.
      */
     if (!options.signal) {
       options.signal = AbortSignal.timeout(30_000);

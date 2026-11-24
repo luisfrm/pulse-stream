@@ -13,6 +13,7 @@ import { NoCover } from "@/components/no-cover";
 import { Section } from "@/components/section";
 import { SongCard } from "@/components/song-card";
 import { Skeleton } from "@/components/ui";
+import { refreshLibrary } from "@/app/(protected)/actions";
 import { favoritesService } from "@/lib/services/favorites-service";
 import { listensService } from "@/lib/services/listens-service";
 import { playlistsService } from "@/lib/services/playlists-service";
@@ -482,6 +483,7 @@ async function SongCarousel({
             song={song}
             queue={songs}
             playlists={playlists}
+            onMutated={refreshLibrary}
             priority={priority && index < 4}
           />
         </div>

@@ -39,15 +39,17 @@ export function FavoriteButton({
     try {
       if (previous) await favoritesService.remove(songId);
       else await favoritesService.add(songId);
-      // La Server Action (`updateTag`) ya revalida y re-renderiza la ruta: un
-      // `router.refresh()` extra provocaba un segundo flash de skeleton.
-      await onMutated?.();
     } catch (err) {
       setFavorited(previous);
       setError(friendlyError(err));
-    } finally {
       setPending(false);
+      return;
     }
+    // La Server Action (`updateTag`) ya revalida; un `router.refresh()` extra
+    // provocaba un segundo flash. Va FUERA del try de la mutación: si el
+    // refresco falla, el like YA se persistió y no debe revertirse.
+    await onMutated?.().catch(() => undefined);
+    setPending(false);
   }
 
   return (
