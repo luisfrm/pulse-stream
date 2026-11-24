@@ -58,6 +58,12 @@ interface PlayerState {
   playing: boolean;
   hasPrev: boolean;
   hasNext: boolean;
+  /** Hay un fetch de página/radio en vuelo (para el estado de la Cola). */
+  isExtending: boolean;
+  /** El último prefetch/encadenado falló por RED (reintentable desde la Cola). */
+  prefetchFailed: boolean;
+  /** Canciones que ya empezaron a sonar en esta reproducción (historial). */
+  playedIds: ReadonlySet<string>;
   progress: number;
   duration: number;
   play: (song: Song, source?: PlaySource) => void;
@@ -75,6 +81,13 @@ const PlayerContext = React.createContext<PlayerState | null>(null);
 
 /** Canciones por página del contexto (= tope de `limit` de la API). */
 const CONTEXT_PAGE_SIZE = 50;
+
+/**
+ * Colchón mínimo por delante de la canción actual: en la penúltima/última se
+ * prefetchea sola la página siguiente (o se encadena la radio). Una página
+ * trae 50 → el tamaño de página hace de histéresis y no hay loops.
+ */
+const PREFETCH_AHEAD = 2;
 
 /**
  * Marca en memoria de "ya sabemos que hay sesión": evita repetir 401 de
@@ -105,6 +118,24 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [playing, setPlaying] = React.useState(false);
   const [progress, setProgress] = React.useState(0);
   const [duration, setDuration] = React.useState(0);
+  /** Fetch de página/radio en vuelo (UI de la Cola). */
+  const [extending, setExtending] = React.useState(false);
+  /** El prefetch no pudo traer más por RED (reintentable). */
+  const [prefetchFailed, setPrefetchFailed] = React.useState(false);
+  const prefetchFailedRef = React.useRef(false);
+  /** Cancelación/identidad de la corrida de prefetch en vuelo (1 a la vez). */
+  const prefetchRef = React.useRef<Promise<void> | null>(null);
+  /** Historial de lo realmente iniciado (no todo lo materializado). */
+  const [playedIds, setPlayedIds] = React.useState<ReadonlySet<string>>(
+    () => new Set<string>()
+  );
+  const playedRef = React.useRef<Set<string>>(new Set<string>());
+  /**
+   * `advance` en vuelo (fetch del borde). El prefetch NO debe encadenar la
+   * radio mientras un avance espera la misma página: le cambiaría el contexto
+   * y el avance se descartaría (el usuario pulsa next y no pasa nada).
+   */
+  const advancingRef = React.useRef(0);
 
   // Espejos en refs: los handlers async (fetch de la página siguiente) leen el
   // estado VIGENTE y no el del render que creó el closure.
@@ -180,18 +211,46 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     setCurrent(song);
   }
 
-  /** Recalcula si el contexto todavía puede entregar páginas. */
-  function syncContextHasMore() {
+  /** El contexto todavía puede entregar páginas (lee refs, siempre fresco). */
+  function canLoadMore() {
     const context = contextRef.current;
-    const canLoad =
+    return (
       Boolean(context?.loadPage) &&
       !exhaustedRef.current &&
-      (context?.total === undefined || offsetRef.current < context.total);
-    setContextHasMore(canLoad);
+      (context?.total === undefined || offsetRef.current < context.total)
+    );
+  }
+
+  /** Recalcula si el contexto todavía puede entregar páginas. */
+  function syncContextHasMore() {
+    setContextHasMore(canLoadMore());
+  }
+
+  /** Cuántas canciones materializadas quedan DESPUÉS de la actual. */
+  function aheadCount() {
+    const song = currentRef.current;
+    if (!song) return 0;
+    const index = queueRef.current.findIndex((item) => item.id === song.id);
+    return index >= 0 ? queueRef.current.length - 1 - index : 0;
+  }
+
+  function markPlayed(songId: string) {
+    if (playedRef.current.has(songId)) return;
+    const next = new Set(playedRef.current);
+    next.add(songId);
+    playedRef.current = next;
+    setPlayedIds(next);
   }
 
   function startSong(song: Song) {
     setCurrentState(song);
+    markPlayed(song.id);
+    // El label/key se publican al ARRANCAR una canción, no al establecer el
+    // contexto: el prefetch puede crear la radio con margen mientras todavía
+    // suena la última pista y la UI de "Reproducir playlist" no debe cambiar
+    // de identidad hasta que realmente empiece a sonar otra canción.
+    setContextLabel(contextRef.current?.label ?? null);
+    setContextKey(contextRef.current?.key ?? null);
 
     const audio = audioRef.current;
     if (!audio) return;
@@ -228,12 +287,17 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       promise: Promise.resolve([] as Song[]),
     };
 
+    setExtending(true);
     const request = context
       .loadPage(offsetRef.current, CONTEXT_PAGE_SIZE)
       .then((page) => {
         // Contexto reemplazado durante el fetch: la página vieja no entra.
         if (contextRef.current !== context) return [] as Song[];
         extendFailedRef.current = null;
+        if (prefetchFailedRef.current) {
+          prefetchFailedRef.current = false;
+          setPrefetchFailed(false);
+        }
 
         offsetRef.current += page.length;
         if (page.length < CONTEXT_PAGE_SIZE) exhaustedRef.current = true;
@@ -261,11 +325,109 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       .finally(() => {
         // Sólo limpia el dueño de la entrada (un contexto nuevo pudo reemplazarla).
         if (inflightRef.current === entry) inflightRef.current = null;
+        setExtending(false);
       });
 
     entry.promise = request;
     inflightRef.current = entry;
     return request;
+  }
+
+  /**
+   * Crea la radio encadenada de `last` y la deja como contexto activo. NO
+   * publica `contextLabel`/`contextKey`: eso pasa recién cuando una canción de
+   * la radio arranca (`startSong`), así el prefetch puede crear la radio con
+   * margen sin cambiar la identidad del contexto mientras suena la última
+   * canción de la lista.
+   *
+   * Devuelve `null` si el autoplay ya se declaró estéril (`chainFailed`).
+   */
+  function establishChain(last: Song): PlayContext | null {
+    if (chainFailedRef.current) return null;
+
+    // Late binding: las exclusiones son todo lo ya materializado, horneadas en
+    // el contexto nuevo para que sus páginas devuelvan SOLO canciones nuevas.
+    const radio = radioContext({
+      seed: last,
+      excludeIds: new Set(queueRef.current.map((song) => song.id)),
+    });
+    contextRef.current = radio;
+    offsetRef.current = 0;
+    exhaustedRef.current = false;
+    // Nuevo contexto: no hereda el inflight del anterior.
+    inflightRef.current = null;
+    syncContextHasMore();
+    return radio;
+  }
+
+  /**
+   * Mantiene `minAhead` canciones materializadas por delante de la actual.
+   * Se dispara solo (efecto), NUNCA mueve la canción ni pausa: appendea la
+   * página siguiente o encadena la radio cuando el contexto se agotó. Así la
+   * Cola deja de mostrar "no hay más" mientras todavía suena la última pista.
+   */
+  async function ensureAhead(minAhead = PREFETCH_AHEAD): Promise<void> {
+    if (prefetchRef.current) return;
+    if (aheadCount() >= minAhead) return;
+
+    const song = currentRef.current;
+    if (!song) return;
+    // Si la canción actual todavía no está materializada, `play()` está
+    // bootstrapeando el contexto (sin seed): el prefetch no debe robarle el
+    // control ni encadenar la radio antes de que arranque la canción pedida.
+    if (!queueRef.current.some((item) => item.id === song.id)) return;
+
+    const run = (async () => {
+      const contextAtStart = contextRef.current;
+
+      // 1) Todavía quedan páginas del contexto actual.
+      if (canLoadMore()) {
+        await extendContext();
+        // Otra superficie tomó el control durante el fetch.
+        if (contextRef.current !== contextAtStart) return;
+        if (aheadCount() >= minAhead) return;
+      }
+
+      // 2) Contexto agotado (o página estéril): encadenar la radio. Se
+      //    establece de forma SINCRÓNICA antes del primer await del fetch.
+      //    Un `advance` en vuelo manda: ya va a encadenar él (o a avanzar con
+      //    la página que ambos esperan) y no se le puede cambiar el contexto.
+      if (advancingRef.current > 0) return;
+      const last = currentRef.current;
+      if (!last) return;
+      // Longitud ANTES de encadenar: si el pull vuelve vacío sin error, no hay
+      // material nuevo ⇒ esterilidad real (mismo criterio que `advance`).
+      const before = queueRef.current.length;
+      const radio = establishChain(last);
+      if (!radio) return;
+
+      await extendContext();
+      if (contextRef.current !== radio) return;
+
+      if (extendFailedRef.current === radio) {
+        // Fallo de RED (no esterilidad): se reporta para el "Reintentar" de la
+        // Cola y NO se latchea `chainFailed` — el próximo `next()` reintenta.
+        prefetchFailedRef.current = true;
+        setPrefetchFailed(true);
+      } else if (queueRef.current.length === before) {
+        // Pull exitoso pero sin canciones nuevas: si no se latchea acá, el
+        // efecto no se re-dispara (deps `[current, queue.length, chainFailed]`)
+        // y la Cola quedaría en skeleton eterno hasta el `onEnded`.
+        chainFailedRef.current = true;
+        setChainFailed(true);
+        exhaustedRef.current = true;
+        syncContextHasMore();
+      }
+      extendFailedRef.current = null;
+    })();
+
+    prefetchRef.current = run;
+    try {
+      await run;
+    } finally {
+      // Sólo libera la marca el dueño (un `play()` pudo arrancar otra corrida).
+      if (prefetchRef.current === run) prefetchRef.current = null;
+    }
   }
 
   /**
@@ -294,83 +456,88 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       return true;
     }
 
-    // Final de lo materializado: puede haber más en el contexto.
-    const contextAtStart = contextRef.current;
-    await extendContext();
+    advancingRef.current += 1;
+    try {
+      // Final de lo materializado: puede haber más en el contexto.
+      const contextAtStart = contextRef.current;
+      await extendContext();
 
-    // Otra superficie llamó `play()` mientras la página viajaba: el control es
-    // suyo, así que este avance no toca la cola nueva.
-    if (contextRef.current !== contextAtStart) return false;
+      // Otra superficie llamó `play()` mientras la página viajaba: el control es
+      // suyo, así que este avance no toca la cola nueva.
+      if (contextRef.current !== contextAtStart) return false;
 
-    // Se relee el estado: otro `advance` concurrente pudo haber avanzado ya.
-    const grown = queueRef.current;
-    const currentNow = currentRef.current;
-    const indexNow = currentNow
-      ? grown.findIndex((song) => song.id === currentNow.id)
-      : -1;
-    const nextSong = indexNow >= 0 ? grown[indexNow + 1] : undefined;
-    if (nextSong) {
-      startSong(nextSong);
-      return true;
-    }
-
-    // Final REAL del contexto: encadenar la radio de la última canción (Q4 —
-    // autoplay, como Spotify). Late binding: las exclusiones son todo lo ya
-    // reproducido, horneadas en el contexto nuevo para que sus páginas
-    // devuelvan SOLO canciones nuevas (el dedupe del motor no la marcaría
-    // agotada por ver ids conocidos).
-    if (chainFailedRef.current) return false;
-    const last = currentRef.current;
-    if (!last) return false;
-
-    const radio = radioContext({
-      seed: last,
-      excludeIds: new Set(queueRef.current.map((song) => song.id)),
-    });
-    contextRef.current = radio;
-    setContextLabel(radio.label);
-    setContextKey(radio.key ?? null);
-    offsetRef.current = 0;
-    exhaustedRef.current = false;
-    // Nuevo contexto: no hereda el inflight del anterior.
-    inflightRef.current = null;
-    syncContextHasMore();
-
-    await extendContext();
-    // Raza estándar: otra superficie pudo tomar el control durante el fetch.
-    if (contextRef.current !== radio) return false;
-
-    const chained = queueRef.current;
-    const chainedIndex = chained.findIndex((song) => song.id === last.id);
-    const chainedNext =
-      chainedIndex >= 0 ? chained[chainedIndex + 1] : undefined;
-    if (!chainedNext) {
-      // Cadena estéril (artista/género sin nada nuevo): se detiene de verdad.
-      // Un fallo de RED en el pull NO se latchea (es reintentable): sólo la
-      // esterilidad real bloquea el autoplay hasta el próximo `play()`.
-      const failedByNetwork = extendFailedRef.current === radio;
-      extendFailedRef.current = null;
-      if (!failedByNetwork) {
-        chainFailedRef.current = true;
-        setChainFailed(true);
+      // Se relee el estado: otro `advance` concurrente pudo haber avanzado ya.
+      const grown = queueRef.current;
+      const currentNow = currentRef.current;
+      const indexNow = currentNow
+        ? grown.findIndex((song) => song.id === currentNow.id)
+        : -1;
+      const nextSong = indexNow >= 0 ? grown[indexNow + 1] : undefined;
+      if (nextSong) {
+        startSong(nextSong);
+        return true;
       }
-      exhaustedRef.current = true;
-      syncContextHasMore();
-      return false;
+
+      // Final REAL del contexto: encadenar la radio de la última canción (Q4 —
+      // autoplay, como Spotify). Late binding: las exclusiones son todo lo ya
+      // reproducido, horneadas en el contexto nuevo para que sus páginas
+      // devuelvan SOLO canciones nuevas (el dedupe del motor no la marcaría
+      // agotada por ver ids conocidos).
+      const last = currentRef.current;
+      if (!last) return false;
+      const radio = establishChain(last);
+      if (!radio) return false;
+
+      await extendContext();
+      // Raza estándar: otra superficie pudo tomar el control durante el fetch.
+      if (contextRef.current !== radio) return false;
+
+      const chained = queueRef.current;
+      const chainedIndex = chained.findIndex((song) => song.id === last.id);
+      const chainedNext =
+        chainedIndex >= 0 ? chained[chainedIndex + 1] : undefined;
+      if (!chainedNext) {
+        // Cadena estéril (artista/género sin nada nuevo): se detiene de verdad.
+        // Un fallo de RED en el pull NO se latchea (es reintentable): sólo la
+        // esterilidad real bloquea el autoplay hasta el próximo `play()`.
+        const failedByNetwork = extendFailedRef.current === radio;
+        extendFailedRef.current = null;
+        if (failedByNetwork) {
+          // Mismo aviso que el prefetch: la Cola ofrece "Reintentar".
+          prefetchFailedRef.current = true;
+          setPrefetchFailed(true);
+        } else {
+          chainFailedRef.current = true;
+          setChainFailed(true);
+        }
+        exhaustedRef.current = true;
+        syncContextHasMore();
+        return false;
+      }
+      // El usuario se movió DURANTE el fetch (prev o click en la Cola): su
+      // acción manda — no se pisa con el salto del chain (y devolver true evita
+      // que el onEnded corte lo que acaba de poner).
+      if (currentRef.current?.id !== last.id) return true;
+      startSong(chainedNext);
+      return true;
+    } finally {
+      advancingRef.current -= 1;
     }
-    // El usuario se movió DURANTE el fetch (prev o click en la Cola): su
-    // acción manda — no se pisa con el salto del chain (y devolver true evita
-    // que el onEnded corte lo que acaba de poner).
-    if (currentRef.current?.id !== last.id) return true;
-    startSong(chainedNext);
-    return true;
   }
 
   function play(song: Song, source?: PlaySource) {
-    // Nueva reproducción: la cadena de radio vuelve a estar disponible.
+    // Nueva reproducción: la cadena de radio vuelve a estar disponible y el
+    // historial arranca de cero (lo que ya sonó no es de esta reproducción).
     chainFailedRef.current = false;
     setChainFailed(false);
     extendFailedRef.current = null;
+    prefetchFailedRef.current = false;
+    setPrefetchFailed(false);
+    // Un prefetch viejo sigue vivo hasta su próximo await, pero su identidad
+    // de contexto lo descarta; liberamos la marca para arrancar el nuevo ya.
+    prefetchRef.current = null;
+    playedRef.current = new Set();
+    setPlayedIds(playedRef.current);
 
     if (isPlayContext(source)) {
       const context = source;
@@ -521,6 +688,15 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current, hasNext, hasPrev]);
 
+  // Prefetch anticipado: con `PREFETCH_AHEAD` canciones de margen la cola se
+  // llena sola (y al agotarse encadena la radio) sin que el usuario pulse next.
+  // Depende de `queue.length` (no de `queue`) para no re-disparar por identidad.
+  React.useEffect(() => {
+    if (!current) return;
+    void ensureAhead();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current, queue.length, chainFailed]);
+
   // Sincroniza estado con el <audio> (fin de canción, progreso, duración,
   // y registro de cada play cuando realmente empieza a sonar).
   React.useEffect(() => {
@@ -575,6 +751,9 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       playing,
       hasPrev,
       hasNext,
+      isExtending: extending,
+      prefetchFailed,
+      playedIds,
       progress,
       duration,
       play,
@@ -597,6 +776,9 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       currentIndex,
       contextHasMore,
       chainFailed,
+      extending,
+      prefetchFailed,
+      playedIds,
     ]
   );
 
