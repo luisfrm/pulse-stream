@@ -17,12 +17,13 @@ const sliderVariants = cva("relative", {
 });
 
 const trackVariants = cva(
-  "relative w-full overflow-hidden rounded-full bg-bg-highlight",
+  "relative w-full overflow-hidden rounded-full",
   {
     variants: {
       mode: {
-        interactive: "h-1",
-        display: "h-0.5",
+        interactive: "h-1 bg-bg-highlight",
+        // La barra inferior conserva el riel de master (más tenue).
+        display: "h-0.5 bg-bg-highlight/60",
       },
     },
     defaultVariants: { mode: "interactive" },
@@ -66,6 +67,9 @@ export function Slider({
   // Guard: `duration = 0` (sin metadata) no debe generar `NaN%`.
   const ratio = max > 0 ? Math.min(1, Math.max(0, shown / max)) : 0;
   const pct = ratio * 100;
+  // Redondeado: con `max` decimal, `round(now)` podía superar `round(max)`.
+  const roundedMax = Math.round(max);
+  const roundedNow = Math.round(Math.min(roundedMax, Math.max(0, shown)));
 
   function seekTo(clientX: number, element: HTMLElement) {
     if (max <= 0) return;
@@ -80,6 +84,9 @@ export function Slider({
   function handlePointerDown(event: React.PointerEvent<HTMLDivElement>) {
     if (!interactive) return;
     event.preventDefault();
+    // `preventDefault` inhibe el foco implícito: sin esto las flechas no
+    // funcionan después de clickear.
+    event.currentTarget.focus({ preventScroll: true });
     try {
       event.currentTarget.setPointerCapture(event.pointerId);
     } catch {
@@ -120,18 +127,20 @@ export function Slider({
 
   return (
     <div
-      role="slider"
+      role={interactive ? "slider" : "progressbar"}
       aria-label={ariaLabel}
       aria-valuemin={0}
-      aria-valuemax={max}
-      aria-valuenow={Math.round(Math.min(max, Math.max(0, shown)))}
+      aria-valuemax={roundedMax}
+      aria-valuenow={roundedNow}
       aria-valuetext={ariaValueText}
-      aria-disabled={interactive ? undefined : true}
       tabIndex={interactive ? 0 : undefined}
       onPointerDown={interactive ? handlePointerDown : undefined}
       onPointerMove={interactive ? handlePointerMove : undefined}
       onPointerUp={interactive ? endDrag : undefined}
       onPointerCancel={interactive ? endDrag : undefined}
+      // Si el puntero se pierde (captura fallida), `dragging` no debe quedar
+      // colgado: el próximo `pointermove` haría scrub sin botón presionado.
+      onLostPointerCapture={interactive ? endDrag : undefined}
       onKeyDown={interactive ? handleKeyDown : undefined}
       className={cn(sliderVariants({ mode }), className)}
     >

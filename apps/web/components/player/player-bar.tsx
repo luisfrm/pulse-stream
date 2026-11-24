@@ -46,6 +46,7 @@ export function PlayerBar() {
             max={duration}
             interactive={false}
             ariaLabel="Progreso de reproducción"
+            ariaValueText={formatTime(progress)}
             className="mx-3"
           />
 
