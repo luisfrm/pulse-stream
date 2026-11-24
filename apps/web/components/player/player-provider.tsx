@@ -2,6 +2,11 @@
 
 import * as React from "react";
 
+import {
+  clearPersistedSession,
+  readPersistedSession,
+  writePersistedSession,
+} from "@/lib/player/persisted-session";
 import { listensService } from "@/lib/services/listens-service";
 import type { Song } from "@/lib/services/types";
 import { claimAudio, releaseAudio, type AudioHandle } from "./audio-orchestrator";
@@ -81,6 +86,13 @@ const PlayerContext = React.createContext<PlayerState | null>(null);
 
 /** Canciones por página del contexto (= tope de `limit` de la API). */
 const CONTEXT_PAGE_SIZE = 50;
+
+/**
+ * Cada cuánto se persiste mientras suena (persist periódico en `timeupdate`):
+ * el blob no debe quedar congelado con la duración/progreso previos a la
+ * metadata, pero tampoco se escribe 4×/s.
+ */
+const PERSIST_INTERVAL_MS = 5_000;
 
 /**
  * Colchón mínimo por delante de la canción actual: en la penúltima/última se
@@ -168,6 +180,21 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
    * transitorio — el próximo `next()` reintenta.
    */
   const extendFailedRef = React.useRef<PlayContext | null>(null);
+  /** Segundo a restaurar tras un F5: se aplica al primer play/`loadedmetadata`. */
+  const pendingSeekRef = React.useRef<number | null>(null);
+  /** `true` una vez aplicada la sesión guardada (StrictMode re-monta el efecto). */
+  const restoredRef = React.useRef(false);
+  /**
+   * Espejos para persistir desde listeners con closures viejas (`pagehide` se
+   * registra una vez): el label, la duración y el segundo vigentes viven acá.
+   */
+  const contextLabelRef = React.useRef<string | null>(null);
+  const durationRef = React.useRef(0);
+  const progressRef = React.useRef(0);
+  /** Última duración finita > 0 vista: nunca se pisa con 0 (metadata tarda). */
+  const knownDurationRef = React.useRef(0);
+  /** Throttle del persist periódico durante `timeupdate`. */
+  const lastPersistRef = React.useRef(0);
 
   const recordPlay = React.useCallback((song: Song) => {
     // Fire-and-forget: el backend deduplica plays consecutivos. Si no hay
@@ -200,6 +227,156 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       handleRef.current = null;
     };
   }, []);
+
+  /**
+   * Restauración tras un F5 desde `sessionStorage`.
+   *
+   * NO rehidrata el `PlayContext` (tiene closures y el cursor interno de la
+   * radio es privado): la cola vuelve como ARRAY FIJO (`contextRef = null`,
+   * `exhausted = true`). Cuando se agota, el encadenado de Q4 crea la radio
+   * desde la última canción ⇒ la cola nunca muere.
+   *
+   * Queda PAUSADO en el segundo guardado: setea `current` directo (sin
+   * `startSong`, así no hay `audio.play()` ni `claimAudio`) y NO registra un
+   * listen nuevo — el `POST /me/listens` sale solo del evento `play` del audio.
+   */
+  React.useEffect(() => {
+    // Guard por ref: una restauración por montaje (StrictMode re-ejecuta el
+    // efecto) y el setState queda ref-controlled para la regla del compiler.
+    if (restoredRef.current) return;
+    restoredRef.current = true;
+
+    const blob = readPersistedSession();
+    if (!blob) return;
+    const song = blob.queue.find((item) => item.id === blob.currentId);
+    if (!song) {
+      clearPersistedSession();
+      return;
+    }
+
+    setQueueState(blob.queue);
+    setCurrentState(song);
+    playedRef.current = new Set(blob.playedIds);
+    setPlayedIds(playedRef.current);
+    markPlayed(song.id);
+    setContextLabel(blob.contextLabel);
+    setContextKey(null);
+    contextRef.current = null;
+    exhaustedRef.current = true;
+    syncContextHasMore();
+    setProgress(blob.progress);
+    setDuration(blob.duration || 0);
+    setPlaying(false);
+    pendingSeekRef.current = blob.progress;
+    // Espejos inmediatos: el persist que corre más abajo en este mismo commit
+    // no debe pisar el blob bueno con los valores iniciales (0).
+    progressRef.current = blob.progress;
+    durationRef.current = blob.duration || 0;
+    knownDurationRef.current = blob.duration || 0;
+    contextLabelRef.current = blob.contextLabel;
+    // `preload="none"`: asignar `src` no descarga ni emite `play`.
+    const audio = audioRef.current;
+    if (audio) audio.src = song.stream_url ?? "";
+
+    return () => {
+      // StrictMode: el cleanup permite re-aplicar la sesión en el re-montaje
+      // (el <audio> también se recrea y necesita su `src`).
+      restoredRef.current = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Espejos para persistir con closures viejas (ver refs). Van antes del efecto
+  // de persistencia para que en el mismo commit ya estén actualizados.
+  React.useEffect(() => {
+    contextLabelRef.current = contextLabel;
+  }, [contextLabel]);
+
+  React.useEffect(() => {
+    durationRef.current = duration;
+  }, [duration]);
+
+  React.useEffect(() => {
+    progressRef.current = progress;
+  }, [progress]);
+
+  /**
+   * Guarda la sesión desde refs (nunca desde la closure del render). `overrides`
+   * lo usa el flush de salida para pasar progreso/duración leídos del <audio>.
+   */
+  const persistSession = React.useCallback(
+    (overrides?: { progress?: number; duration?: number }) => {
+      const songNow = currentRef.current;
+      const queueNow = queueRef.current;
+      if (!songNow || queueNow.length === 0) return;
+
+      const audio = audioRef.current;
+      const pending = pendingSeekRef.current;
+      const live = audio?.currentTime ?? 0;
+
+      // La duración vive en la metadata del <audio>; el espejo del estado puede
+      // quedar viejo. Se recuerda la última finita > 0 para no escribir 0.
+      if (audio && Number.isFinite(audio.duration) && audio.duration > 0) {
+        knownDurationRef.current = audio.duration;
+      }
+      const seenDuration =
+        overrides?.duration ??
+        (durationRef.current > 0
+          ? durationRef.current
+          : knownDurationRef.current);
+      if (seenDuration > 0) knownDurationRef.current = seenDuration;
+
+      writePersistedSession({
+        currentId: songNow.id,
+        queue: queueNow,
+        // Orden de verdad: el segundo restaurado sin aplicar manda (la UI lo
+        // muestra); si no, el `currentTime` vivo; y si el audio no tiene
+        // metadata, el espejo de la UI.
+        progress:
+          overrides?.progress ??
+          (pending !== null ? pending : live > 0 ? live : progressRef.current),
+        duration: seenDuration > 0 ? seenDuration : knownDurationRef.current,
+        contextLabel: contextLabelRef.current,
+        playedIds: [...playedRef.current],
+      });
+      lastPersistRef.current = Date.now();
+    },
+    []
+  );
+
+  // Barato (~50 KB): canción/cola/play-pause.
+  React.useEffect(() => {
+    persistSession();
+  }, [current, queue.length, playing, persistSession]);
+
+  // Y al salir de la página (F5/navegación): lee del <audio> para no depender
+  // de los espejos (la duración vive en la metadata, no en el estado).
+  React.useEffect(() => {
+    const flush = () => {
+      const audio = audioRef.current;
+      const liveDuration =
+        audio && Number.isFinite(audio.duration) && audio.duration > 0
+          ? audio.duration
+          : durationRef.current > 0
+            ? durationRef.current
+            : knownDurationRef.current;
+      const liveProgress =
+        audio && audio.currentTime > 0
+          ? audio.currentTime
+          : pendingSeekRef.current ?? progressRef.current;
+      persistSession({ progress: liveProgress, duration: liveDuration });
+    };
+    const onHide = () => flush();
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    window.addEventListener("pagehide", onHide);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("pagehide", onHide);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [persistSession]);
 
   function setQueueState(items: Song[]) {
     queueRef.current = items;
@@ -243,6 +420,9 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   }
 
   function startSong(song: Song) {
+    // El segundo restaurado era de la canción anterior: cualquier arranque
+    // (play/next/prev/jump) lo invalida.
+    pendingSeekRef.current = null;
     setCurrentState(song);
     markPlayed(song.id);
     // El label/key se publican al ARRANCAR una canción, no al establecer el
@@ -617,6 +797,19 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     const audio = audioRef.current;
     if (!audio || !current) return;
     if (audio.paused) {
+      // Restaurado pausado: aplica el segundo guardado antes de sonar (si el
+      // `loadedmetadata` todavía no llegó a hacerlo).
+      const pending = pendingSeekRef.current;
+      if (pending !== null) {
+        audio.currentTime = pending;
+        // Antes de `loadedmetadata` el navegador puede ignorar el seek: sólo
+        // consumimos el pendiente si el audio quedó realmente en ese segundo
+        // (si no, el `onLoaded` que dispara `play()` lo reintenta).
+        if (Math.abs(audio.currentTime - pending) <= 1) {
+          setProgress(audio.currentTime);
+          pendingSeekRef.current = null;
+        }
+      }
       if (handleRef.current) claimAudio(handleRef.current);
       audio.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
     } else {
@@ -635,6 +828,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   function seek(time: number) {
     const audio = audioRef.current;
     if (!audio) return;
+    // El scrub del usuario gana sobre el segundo restaurado.
+    pendingSeekRef.current = null;
     audio.currentTime = time;
     setProgress(time);
   }
@@ -721,9 +916,33 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       setPlaying(true);
       if (current) recordPlay(current);
     };
-    const onTime = () => setProgress(audio.currentTime);
+    const onTime = () => {
+      // Con un segundo restaurado sin aplicar, `audio.currentTime` es 0 y
+      // pisaría la UI (y el persist): esperar a que el seek tome.
+      if (pendingSeekRef.current !== null) return;
+      setProgress(audio.currentTime);
+      // Persist acotado: mientras suena, el blob no debe quedar congelado con
+      // la duración/progreso de antes de la metadata (ni escribir 4×/s).
+      if (Date.now() - lastPersistRef.current >= PERSIST_INTERVAL_MS) {
+        persistSession();
+      }
+    };
     const onLoaded = () => {
-      setDuration(audio.duration || 0);
+      // Nunca pisar la duración restaurada con 0/NaN (metadata a medias).
+      if (Number.isFinite(audio.duration) && audio.duration > 0) {
+        setDuration(audio.duration);
+        knownDurationRef.current = audio.duration;
+      }
+      const pending = pendingSeekRef.current;
+      if (pending !== null) {
+        audio.currentTime = pending;
+        if (Math.abs(audio.currentTime - pending) <= 1) {
+          setProgress(audio.currentTime);
+          pendingSeekRef.current = null;
+        }
+        // Si no tomó, queda pendiente para el próximo `onLoaded`/`toggle`.
+        return;
+      }
       setProgress(audio.currentTime);
     };
 

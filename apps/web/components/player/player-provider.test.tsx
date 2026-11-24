@@ -1,12 +1,19 @@
-import { act, render, waitFor } from "@testing-library/react";
+import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { PLAYER_SESSION_KEY } from "@/lib/player/persisted-session";
+import { listensService } from "@/lib/services/listens-service";
 import { songsService } from "@/lib/services/songs-service";
 import type { Page, Song } from "@/lib/services/types";
 
 // La fábrica anclada habla con la API: se mockea el service (sin red).
 vi.mock("@/lib/services/songs-service", () => ({
   songsService: { getSongs: vi.fn() },
+}));
+
+// El provider registra listens: sin red en jsdom.
+vi.mock("@/lib/services/listens-service", () => ({
+  listensService: { recordPlay: vi.fn().mockResolvedValue({}) },
 }));
 
 import { songAnchoredContext } from "./play-contexts";
@@ -17,6 +24,7 @@ import {
 } from "./player-provider";
 
 const getSongsMock = vi.mocked(songsService.getSongs);
+const recordPlayMock = vi.mocked(listensService.recordPlay);
 
 /** Página del mock con el shape exacto (`Page<Song>`) que exige el service. */
 function pageOf(items: Song[], total = items.length): Page<Song> {
@@ -45,6 +53,8 @@ class FakeAudio {
   paused = true;
   currentTime = 0;
   duration = 0;
+  /** Cuántas veces se llamó `play()` (el restore no debe llamarlo). */
+  playCalls = 0;
   private listeners = new Map<string, Set<() => void>>();
 
   constructor() {
@@ -62,6 +72,7 @@ class FakeAudio {
   }
 
   play(): Promise<void> {
+    this.playCalls += 1;
     this.paused = false;
     return Promise.resolve();
   }
@@ -109,6 +120,8 @@ function getPlayer(): Player {
 beforeEach(() => {
   FakeAudio.instances = [];
   vi.clearAllMocks();
+  // Sin esto un test deja un blob persistido y el siguiente monta restaurado.
+  sessionStorage.clear();
   vi.stubGlobal("Audio", FakeAudio);
 });
 
@@ -718,5 +731,75 @@ describe("PlayerProvider — cola por contexto (Q1)", () => {
     expect(getPlayer().prefetchFailed).toBe(false);
     expect(getPlayer().queue.map((item) => item.id)).toEqual(["a1"]);
     expect(getPlayer().current?.id).toBe("a1");
+  });
+
+  // --- Persistencia de sesión (sessionStorage, F5) -------------------------
+
+  it("restaura cola, actual y posición pausada, sin autoplay ni listen", async () => {
+    const restored = [song("r1"), song("r2"), song("r3")];
+    sessionStorage.setItem(
+      PLAYER_SESSION_KEY,
+      JSON.stringify({
+        v: 1,
+        savedAt: Date.now(),
+        currentId: "r2",
+        queue: restored.map((item) => ({ ...item, lyrics: null })),
+        progress: 42,
+        duration: 200,
+        contextLabel: "Playlist: Persistida",
+        playedIds: ["r1"],
+      })
+    );
+    // La cola restaurada es fija: el prefetch encadena la radio y no agrega nada.
+    getSongsMock.mockResolvedValue(pageOf([]));
+
+    await act(async () => {
+      renderPlayer();
+    });
+
+    expect(getPlayer().current?.id).toBe("r2");
+    expect(getPlayer().queue.map((item) => item.id)).toEqual([
+      "r1",
+      "r2",
+      "r3",
+    ]);
+    expect(getPlayer().progress).toBe(42);
+    expect(getPlayer().playing).toBe(false);
+    expect(getPlayer().contextLabel).toBe("Playlist: Persistida");
+    // El historial vuelve y la actual se marca (ya "empezó" en esta sesión).
+    expect([...getPlayer().playedIds].sort()).toEqual(["r1", "r2"]);
+    // Audio cargado pero quieto: sin play() y sin POST de listen.
+    expect(lastAudio().src).toBe("https://cdn.test/r2.mp3");
+    expect(lastAudio().playCalls).toBe(0);
+    expect(recordPlayMock).not.toHaveBeenCalled();
+
+    // El primer play aplica el segundo guardado y recién ahí suena.
+    await act(async () => {
+      getPlayer().toggle();
+    });
+    expect(lastAudio().currentTime).toBe(42);
+    expect(lastAudio().playCalls).toBe(1);
+  });
+
+  it("un blob inválido (JSON roto o versión vieja) se descarta al montar", async () => {
+    const invalidPayloads = [
+      "{not-json",
+      JSON.stringify({ v: 0, queue: [song("x")], currentId: "x" }),
+    ];
+
+    for (const raw of invalidPayloads) {
+      cleanup();
+      capturedRef.current = null;
+      FakeAudio.instances = [];
+      sessionStorage.setItem(PLAYER_SESSION_KEY, raw);
+
+      await act(async () => {
+        renderPlayer();
+      });
+
+      expect(getPlayer().current).toBeNull();
+      expect(getPlayer().queue).toHaveLength(0);
+      expect(sessionStorage.getItem(PLAYER_SESSION_KEY)).toBeNull();
+    }
   });
 });
