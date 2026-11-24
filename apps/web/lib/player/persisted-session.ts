@@ -18,7 +18,11 @@ export interface PersistedSession {
   v: 1;
   savedAt: number;
   currentId: string;
-  /** Cola materializada SIN letras (el texto puede ser enorme). */
+  /**
+   * Cola materializada: solo la canción ACTUAL conserva su letra (la tab Letra
+   * la necesita tras el F5 y el contexto no se rehidrata); el resto va sin
+   * letra para no inflar el blob.
+   */
   queue: Song[];
   progress: number;
   duration: number;
@@ -39,26 +43,68 @@ function storage(): Storage | null {
   }
 }
 
-function isPersistedSession(value: unknown): value is PersistedSession {
+function isSongLike(value: unknown): value is Song {
   if (typeof value !== "object" || value === null) return false;
-  const data = value as Partial<PersistedSession>;
+  const song = value as Partial<Song>;
   return (
-    data.v === VERSION &&
-    Array.isArray(data.queue) &&
-    data.queue.length > 0 &&
-    typeof data.currentId === "string" &&
-    data.queue.some((song) => song?.id === data.currentId) &&
-    typeof data.progress === "number" &&
-    typeof data.duration === "number" &&
-    (data.contextLabel === null || typeof data.contextLabel === "string") &&
-    Array.isArray(data.playedIds)
+    typeof song.id === "string" &&
+    song.id.length > 0 &&
+    typeof song.title === "string" &&
+    typeof song.artist === "object" &&
+    song.artist !== null &&
+    typeof (song.artist as { id?: unknown }).id === "string"
   );
 }
 
 /**
+ * Valida y normaliza el blob. Rechaza números rotos, items de cola sin
+ * `id`/`title`/`artist.id` (los filtra) y un `currentId` repetido (el `find`
+ * tomaría el primero y la copia se vería duplicada en "A continuación").
+ */
+function normalizePersistedSession(value: unknown): PersistedSession | null {
+  if (typeof value !== "object" || value === null) return null;
+  const data = value as Partial<PersistedSession>;
+
+  if (data.v !== VERSION) return null;
+  if (typeof data.progress !== "number" || !Number.isFinite(data.progress)) {
+    return null;
+  }
+  if (data.progress < 0) return null;
+  if (typeof data.duration !== "number" || !Number.isFinite(data.duration)) {
+    return null;
+  }
+  if (data.duration < 0) return null;
+  if (typeof data.currentId !== "string" || data.currentId.length === 0) {
+    return null;
+  }
+  if (!(data.contextLabel === null || typeof data.contextLabel === "string")) {
+    return null;
+  }
+  if (!Array.isArray(data.playedIds) || !Array.isArray(data.queue)) return null;
+
+  const queue = data.queue.filter(isSongLike);
+  if (queue.length === 0) return null;
+  if (!queue.some((song) => song.id === data.currentId)) return null;
+  if (queue.filter((song) => song.id === data.currentId).length > 1) return null;
+
+  return {
+    v: VERSION,
+    savedAt: typeof data.savedAt === "number" ? data.savedAt : 0,
+    currentId: data.currentId,
+    queue,
+    progress: data.progress,
+    duration: data.duration,
+    contextLabel: data.contextLabel,
+    playedIds: data.playedIds.filter(
+      (id): id is string => typeof id === "string"
+    ),
+  };
+}
+
+/**
  * Lee la sesión guardada. Cualquier cosa inválida (JSON roto, versión vieja,
- * `currentId` fuera de la cola) borra la entrada y devuelve `null`: el player
- * arranca limpio en vez de con un estado a medias.
+ * `currentId` fuera/repetido, números rotos) borra la entrada y devuelve `null`:
+ * el player arranca limpio en vez de con un estado a medias.
  */
 export function readPersistedSession(): PersistedSession | null {
   const store = storage();
@@ -67,11 +113,12 @@ export function readPersistedSession(): PersistedSession | null {
     const raw = store.getItem(PLAYER_SESSION_KEY);
     if (!raw) return null;
     const parsed: unknown = JSON.parse(raw);
-    if (!isPersistedSession(parsed)) {
+    const session = normalizePersistedSession(parsed);
+    if (!session) {
       clearPersistedSession();
       return null;
     }
-    return parsed;
+    return session;
   } catch {
     clearPersistedSession();
     return null;
@@ -94,10 +141,10 @@ function minQueue(queue: Song[], currentId: string): Song[] {
 }
 
 /**
- * Persiste la sesión. Serializa las canciones con `lyrics: null` (el texto puede
- * pesar cientos de KB) y recorta la cola si supera `MAX_QUEUE`. Nunca rompe el
- * player: ante `QuotaExceededError` reintenta con la cola mínima y, si tampoco
- * entra, limpia la entrada y sigue.
+ * Persiste la sesión. Serializa la cola **sin letras salvo la canción actual**
+ * (la tab Letra la necesita tras el F5; son unos KB) y la recorta si supera
+ * `MAX_QUEUE`. Nunca rompe el player: ante `QuotaExceededError` reintenta con la
+ * cola mínima y, si tampoco entra, limpia la entrada y sigue.
  */
 export function writePersistedSession(data: SessionSnapshot): void {
   const store = storage();
@@ -108,7 +155,9 @@ export function writePersistedSession(data: SessionSnapshot): void {
       v: VERSION,
       savedAt: Date.now(),
       ...data,
-      queue: queue.map((song) => ({ ...song, lyrics: null })),
+      queue: queue.map((song) =>
+        song.id === data.currentId ? song : { ...song, lyrics: null }
+      ),
       // Historial acotado a los 100 más recientes (orden de inserción).
       playedIds: data.playedIds.slice(-MAX_PLAYED),
     } satisfies PersistedSession);

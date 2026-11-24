@@ -309,6 +309,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       const songNow = currentRef.current;
       const queueNow = queueRef.current;
       if (!songNow || queueNow.length === 0) return;
+      // Ventana del contexto sin seed (álbum): la cola cambia antes de que
+      // `startSong(target)` fije el current → un blob con `currentId` ausente
+      // se autodestruiría al leerlo y un F5 borraría el blob bueno.
+      if (!queueNow.some((song) => song.id === songNow.id)) return;
 
       const audio = audioRef.current;
       const pending = pendingSeekRef.current;
@@ -938,9 +942,11 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         audio.currentTime = pending;
         if (Math.abs(audio.currentTime - pending) <= 1) {
           setProgress(audio.currentTime);
-          pendingSeekRef.current = null;
         }
-        // Si no tomó, queda pendiente para el próximo `onLoaded`/`toggle`.
+        // `loadedmetadata` es el primer momento en que el seek puede tomar: si
+        // el browser lo rechazó/clampó (segundo > duración real), se libera
+        // igual para que `onTime` vuelva a actualizar con la posición real.
+        pendingSeekRef.current = null;
         return;
       }
       setProgress(audio.currentTime);

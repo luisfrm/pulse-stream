@@ -352,13 +352,15 @@ letra). Media Session API integrada. El provider **registra cada play** (`POST
 
 **Persistencia de sesión (F5):** `lib/player/persisted-session.ts` guarda en
 **`sessionStorage`** (`pulse-player-v1`, por pestaña; sin DB ni cookies) la cola
-completa **sin letras** (ventana máx. 300 alrededor de la actual), `currentId`,
-segundo, duración, `contextLabel` y `playedIds`. Al restaurar queda **pausado**
-en el mismo segundo, sin `audio.play()` ni listen nuevo (el POST sale solo del
-evento `play` del `<audio>`). El `PlayContext` **no se rehidrata**: la cola vuelve
-como array fijo y, al agotarse, el autoplay (Q4) encadena la radio desde la última
-canción. Se escribe al cambiar canción/cola/play-pause y en
-`pagehide`/`visibilitychange`; se limpia al cerrar sesión (`LogoutButton`).
+completa **sin letras salvo la canción actual** (la tab Letra la necesita;
+ventana máx. 300 alrededor de la actual), `currentId`, segundo, duración,
+`contextLabel` y `playedIds`. Al restaurar queda **pausado** en el mismo segundo,
+sin `audio.play()` ni listen nuevo (el POST sale solo del evento `play` del
+`<audio>`). El `PlayContext` **no se rehidrata**: la cola vuelve como array fijo
+y, al agotarse, el autoplay (Q4) encadena la radio desde la última canción. Se
+escribe al cambiar canción/cola/play-pause y cada ~5 s mientras suena (más flush
+en `pagehide`/`visibilitychange`); se limpia al cerrar sesión (`LogoutButton`) y
+al entrar a `/login` (`ClearPlayerSession`).
 
 > ⚠️ La cookie `session` es **HttpOnly** (`auth/backend.py`): NO se puede leer
 > con `document.cookie`. No gates de sesión basados en cookies client-side (el
