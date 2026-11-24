@@ -395,17 +395,28 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       if (advancingRef.current > 0) return;
       const last = currentRef.current;
       if (!last) return;
+      // Longitud ANTES de encadenar: si el pull vuelve vacío sin error, no hay
+      // material nuevo ⇒ esterilidad real (mismo criterio que `advance`).
+      const before = queueRef.current.length;
       const radio = establishChain(last);
       if (!radio) return;
 
       await extendContext();
       if (contextRef.current !== radio) return;
 
-      // Fallo de RED (no esterilidad): se reporta para el "Reintentar" de la
-      // Cola y NO se latchea `chainFailed` — el próximo `next()` reintenta.
       if (extendFailedRef.current === radio) {
+        // Fallo de RED (no esterilidad): se reporta para el "Reintentar" de la
+        // Cola y NO se latchea `chainFailed` — el próximo `next()` reintenta.
         prefetchFailedRef.current = true;
         setPrefetchFailed(true);
+      } else if (queueRef.current.length === before) {
+        // Pull exitoso pero sin canciones nuevas: si no se latchea acá, el
+        // efecto no se re-dispara (deps `[current, queue.length, chainFailed]`)
+        // y la Cola quedaría en skeleton eterno hasta el `onEnded`.
+        chainFailedRef.current = true;
+        setChainFailed(true);
+        exhaustedRef.current = true;
+        syncContextHasMore();
       }
       extendFailedRef.current = null;
     })();

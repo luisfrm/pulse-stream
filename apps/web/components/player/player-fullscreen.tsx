@@ -14,6 +14,7 @@ import {
 import { OfflineButton } from "@/components/offline-button";
 import { NoCover } from "@/components/no-cover";
 import { Button, Skeleton, cn } from "@/components/ui";
+import { useMediaQuery } from "@/lib/hooks/use-media-query";
 import type { Song } from "@/lib/services/types";
 import { formatGenre, formatTime } from "@/lib/utils/format";
 import { usePlayer } from "./player-provider";
@@ -35,8 +36,9 @@ const TAB_LABELS: Record<PlayerTab, string> = {
 /**
  * Reproductor en pantalla completa: fondo con el cover desenfocado, cover
  * grande, progreso, controles y las tabs "Ahora suena" / "Letra" / "Cola".
- * En desktop muestra cover+controles a la izquierda y la tab activa a la
- * derecha.
+ * En desktop el cover+controles quedan fijos a la izquierda y las tabs son
+ * "Letra | Cola" (el panel derecho abre en la letra); en mobile se ven las tres
+ * y el default es "Ahora suena".
  *
  * Los tabs quedan FIJOS (solo scrollea el panel activo, cada uno con su propia
  * memoria de scroll) y los tres paneles viven montados: cambiar de tab no
@@ -62,6 +64,15 @@ export function PlayerFullscreen({ onClose }: PlayerFullscreenProps) {
     jumpTo,
   } = usePlayer();
   const [tab, setTab] = React.useState<PlayerTab>("now");
+  const isDesktop = useMediaQuery("(min-width: 640px)");
+  // En desktop "Ahora suena" y "Letra" son la misma pantalla (cover+controles
+  // fijos a la izquierda): el estado crudo `now` se normaliza a `lyrics` para
+  // la tab activa, incluida la memoria de scroll. En mobile se usa tal cual.
+  const activeTab: PlayerTab = isDesktop && tab === "now" ? "lyrics" : tab;
+  // Tabs realmente ofrecidas (desktop solo Letra/Cola; mobile las tres).
+  const visibleTabs: readonly PlayerTab[] = isDesktop
+    ? ["lyrics", "queue"]
+    : PLAYER_TABS;
 
   // Memoria de scroll POR PANEL: `display:none` resetea el scrollTop, así que
   // al volver a una tab restauramos lo último visto.
@@ -99,21 +110,24 @@ export function PlayerFullscreen({ onClose }: PlayerFullscreenProps) {
     []
   );
 
-  // Restaura la posición del panel recién activado ANTES del paint.
+  // Restaura la posición del panel activo ANTES del paint.
   React.useLayoutEffect(() => {
     const element =
-      tab === "now"
+      activeTab === "now"
         ? nowScrollRef.current
-        : tab === "lyrics"
+        : activeTab === "lyrics"
           ? lyricsScrollRef.current
           : queueScrollRef.current;
     // `offsetParent` null ⇒ display:none: todavía no tiene caja de scroll.
     if (element && element.offsetParent !== null) {
-      element.scrollTop = scrollMemory.current[tab];
+      element.scrollTop = scrollMemory.current[activeTab];
     }
-  }, [tab]);
+  }, [activeTab]);
 
   React.useEffect(() => {
+    // Defensivo: si no hay canción no hay fullscreen visible; no bloqueamos el
+    // scroll del body ni registramos el Escape en ese estado.
+    if (!current) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
@@ -123,7 +137,7 @@ export function PlayerFullscreen({ onClose }: PlayerFullscreenProps) {
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = "";
     };
-  }, [onClose]);
+  }, [current, onClose]);
 
   // Memoizados: el fullscreen se re-renderiza ~4×/s por `progress` y la letra
   // hace split+map de todo el texto en cada render.
@@ -133,7 +147,7 @@ export function PlayerFullscreen({ onClose }: PlayerFullscreenProps) {
     [lyrics]
   );
 
-  const queueActive = tab === "queue";
+  const queueActive = activeTab === "queue";
   const queuePanel = React.useMemo(
     () =>
       current ? (
@@ -173,20 +187,24 @@ export function PlayerFullscreen({ onClose }: PlayerFullscreenProps) {
     event: React.KeyboardEvent<HTMLButtonElement>,
     index: number
   ) {
+    // `index` es la posición en `visibleTabs` (en desktop la tab oculta de
+    // "Ahora suena" no se ofrece y no llega acá).
+    if (index < 0) return;
+    const count = visibleTabs.length;
     let nextIndex: number | null = null;
     if (event.key === "ArrowRight") {
-      nextIndex = (index + 1) % PLAYER_TABS.length;
+      nextIndex = (index + 1) % count;
     } else if (event.key === "ArrowLeft") {
-      nextIndex = (index - 1 + PLAYER_TABS.length) % PLAYER_TABS.length;
+      nextIndex = (index - 1 + count) % count;
     } else if (event.key === "Home") {
       nextIndex = 0;
     } else if (event.key === "End") {
-      nextIndex = PLAYER_TABS.length - 1;
+      nextIndex = count - 1;
     }
     if (nextIndex === null) return;
 
     event.preventDefault();
-    const target = PLAYER_TABS[nextIndex];
+    const target = visibleTabs[nextIndex];
     setTab(target);
     // Roving tabindex: el foco sigue a la tab seleccionada.
     document.getElementById(`player-tab-${target}`)?.focus();
@@ -243,20 +261,24 @@ export function PlayerFullscreen({ onClose }: PlayerFullscreenProps) {
             aria-label="Secciones del reproductor"
             className="flex items-center justify-center gap-1.5"
           >
-            {PLAYER_TABS.map((value, index) => (
+            {PLAYER_TABS.map((value) => (
               <button
                 key={value}
                 type="button"
                 id={`player-tab-${value}`}
                 role="tab"
-                aria-selected={tab === value}
+                aria-selected={activeTab === value}
                 aria-controls={`player-panel-${value}`}
-                tabIndex={tab === value ? 0 : -1}
+                tabIndex={activeTab === value ? 0 : -1}
                 onClick={() => setTab(value)}
-                onKeyDown={(event) => handleTabKeyDown(event, index)}
+                onKeyDown={(event) =>
+                  handleTabKeyDown(event, visibleTabs.indexOf(value))
+                }
                 className={cn(
                   "rounded-pill px-3.5 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-400",
-                  tab === value
+                  // En desktop sobra: cover+controles ya están fijos a la izquierda.
+                  value === "now" && "sm:hidden",
+                  activeTab === value
                     ? "bg-bg-highlight text-text-primary"
                     : "text-text-subdued hover:text-text-primary"
                 )}
@@ -382,7 +404,7 @@ export function PlayerFullscreen({ onClose }: PlayerFullscreenProps) {
             <div
               className={cn(
                 "relative min-h-0 flex-1 sm:h-full",
-                tab === "now" && "hidden sm:block"
+                activeTab === "now" && "hidden sm:block"
               )}
             >
               <div
@@ -394,9 +416,9 @@ export function PlayerFullscreen({ onClose }: PlayerFullscreenProps) {
                 tabIndex={0}
                 className={cn(
                   "h-full min-h-0 overflow-y-auto overscroll-contain focus-visible:outline-none",
-                  tab === "queue"
+                  activeTab === "queue"
                     ? "hidden"
-                    : tab === "lyrics"
+                    : activeTab === "lyrics"
                       ? "block"
                       : "hidden sm:block"
                 )}
@@ -412,7 +434,7 @@ export function PlayerFullscreen({ onClose }: PlayerFullscreenProps) {
                 onScroll={onQueueScroll}
                 className={cn(
                   "h-full min-h-0 overflow-y-auto overscroll-contain",
-                  tab === "queue" ? "block" : "hidden"
+                  activeTab === "queue" ? "block" : "hidden"
                 )}
               >
                 {queuePanel}
@@ -537,11 +559,31 @@ function QueuePanel({
     centeredQueueRef.current = true;
   }, [active]);
 
+  // Texto de la live region: se calcula siempre (el span está montado desde el
+  // inicio, así los cambios SÍ se anuncian). Vacío cuando hay material a la
+  // vista (no hay nada que anunciar).
+  const liveMessage =
+    upcoming.length > 0
+      ? ""
+      : !hasNext
+        ? "El autoplay se detuvo."
+        : prefetchFailed
+          ? "Sin conexión: no pudimos traer más canciones."
+          : isExtending
+            ? "Generando radio…"
+            : "Buscando más canciones…";
+
   return (
     <div className="mx-auto w-full max-w-xl">
       <h3 className="mb-4 text-center font-display text-sm font-semibold uppercase tracking-[0.2em] text-text-subdued">
         Cola
       </h3>
+
+      {/* Live region SIEMPRE montada: una que nace junto con el skeleton no se
+          anuncia (aria-live solo reporta cambios posteriores al mount). */}
+      <span aria-live="polite" className="sr-only">
+        {liveMessage}
+      </span>
 
       {previous.length > 0 && (
         <section aria-labelledby="queue-prev-heading" className="mb-6">
@@ -600,7 +642,6 @@ function QueuePanel({
           <QueueStatus
             hasNext={hasNext}
             prefetchFailed={prefetchFailed}
-            isExtending={isExtending}
             onRetry={onRetry}
           />
         )}
@@ -617,12 +658,10 @@ function QueuePanel({
 function QueueStatus({
   hasNext,
   prefetchFailed,
-  isExtending,
   onRetry,
 }: {
   hasNext: boolean;
   prefetchFailed: boolean;
-  isExtending: boolean;
   onRetry: () => void;
 }) {
   if (!hasNext) {
@@ -650,10 +689,7 @@ function QueueStatus({
   }
 
   return (
-    <div
-      aria-live="polite"
-      className="rounded-xl border border-bg-highlight bg-bg-elevated/50 px-3 py-2"
-    >
+    <div className="rounded-xl border border-bg-highlight bg-bg-elevated/50 px-3 py-2">
       {[0, 1].map((row) => (
         <div key={row} className="flex items-center gap-3 px-1 py-2">
           <Skeleton className="h-10 w-10 shrink-0" />
@@ -663,9 +699,6 @@ function QueueStatus({
           </div>
         </div>
       ))}
-      <span className="sr-only">
-        {isExtending ? "Generando radio…" : "Buscando más canciones…"}
-      </span>
     </div>
   );
 }

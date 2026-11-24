@@ -463,7 +463,7 @@ contexto: `ContextMediaCard` (fetch al click, cap 25).
 | **Q2** cola anclada a la canción | `play(song)` sin contexto → arma la cola desde ESA canción: top del artista por plays (cap ~50), la elegida primera. Aplica a: **/recently-played** (mata el slice de 24 y el `as never`), `/song/[id]`, home público | Hecho (commit `b025e44`; reviewer approved — matemática offset-1/limit+1 revisada caso por caso, anónimos cubiertos por catch; verificado en vivo: Tarot → KLOuFRENS → Party, la radio, no la lista de recientes) |
 | **Q3** cola visible | Tercera tab en PlayerFullscreen: "SONANDO" + "SIGUIENTE DE: {contexto}" (solo lo que viene, informativa) — el estado ya vivía en el provider | Hecho (commit `9bb9397`; reviewer approved; verificado en vivo: la lista se corre al avanzar 9→8) |
 | **Q4** (diferida) | Autoplay al agotar el contexto (tras el top del artista → compañeros de género por plays), estilo Spotify/Apple. Comportamiento fuerte: merece decisión propia (¿toggle en settings?) | Anotada |
-| Nits diferidos | Q1: `/recently-played` en RSC del dashboard sigue como array finito (desviación documentada); Q3: tabs "Ahora suena"/"Letra" redundantes en desktop, roles ARIA tablist/tabpanel, hint de cola perezosa cargando | Anotado |
+| Nits diferidos | Q1: `/recently-played` en RSC del dashboard sigue como array finito (desviación documentada); Q3: ~~tabs "Ahora suena"/"Letra" redundantes en desktop~~ **resuelto** (desktop: Letra/Cola con cover+controles fijos; mobile mantiene las 3), ~~roles ARIA tablist/tabpanel~~ **resuelto** (roving tabIndex + flechas/Home/End); hint de cola perezosa cargando | Parcialmente resuelto |
 
 ## Nav móvil flotante + fixes de navegación — PR `feat/floating-bottom-nav` (#12)
 

@@ -237,12 +237,16 @@ describe("PlayerProvider — cola por contexto (Q1)", () => {
     await act(async () => getPlayer().next());
     expect(getPlayer().hasNext).toBe(false);
 
-    // Reproducir otra cosa reactiva el autoplay.
+    // Reproducir otra cosa reactiva el autoplay: con el catálogo estéril se
+    // vuelve a latchear al toque, así que lo observable es el NUEVO intento.
+    const calls = getSongsMock.mock.calls.length;
     const b1 = song("b1");
     await act(async () => {
       getPlayer().play(b1, [b1]);
     });
-    expect(getPlayer().hasNext).toBe(true);
+    await waitFor(() =>
+      expect(getSongsMock.mock.calls.length).toBeGreaterThan(calls),
+    );
   });
 
   it("dos next() con el fetch en vuelo comparten una sola página", async () => {
@@ -461,9 +465,15 @@ describe("PlayerProvider — cola por contexto (Q1)", () => {
     const a1 = song("a1");
     const a2 = song("a2");
     const fresh = song("b-new");
+    const b2 = song("b2");
+    // El artista tiene 4 canciones y la radio las sirve en UN solo pull (su
+    // cursor es interno: no paginan el offset del motor), así que b-new y b2
+    // llegan juntos. Antes el mock repetía [a1, a2, b-new] sin importar el
+    // offset: tras el next el dedupe dejaba la radio estéril (comportamiento
+    // correcto, cubierto por "prefetch: un pull vacío sin error…").
     const byArtist: typeof songsService.getSongs = (params) =>
       params?.artistId
-        ? Promise.resolve(pageOf([a1, a2, fresh], 3))
+        ? Promise.resolve(pageOf([a1, a2, fresh, b2], 4))
         : Promise.resolve(pageOf([]));
     getSongsMock.mockImplementation(byArtist);
     renderPlayer();
@@ -478,10 +488,14 @@ describe("PlayerProvider — cola por contexto (Q1)", () => {
     await act(async () => getPlayer().next());
     expect(getPlayer().contextLabel).toBe("Radio de Artista");
     expect(getPlayer().current?.id).toBe("b-new");
+    // Queda b2 por delante ⇒ hay siguiente. (El encadenado desde la ÚLTIMA
+    // canción vuelve estéril porque el mismo catálogo ya está todo excluido,
+    // pero eso no deshabilita el next mientras haya material.)
     expect(getPlayer().queue.map((item) => item.id)).toEqual([
       "a1",
       "a2",
       "b-new",
+      "b2",
     ]);
     expect(getPlayer().hasNext).toBe(true);
   });
@@ -542,8 +556,9 @@ describe("PlayerProvider — cola por contexto (Q1)", () => {
     await act(async () => {
       getPlayer().play(a1, [a1]);
     });
-    // Mientras suena algo, siempre HAY siguiente posible (encadenar).
-    expect(getPlayer().hasNext).toBe(true);
+    // El prefetch ya encadenó y el pull vacío (sin error) es esterilidad real:
+    // se latchea al toque, así que la Cola muestra el fin, no el skeleton.
+    await waitFor(() => expect(getPlayer().hasNext).toBe(false));
 
     await act(async () => getPlayer().next());
     expect(getPlayer().current?.id).toBe("a1");
@@ -684,5 +699,24 @@ describe("PlayerProvider — cola por contexto (Q1)", () => {
 
     await act(async () => getPlayer().prev());
     expect([...getPlayer().playedIds].sort()).toEqual(["1", "2", "3"]);
+  });
+
+  it("prefetch: un pull vacío sin error marca la cadena estéril (sin skeleton eterno)", async () => {
+    const a1 = song("a1");
+    getSongsMock.mockResolvedValue(pageOf([]));
+    renderPlayer();
+
+    await act(async () => {
+      getPlayer().play(a1, [a1]);
+    });
+
+    // El pull de la radio vuelve vacío SIN error: esterilidad real (no un fallo
+    // reintentable) → `hasNext` false. Sin el latch del prefetch el efecto no
+    // se re-dispara (deps `current`/`queue.length`/`chainFailed`) y la Cola
+    // quedaría en skeleton para siempre hasta el `onEnded`.
+    await waitFor(() => expect(getPlayer().hasNext).toBe(false));
+    expect(getPlayer().prefetchFailed).toBe(false);
+    expect(getPlayer().queue.map((item) => item.id)).toEqual(["a1"]);
+    expect(getPlayer().current?.id).toBe("a1");
   });
 });
