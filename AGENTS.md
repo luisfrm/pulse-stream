@@ -382,7 +382,7 @@ Turbopack (`chunk.reason.enqueueModel`). Si ves esos errores en dev, limpiá
 audio con CORS → `caches`).
 
 **UI kit** (`components/ui/`): `Button/Badge/Card/Input/Textarea/Title/Select/
-BottomSheet/Dialog` con `cva` + `cn` + `Slot` (asChild). Reutilizarlo; los 8
+Slider/BottomSheet/Dialog` con `cva` + `cn` + `Slot` (asChild). Reutilizarlo; los 8
 estados (default/hover/focus/active/disabled/loading/error/success) son
 obligatorios. El modal (`components/ui/modal.tsx`) es Radix Dialog
 (`@radix-ui/react-dialog`, no el paquete unificado `radix-ui`): bottom sheet en
