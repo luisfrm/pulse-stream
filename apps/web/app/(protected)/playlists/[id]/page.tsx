@@ -54,7 +54,7 @@ export default async function PlaylistDetailPage({ params }: PlaylistDetailPageP
     songsService
       .getSongs(
         { playlistId: id, offset: 0, limit: SONGS_PAGE_LIMIT },
-        { next: { revalidate: 300, tags: [CACHE_TAGS.songs] } },
+        { next: { revalidate: 300, tags: [CACHE_TAGS.playlists] } },
       )
       .catch(() => ({ items: [], total: 0, offset: 0, limit: SONGS_PAGE_LIMIT })),
   ]);
@@ -157,7 +157,8 @@ export default async function PlaylistDetailPage({ params }: PlaylistDetailPageP
         </div>
       </div>
 
-      {/* Canciones */}
+      {/* Canciones. `key` por id+total: al agregar/quitar canciones el total
+          server cambia y `PlaylistSongs` se remonta con la lista fresca. */}
       {songCount === 0 ? (
         <div className="mt-10 flex flex-col items-start gap-4">
           <p className="text-text-subdued">
@@ -169,6 +170,7 @@ export default async function PlaylistDetailPage({ params }: PlaylistDetailPageP
         </div>
       ) : (
         <PlaylistSongs
+          key={`${id}:${initialSongs.total}`}
           playlistId={id}
           playlistName={playlist.name}
           initialPage={initialSongs}
