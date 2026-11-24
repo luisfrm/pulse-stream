@@ -35,6 +35,7 @@ export function PlayerFullscreen({ open, onClose }: PlayerFullscreenProps) {
     progress,
     duration,
     seek,
+    jumpTo,
   } = usePlayer();
   const [tab, setTab] = React.useState<"now" | "lyrics" | "queue">("now");
 
@@ -238,7 +239,7 @@ export function PlayerFullscreen({ open, onClose }: PlayerFullscreenProps) {
                 current={current}
                 contextLabel={contextLabel}
                 playing={playing}
-                onClose={onClose}
+                onJump={jumpTo}
               />
             ) : (
               <LyricsPanel lyrics={current.lyrics ?? null} />
@@ -294,22 +295,23 @@ function LyricsPanel({ lyrics }: { lyrics: string | null }) {
 
 /**
  * Tab "Cola" (patrón Spotify): "Sonando" con la canción actual y "Siguiente
- * de: {contexto}" con el resto materializado de `queue`. Informativa: sin
- * acciones (saltar a una fila es interactividad de otra fase). Cuando el motor
- * extiende el contexto, los items nuevos aparecen solos (estado del provider).
+ * de: {contexto}" con el resto materializado de `queue`. Las filas REPRODUCEN
+ * (`jumpTo` del provider): saltan dentro de la misma cola sin perder el
+ * contexto ni la radio encadenada. Cuando el motor extiende el contexto, los
+ * items nuevos aparecen solos (estado del provider).
  */
 function QueuePanel({
   queue,
   current,
   contextLabel,
   playing,
-  onClose,
+  onJump,
 }: {
   queue: Song[];
   current: Song;
   contextLabel: string | null;
   playing: boolean;
-  onClose: () => void;
+  onJump: (songId: string) => void;
 }) {
   const currentIndex = queue.findIndex((song) => song.id === current.id);
   // Sólo lo que viene DESPUÉS de la actual (Spotify no muestra las pasadas).
@@ -331,7 +333,8 @@ function QueuePanel({
         Sonando
       </p>
       <ul aria-labelledby="queue-now-heading">
-        <QueueRow song={current} active playing={playing} onClose={onClose} />
+        {/* La fila activa es estática: ya está sonando. */}
+        <QueueRow song={current} active playing={playing} />
       </ul>
 
       <p
@@ -353,7 +356,11 @@ function QueuePanel({
           className="flex max-h-[50vh] flex-col gap-1 overflow-y-auto overscroll-contain pr-1 sm:max-h-none"
         >
           {upcoming.map((song) => (
-            <QueueRow key={song.id} song={song} onClose={onClose} />
+            <QueueRow
+              key={song.id}
+              song={song}
+              onSelect={() => onJump(song.id)}
+            />
           ))}
         </ul>
       )}
@@ -361,25 +368,25 @@ function QueuePanel({
   );
 }
 
-/** Mini-row de la cola: cover 40px + título (link) + artista. */
+/**
+ * Mini-row de la cola: cover 40px + título + artista. Con `onSelect` es un
+ * botón que reproduce esa canción (cover incluido en el hit area); sin handler
+ * (fila activa) es estática.
+ */
 function QueueRow({
   song,
   active = false,
   playing = false,
-  onClose,
+  onSelect,
 }: {
   song: Song;
   active?: boolean;
   playing?: boolean;
-  onClose: () => void;
+  /** Sin handler ⇒ fila estática (la que ya está sonando). */
+  onSelect?: () => void;
 }) {
-  return (
-    <li
-      className={cn(
-        "flex items-center gap-3 rounded-lg px-2 py-2",
-        active ? "bg-bg-elevated" : "transition-colors hover:bg-bg-elevated/60"
-      )}
-    >
+  const rowContent = (
+    <>
       <div className="h-10 w-10 shrink-0 overflow-hidden rounded">
         {song.cover_url ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -390,16 +397,14 @@ function QueueRow({
       </div>
 
       <div className="min-w-0 flex-1">
-        <Link
-          href={`/song/${song.id}`}
-          onClick={onClose}
+        <p
           className={cn(
-            "block truncate text-sm font-medium hover:underline",
+            "truncate text-sm font-medium",
             active && "text-brand-400"
           )}
         >
           {song.title}
-        </Link>
+        </p>
         <p className="truncate text-xs text-text-subdued">{song.artist.name}</p>
       </div>
 
@@ -412,6 +417,29 @@ function QueueRow({
           <span className="eq-bar h-2" />
           <span className="eq-bar h-2" />
         </span>
+      )}
+    </>
+  );
+
+  return (
+    <li
+      aria-current={active ? "true" : undefined}
+      className={cn(
+        "rounded-lg",
+        active ? "bg-bg-elevated" : "transition-colors hover:bg-bg-elevated/60"
+      )}
+    >
+      {onSelect ? (
+        <button
+          type="button"
+          onClick={onSelect}
+          aria-label={`Reproducir ${song.title}`}
+          className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-400"
+        >
+          {rowContent}
+        </button>
+      ) : (
+        <div className="flex items-center gap-3 px-2 py-2">{rowContent}</div>
       )}
     </li>
   );
