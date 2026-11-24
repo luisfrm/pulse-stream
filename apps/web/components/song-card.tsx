@@ -4,8 +4,8 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 
 import type { MyPlaylist, Song } from "@/lib/services/types";
-import { songAnchoredContext } from "./player/play-contexts";
-import { usePlayer, type PlayContext } from "./player/player-provider";
+import { usePlaySong } from "./player/play-button";
+import type { PlayContext } from "./player/player-provider";
 import { MediaCard } from "./media-card";
 
 // Solo se usan con sesión (corner de la card). dynamic → chunk separado que el
@@ -47,28 +47,16 @@ export function SongCard({
   onMutated,
   priority = false,
 }: SongCardProps) {
-  const { current, playing, play, toggle } = usePlayer();
-  const isCurrent = current?.id === song.id;
-  const isPlaying = isCurrent && playing;
+  const { isPlaying, playSong } = usePlaySong(song, queue, context);
 
   // Sin props de usuario NO se renderiza nada (home público y cards sin sesión).
   const showPicker = playlists !== undefined;
   const showHeart = favoriteIds !== undefined;
   const showActions = showPicker || showHeart;
 
-  function handlePlay() {
-    if (isCurrent) toggle();
-    else {
-      // Sin fuente, la cola se ancla a la canción (radio del artista). Así las
-      // superficies RSC (home público) no tienen que pasar funciones.
-      play(song, context ?? queue ?? songAnchoredContext({ song }));
-    }
-  }
-
   return (
     <MediaCard
       title={song.title}
-      href={`/song/${song.id}`}
       coverUrl={song.cover_url}
       subtitle={
         <Link
@@ -102,7 +90,8 @@ export function SongCard({
         ) : undefined
       }
       playing={isPlaying}
-      onPlay={handlePlay}
+      onPlay={playSong}
+      onSelect={playSong}
       className={className}
       priority={priority}
     />

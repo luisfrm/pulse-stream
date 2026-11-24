@@ -210,13 +210,17 @@ crear entidades vía API, assert status + shape del JSON.
 **Grupos de rutas:**
 - `(public)/` — home promocional, `/login`, `/register`. Sin sesión requerida;
   el home **redirige al dashboard si hay sesión**. Las páginas de detalle
-  (artista/álbum/canción) NO viven acá: exigen sesión.
+  (artista/álbum) NO viven acá: exigen sesión.
 - `(protected)/` — `/dashboard` (Inicio), `/account`, las páginas de catálogo
-  `/artist/[id]`, `/album/[id]`, `/song/[id]` y las rutas top-level en inglés
+  `/artist/[id]`, `/album/[id]` y las rutas top-level en inglés
   `/catalog`, `/catalog/songs`, `/songs`, `/search`, `/playlists[/[id]]`,
   `/recently-played`, `/settings` (NO bajo `/dashboard`): cualquier sesión.
   Layout con **sidebar** (escritorio) + drawer (móvil).
-  Nota: el `proxy.ts` matchea `/dashboard`, `/panel`, `/artist|/album|/song` y
+  **Las canciones NO tienen página de detalle** (decisión de producto): tocar
+  cover/título/artista en una fila (`SongItem`) o el cover/título de una card
+  (`SongCard`, vía `MediaCard.onSelect`) **reproduce** con el contexto de la
+  lista; `/song/{id}` no existe y cae en el 404 branded (`app/not-found.tsx`).
+  Nota: el `proxy.ts` matchea `/dashboard`, `/panel`, `/artist|/album|/songs` y
   las rutas top-level (`/catalog`, `/songs`, `/settings`, `/search`,
   `/playlists`, `/recently-played`); `/account` lo protege únicamente el layout.
   Las URLs viejas `/dashboard/{catalogo,canciones,configuracion,search,

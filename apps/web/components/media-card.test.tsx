@@ -15,7 +15,7 @@ vi.mock("next/image", () => ({
   },
 }));
 
-const base = { title: "Crimen", href: "/song/s1" };
+const base = { title: "Crimen", href: "/artist/a1" };
 
 describe("MediaCard", () => {
   it("llama onPlay una sola vez al click en el play", () => {
