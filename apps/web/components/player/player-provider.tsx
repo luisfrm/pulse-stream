@@ -6,15 +6,58 @@ import { listensService } from "@/lib/services/listens-service";
 import type { Song } from "@/lib/services/types";
 import { claimAudio, releaseAudio, type AudioHandle } from "./audio-orchestrator";
 
+/**
+ * Descriptor PEREZOSO de cola: la superficie describe CÓMO seguir trayendo
+ * canciones del MISMO contexto (orden estable) en vez de materializar el array
+ * completo en el cliente.
+ *
+ * - `seed` es la página que la superficie ya renderizó: el motor arranca con
+ *   ella y NO la vuelve a pedir. Sin seed, el motor materializa la primera
+ *   página ANTES de arrancar (1 fetch) y se posiciona en la canción pedida.
+ * - Sin `loadPage` el contexto es FINITO (charts, álbumes ya cargados): nunca
+ *   se fetchea nada.
+ */
+export interface PlayContext {
+  /** Label para la UI de cola (Q3) y debug: "Playlist: X", "Populares de Y"… */
+  label: string;
+  /**
+   * Identidad OPAQUE del contexto (p. ej. `playlist:${id}`): sirve para saber
+   * si el reproductor ya está en ESTE contexto aunque dos superficies tengan el
+   * mismo `label` (dos playlists homónimas).
+   */
+  key?: string;
+  /** Página siguiente del contexto (orden estable por contexto). */
+  loadPage?: (offset: number, limit: number) => Promise<Song[]>;
+  /** Total conocido: hace exacto `hasNext` sin esperar a un fetch corto. */
+  total?: number;
+  /** Página inicial ya cargada por la superficie (offset 0). */
+  seed?: Song[];
+}
+
+/** Cola materializada (comportamiento histórico) o descriptor perezoso. */
+export type PlaySource = readonly Song[] | PlayContext;
+
+/**
+ * `Array.isArray` no estrecha bien las uniones con `readonly T[]`; este guard
+ * deja el `else` como `readonly Song[] | undefined`.
+ */
+function isPlayContext(source: PlaySource | undefined): source is PlayContext {
+  return source !== undefined && !Array.isArray(source);
+}
+
 interface PlayerState {
   current: Song | null;
   queue: Song[];
+  /** Label del contexto activo (Q3); `null` si la cola fue un array suelto. */
+  contextLabel: string | null;
+  /** Key opaca del contexto activo (identidad entre superficies). */
+  contextKey: string | null;
   playing: boolean;
   hasPrev: boolean;
   hasNext: boolean;
   progress: number;
   duration: number;
-  play: (song: Song, queue?: Song[]) => void;
+  play: (song: Song, source?: PlaySource) => void;
   toggle: () => void;
   pause: () => void;
   next: () => void;
@@ -23,6 +66,9 @@ interface PlayerState {
 }
 
 const PlayerContext = React.createContext<PlayerState | null>(null);
+
+/** Canciones por página del contexto (= tope de `limit` de la API). */
+const CONTEXT_PAGE_SIZE = 50;
 
 /**
  * Marca en memoria de "ya sabemos que hay sesión": evita repetir 401 de
@@ -36,18 +82,41 @@ let knownAuthenticated: boolean | null = null;
 
 /**
  * Reproductor persistente: un único <audio> global en el root layout,
- * sobrevive a la navegación. `play(song, queue)` lo carga desde cualquier
- * página; integra Media Session API (controles de pantalla de bloqueo).
- * Registra cada play (POST /me/listens) cuando una canción empieza a sonar.
+ * sobrevive a la navegación. `play(song, source)` lo carga desde cualquier
+ * página; `source` puede ser un array (cola fija) o un `PlayContext` que se
+ * resuelve por páginas a medida que el usuario avanza.
+ * Integra Media Session API (controles de pantalla de bloqueo) y registra cada
+ * play (`POST /me/listens`) cuando una canción empieza a sonar.
  */
 export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const handleRef = React.useRef<AudioHandle | null>(null);
   const [current, setCurrent] = React.useState<Song | null>(null);
   const [queue, setQueue] = React.useState<Song[]>([]);
+  const [contextLabel, setContextLabel] = React.useState<string | null>(null);
+  const [contextKey, setContextKey] = React.useState<string | null>(null);
+  const [contextHasMore, setContextHasMore] = React.useState(false);
   const [playing, setPlaying] = React.useState(false);
   const [progress, setProgress] = React.useState(0);
   const [duration, setDuration] = React.useState(0);
+
+  // Espejos en refs: los handlers async (fetch de la página siguiente) leen el
+  // estado VIGENTE y no el del render que creó el closure.
+  const currentRef = React.useRef<Song | null>(null);
+  const queueRef = React.useRef<Song[]>([]);
+  const contextRef = React.useRef<PlayContext | null>(null);
+  /** Items del contexto ya consumidos (offset de la próxima página). */
+  const offsetRef = React.useRef(0);
+  const exhaustedRef = React.useRef(true);
+  /**
+   * Fetch de contexto en vuelo. Se guarda junto a su contexto: dos `next()`
+   * sobre el MISMO contexto comparten la promesa; un contexto nuevo no hereda
+   * la página de otro.
+   */
+  const inflightRef = React.useRef<{
+    context: PlayContext;
+    promise: Promise<Song[]>;
+  } | null>(null);
 
   const recordPlay = React.useCallback((song: Song) => {
     // Fire-and-forget: el backend deduplica plays consecutivos. Si no hay
@@ -81,14 +150,28 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const currentIndex = current
-    ? queue.findIndex((s) => s.id === current.id)
-    : -1;
+  function setQueueState(items: Song[]) {
+    queueRef.current = items;
+    setQueue(items);
+  }
 
-  function play(song: Song, nextQueue?: Song[]) {
-    const q = nextQueue ?? queue;
-    setQueue(q);
+  function setCurrentState(song: Song | null) {
+    currentRef.current = song;
     setCurrent(song);
+  }
+
+  /** Recalcula si el contexto todavía puede entregar páginas. */
+  function syncContextHasMore() {
+    const context = contextRef.current;
+    const canLoad =
+      Boolean(context?.loadPage) &&
+      !exhaustedRef.current &&
+      (context?.total === undefined || offsetRef.current < context.total);
+    setContextHasMore(canLoad);
+  }
+
+  function startSong(song: Song) {
+    setCurrentState(song);
 
     const audio = audioRef.current;
     if (!audio) return;
@@ -96,6 +179,170 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     if (handleRef.current) claimAudio(handleRef.current);
     audio.src = song.stream_url ?? "";
     audio.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
+  }
+
+  /**
+   * Trae la página siguiente del contexto y la appendea (dedupe por id).
+   *
+   * - Un solo fetch por contexto en vuelo: los avances concurrentes comparten
+   *   la misma promesa.
+   * - Si mientras viajaba la página otra superficie llamó `play()` (el contexto
+   *   cambió), la respuesta se DESCARTA: no se mezclan canciones ni se pisan
+   *   `offset`/`exhausted` del contexto nuevo.
+   */
+  async function extendContext(): Promise<Song[]> {
+    const context = contextRef.current;
+    if (!context?.loadPage) return [];
+    if (inflightRef.current?.context === context) {
+      return inflightRef.current.promise;
+    }
+    if (exhaustedRef.current) return [];
+    if (context.total !== undefined && offsetRef.current >= context.total) {
+      exhaustedRef.current = true;
+      syncContextHasMore();
+      return [];
+    }
+
+    const entry: { context: PlayContext; promise: Promise<Song[]> } = {
+      context,
+      promise: Promise.resolve([] as Song[]),
+    };
+
+    const request = context
+      .loadPage(offsetRef.current, CONTEXT_PAGE_SIZE)
+      .then((page) => {
+        // Contexto reemplazado durante el fetch: la página vieja no entra.
+        if (contextRef.current !== context) return [] as Song[];
+
+        offsetRef.current += page.length;
+        if (page.length < CONTEXT_PAGE_SIZE) exhaustedRef.current = true;
+
+        const known = new Set(queueRef.current.map((song) => song.id));
+        const fresh = page.filter((song) => !known.has(song.id));
+        // Página sin novedades (contextos que devuelven todo junto): agotado,
+        // para no ciclar pidiendo lo mismo.
+        if (fresh.length === 0) exhaustedRef.current = true;
+
+        if (fresh.length > 0) {
+          setQueueState([...queueRef.current, ...fresh]);
+        }
+        syncContextHasMore();
+        return fresh;
+      })
+      .catch(() => {
+        if (contextRef.current !== context) return [] as Song[];
+        exhaustedRef.current = true;
+        syncContextHasMore();
+        return [] as Song[];
+      })
+      .finally(() => {
+        // Sólo limpia el dueño de la entrada (un contexto nuevo pudo reemplazarla).
+        if (inflightRef.current === entry) inflightRef.current = null;
+      });
+
+    entry.promise = request;
+    inflightRef.current = entry;
+    return request;
+  }
+
+  /**
+   * Avanza/retrocede una canción. Si el índice toca el final de lo
+   * materializado y hay contexto, extiende antes de avanzar.
+   * Devuelve si realmente se movió (lo usa `onEnded` para decidir el stop).
+   */
+  async function advance(direction: 1 | -1): Promise<boolean> {
+    const from = currentRef.current;
+    if (!from) return false;
+
+    const items = queueRef.current;
+    const index = items.findIndex((song) => song.id === from.id);
+    if (index === -1) return false;
+
+    if (direction === -1) {
+      const previous = index > 0 ? items[index - 1] : undefined;
+      if (!previous) return false;
+      startSong(previous);
+      return true;
+    }
+
+    const materializedNext = items[index + 1];
+    if (materializedNext) {
+      startSong(materializedNext);
+      return true;
+    }
+
+    // Final de lo materializado: puede haber más en el contexto.
+    const contextAtStart = contextRef.current;
+    await extendContext();
+
+    // Otra superficie llamó `play()` mientras la página viajaba: el control es
+    // suyo, así que este avance no toca la cola nueva.
+    if (contextRef.current !== contextAtStart) return false;
+
+    // Se relee el estado: otro `advance` concurrente pudo haber avanzado ya.
+    const grown = queueRef.current;
+    const currentNow = currentRef.current;
+    const indexNow = currentNow
+      ? grown.findIndex((song) => song.id === currentNow.id)
+      : -1;
+    const nextSong = indexNow >= 0 ? grown[indexNow + 1] : undefined;
+    if (!nextSong) return false;
+    startSong(nextSong);
+    return true;
+  }
+
+  function play(song: Song, source?: PlaySource) {
+    if (isPlayContext(source)) {
+      const context = source;
+      contextRef.current = context;
+      setContextLabel(context.label);
+      setContextKey(context.key ?? null);
+      exhaustedRef.current = !context.loadPage;
+
+      const seed = context.seed ?? [];
+      if (seed.length > 0) {
+        offsetRef.current = seed.length;
+        setQueueState(seed);
+        syncContextHasMore();
+        startSong(song);
+        return;
+      }
+
+      // Contexto sin seed (p. ej. un álbum resuelto por `getAlbumById`):
+      // materializa páginas hasta encontrar la canción pedida —puede caer en la
+      // página 2+— y recién ahí arranca.
+      offsetRef.current = 0;
+      setQueueState([]);
+      syncContextHasMore();
+      const contextAtStart = context;
+      void (async () => {
+        await extendContext();
+        let items = queueRef.current;
+        let target = items.find((candidate) => candidate.id === song.id);
+        while (!target && !exhaustedRef.current) {
+          if (contextRef.current !== contextAtStart) return;
+          await extendContext();
+          items = queueRef.current;
+          target = items.find((candidate) => candidate.id === song.id);
+        }
+
+        // Otra superficie tomó el control: no se pisa su play.
+        if (contextRef.current !== contextAtStart) return;
+
+        if (items.length === 0) setQueueState([song]);
+        startSong(target ?? items[0] ?? song);
+      })();
+      return;
+    }
+
+    // Array (o sin source): la cola ES ese slice, comportamiento histórico.
+    contextRef.current = null;
+    setContextLabel(null);
+    setContextKey(null);
+    exhaustedRef.current = true;
+    setContextHasMore(false);
+    setQueueState(source ? [...source] : queueRef.current);
+    startSong(song);
   }
 
   function pause() {
@@ -118,13 +365,11 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   }
 
   function next() {
-    if (currentIndex === -1 || currentIndex >= queue.length - 1) return;
-    play(queue[currentIndex + 1], queue);
+    void advance(1);
   }
 
   function prev() {
-    if (currentIndex <= 0) return;
-    play(queue[currentIndex - 1], queue);
+    void advance(-1);
   }
 
   function seek(time: number) {
@@ -134,7 +379,15 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     setProgress(time);
   }
 
-  // Media Session API: metadata + controles del sistema operativo
+  const currentIndex = current
+    ? queue.findIndex((song) => song.id === current.id)
+    : -1;
+  const hasNext =
+    currentIndex >= 0 && (currentIndex < queue.length - 1 || contextHasMore);
+  const hasPrev = currentIndex > 0;
+
+  // Media Session API: metadata + controles del sistema operativo. next/prev se
+  // registran SOLO si hay destino (sin handler, el SO deshabilita el botón).
   React.useEffect(() => {
     if (!("mediaSession" in navigator) || !current) return;
 
@@ -149,8 +402,14 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
     navigator.mediaSession.setActionHandler("play", () => toggle());
     navigator.mediaSession.setActionHandler("pause", () => toggle());
-    navigator.mediaSession.setActionHandler("previoustrack", () => prev());
-    navigator.mediaSession.setActionHandler("nexttrack", () => next());
+    navigator.mediaSession.setActionHandler(
+      "previoustrack",
+      hasPrev ? () => void advance(-1) : null,
+    );
+    navigator.mediaSession.setActionHandler(
+      "nexttrack",
+      hasNext ? () => void advance(1) : null,
+    );
     navigator.mediaSession.setActionHandler("seekto", (details) => {
       if (typeof details.seekTime === "number") seek(details.seekTime);
     });
@@ -163,7 +422,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       navigator.mediaSession.setActionHandler("seekto", null);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [current]);
+  }, [current, hasNext, hasPrev]);
 
   // Sincroniza estado con el <audio> (fin de canción, progreso, duración,
   // y registro de cada play cuando realmente empieza a sonar).
@@ -172,12 +431,13 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     if (!audio) return;
 
     const onEnded = () => {
-      if (currentIndex >= 0 && currentIndex < queue.length - 1) {
-        next();
-      } else {
+      // Al final de lo materializado intenta extender el contexto; si no hay
+      // más, se detiene como siempre (el autoplay tipo radio es otra fase).
+      void advance(1).then((moved) => {
+        if (moved) return;
         setPlaying(false);
         if (handleRef.current) releaseAudio(handleRef.current);
-      }
+      });
     };
     const onPause = () => {
       setPlaying(false);
@@ -212,9 +472,11 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     () => ({
       current,
       queue,
+      contextLabel,
+      contextKey,
       playing,
-      hasPrev: currentIndex > 0,
-      hasNext: currentIndex >= 0 && currentIndex < queue.length - 1,
+      hasPrev,
+      hasNext,
       progress,
       duration,
       play,
@@ -225,7 +487,17 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       seek,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [current, queue, playing, progress, duration, currentIndex]
+    [
+      current,
+      queue,
+      contextLabel,
+      contextKey,
+      playing,
+      progress,
+      duration,
+      currentIndex,
+      contextHasMore,
+    ]
   );
 
   return (

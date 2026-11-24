@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react";
 
 import { SongItem } from "@/components/song-item";
 import { SongItemSkeleton } from "@/components/loading-skeletons";
+import { favoriteSongsContext } from "@/components/player/play-contexts";
 import { Button } from "@/components/ui";
 import { favoritesService } from "@/lib/services/favorites-service";
 import type { UserLibrary } from "@/lib/services/library";
@@ -152,6 +153,8 @@ export function SongsList({ library, onMutated }: SongsListProps) {
     );
   }
 
+  const context = favoriteSongsContext({ seed: songs, total });
+
   return (
     <div className="flex flex-col gap-8">
       <ul className="space-y-2.5">
@@ -159,7 +162,7 @@ export function SongsList({ library, onMutated }: SongsListProps) {
           <SongItem
             key={song.id}
             song={song}
-            queue={songs}
+            context={context}
             favoriteIds={library?.favoriteIds}
             playlists={library?.playlists}
             onMutated={onMutated}

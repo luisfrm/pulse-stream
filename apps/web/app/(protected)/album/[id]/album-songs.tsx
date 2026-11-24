@@ -3,6 +3,7 @@
 import * as React from "react";
 
 import { LoadMoreButton } from "@/components/load-more-button";
+import { albumContext } from "@/components/player/play-contexts";
 import { SongItem } from "@/components/song-item";
 import { songsService } from "@/lib/services/songs-service";
 import type { MyPlaylist, Page, Song } from "@/lib/services/types";
@@ -10,6 +11,7 @@ import { friendlyError } from "@/lib/utils/error";
 
 interface AlbumSongsProps {
   readonly albumId: string;
+  readonly albumTitle: string;
   readonly initialPage: Page<Song>;
   readonly library: { favoriteIds: Set<string>; playlists: MyPlaylist[] } | null;
   readonly onMutated?: () => Promise<void>;
@@ -18,12 +20,15 @@ interface AlbumSongsProps {
 const PAGE_LIMIT = 20;
 
 /**
- * Canciones de un álbum con paginación client-side. Antes el RSC bajaba
- * todas las canciones en un solo request (`getAlbumById` → `album.songs`):
- * si un álbum tenía 100+ tracks, los pintaba todos sin acotar.
+ * Canciones de un álbum con paginación client-side.
+ *
+ * La COLA no usa este orden: `albumContext` resuelve `GET /albums/{id}`, que
+ * devuelve todas las canciones en orden de track (`created_at` ASC), y el
+ * motor reproduce ese orden (antes la cola salía DESC, como esta lista).
  */
 export function AlbumSongs({
   albumId,
+  albumTitle,
   initialPage,
   library,
   onMutated,
@@ -64,6 +69,8 @@ export function AlbumSongs({
     );
   }
 
+  const context = albumContext({ albumId, albumTitle, total });
+
   return (
     <>
       <ul className="space-y-2.5">
@@ -71,7 +78,7 @@ export function AlbumSongs({
           <SongItem
             key={song.id}
             song={song}
-            queue={items}
+            context={context}
             favoriteIds={library?.favoriteIds}
             playlists={library?.playlists}
             onMutated={onMutated}

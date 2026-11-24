@@ -441,4 +441,28 @@ Spotify (medido en vivo): hero foto + "oyentes mensuales" → **Populares** (fil
 | **F-C3** nav | Panel + Cuenta del bottom-bar → sidebar (Principal = Inicio · Explorar · Cuenta; Panel ya vivía en Administración). Bottom-nav queda Inicio · Explorar · Catálogo · Crear(+) **sin props** (`user`/`isAdmin` muertas eliminadas), como Spotify mobile. Test nuevo del shell (Cuenta en sidebar + Panel solo admin) | Hecho (browser-verified: barra de 3+Crear, drawer con Cuenta/Panel, activo en /account) |
 | Diferido | Nits del review F-C2: `releaseYear` en realidad es año de agregado al catálogo (sin `release_date` en backend), Incluye cap 10 sin "Ver más" | Anotado |
 
+## Cola de reproducción con contexto perezoso — PR `feat/queue-context`
+
+Investigación con browse MCP (cola real de Spotify medida): reproducir "DtMF"
+desde Populares del artista armó **"Siguiente de: Bad Bunny Popular"** (la
+sección como contexto nombrado) y al acabarse los 5 visibles **siguió con más
+del artista que no estaba en la lista** (Autoplay). Apple Music: mismo
+principio + estación ∞ al agotar. La regla: la cola se ancla a un **contexto
+con nombre**, jamás al slice de DOM cargado.
+
+Inventario propio (file-explorer, línea por línea): `play(song, queue)` recibe
+el array materializado → playlist de 300 reproduce **20 congeladas** (botón
+del hero), artista 10 de 38, `/songs` 24, `ContextMediaCard` tope 25
+hardcode, `/song/[id]` pasa undefined (tema huérfano, índice -1), `onEnded`
+**se detiene**, sin UI de cola ni append. Único caso con resolución de
+contexto: `ContextMediaCard` (fetch al click, cap 25).
+
+| Fase | Alcance | Estado |
+|---|---|---|
+| **Q1** motor | `PlayContext` descriptor (`label` + `loadPage(offset, limit)`) en el provider: `play(song, context, seed)` materializa perezoso (fetch de a 50 al llegar al final, inflight único, dedupe por id); hasNext refleja "materializado O contexto con más". Superficies → descriptores: playlist (paginado), álbum (getAlbumById completo ASC — corrige el orden DESC), artista Populares/Colaboraciones, search Canciones, /songs, /catalog(+songs), dashboard (finitos: top-songs/recientes/populares), ContextMediaCard 25→contexto. Fixes: MediaSession gated por hasNext/hasPrev. **Cero backend** (endpoints existentes: /songs limit ≤100 orden estable, /me/favorites paginado, /albums/{id} completo ASC) | En curso |
+| **Q2** cola anclada a la canción | `play(song)` sin contexto → arma la cola desde ESA canción: top del artista por plays (cap ~50), la elegida primera. Aplica a: **/recently-played** (mata el slice de 24 y el `as never`), `/song/[id]`, home público | Pendiente |
+| **Q3** cola visible | Tercera tab en PlayerFullscreen: "A continuación" + label del contexto ("Siguiente de: …") — el estado ya vive en el provider | Pendiente |
+| **Q4** (diferida) | Autoplay al agotar el contexto (tras el top del artista → compañeros de género por plays), estilo Spotify/Apple. Comportamiento fuerte: merece decisión propia (¿toggle en settings?) | Anotada |
+
+
 

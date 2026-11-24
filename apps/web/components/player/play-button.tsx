@@ -4,17 +4,25 @@ import { Pause, Play } from "lucide-react";
 
 import { Button } from "@/components/ui";
 import type { Song } from "@/lib/services/types";
-import { usePlayer } from "./player-provider";
+import { usePlayer, type PlayContext } from "./player-provider";
 
 interface PlayButtonProps {
   song: Song;
   queue?: Song[];
+  /** Contexto perezoso (tiene prioridad sobre `queue`). */
+  context?: PlayContext;
   size?: "sm" | "md" | "lg";
   className?: string;
 }
 
 /** Botón play/pausa por canción — carga la canción en el reproductor persistente. */
-export function PlayButton({ song, queue, size = "sm", className }: PlayButtonProps) {
+export function PlayButton({
+  song,
+  queue,
+  context,
+  size = "sm",
+  className,
+}: PlayButtonProps) {
   const { current, playing, play, toggle } = usePlayer();
   const isCurrent = current?.id === song.id;
   const isPlaying = isCurrent && playing;
@@ -24,7 +32,7 @@ export function PlayButton({ song, queue, size = "sm", className }: PlayButtonPr
     if (isCurrent) {
       toggle();
     } else {
-      play(song, queue);
+      play(song, context ?? queue);
     }
   }
 

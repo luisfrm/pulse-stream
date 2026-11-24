@@ -3,6 +3,7 @@
 import Link from "next/link";
 
 import { PlayButton } from "@/components/player/play-button";
+import type { PlayContext } from "@/components/player/player-provider";
 import { Badge, cn } from "@/components/ui";
 import type { MyPlaylist, Song } from "@/lib/services/types";
 import { formatGenre } from "@/lib/utils/format";
@@ -12,6 +13,8 @@ import { SongActions } from "./song-actions";
 interface SongItemProps {
   song: Song;
   queue?: Song[];
+  /** Contexto perezoso (tiene prioridad sobre `queue`). */
+  context?: PlayContext;
   /** Si se pasan, muestra acciones de usuario (favorito + playlist). */
   favoriteIds?: Set<string>;
   playlists?: MyPlaylist[];
@@ -19,7 +22,14 @@ interface SongItemProps {
 }
 
 /** Fila de canción: play persistente + cover + metadatos + acciones. */
-export function SongItem({ song, queue, favoriteIds, playlists, onMutated }: SongItemProps) {
+export function SongItem({
+  song,
+  queue,
+  context,
+  favoriteIds,
+  playlists,
+  onMutated,
+}: SongItemProps) {
   const showActions = favoriteIds !== undefined;
 
   return (
@@ -41,7 +51,7 @@ export function SongItem({ song, queue, favoriteIds, playlists, onMutated }: Son
           <NoCover size="sm" />
         )}
       </Link>
-      <PlayButton song={song} queue={queue} />
+      <PlayButton song={song} queue={queue} context={context} />
       <div className="min-w-0 flex-1">
         <Link
           href={`/song/${song.id}`}

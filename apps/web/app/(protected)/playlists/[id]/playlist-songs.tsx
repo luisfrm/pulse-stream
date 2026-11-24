@@ -3,6 +3,7 @@
 import * as React from "react";
 
 import { LoadMoreButton } from "@/components/load-more-button";
+import { playlistContext } from "@/components/player/play-contexts";
 import { SongItem } from "@/components/song-item";
 import { songsService } from "@/lib/services/songs-service";
 import type { MyPlaylist, Page, Song } from "@/lib/services/types";
@@ -10,6 +11,7 @@ import { friendlyError } from "@/lib/utils/error";
 
 interface PlaylistSongsProps {
   readonly playlistId: string;
+  readonly playlistName: string;
   readonly initialPage: Page<Song>;
   readonly library: { favoriteIds: Set<string>; playlists: MyPlaylist[] } | null;
   readonly onMutated?: () => Promise<void>;
@@ -18,12 +20,13 @@ interface PlaylistSongsProps {
 const PAGE_LIMIT = 20;
 
 /**
- * Canciones de una playlist con paginación client-side. Antes el RSC bajaba
- * `playlist.songs` completo (sin límite); si la playlist tenía 300+ temas,
- * los pintaba todos en el primer load.
+ * Canciones de una playlist con paginación client-side. La cola del reproductor
+ * es un `PlayContext` por posición: arranca con la página renderizada y sigue
+ * por `GET /songs?playlist_id` a medida que el usuario avanza.
  */
 export function PlaylistSongs({
   playlistId,
+  playlistName,
   initialPage,
   library,
   onMutated,
@@ -60,6 +63,13 @@ export function PlaylistSongs({
     return null; // el empty state lo pinta el RSC padre
   }
 
+  const context = playlistContext({
+    playlistId,
+    playlistName,
+    seed: items,
+    total,
+  });
+
   return (
     <>
       <ul className="mt-8 space-y-2.5">
@@ -67,7 +77,7 @@ export function PlaylistSongs({
           <SongItem
             key={song.id}
             song={song}
-            queue={items}
+            context={context}
             favoriteIds={library?.favoriteIds}
             playlists={library?.playlists}
             onMutated={onMutated}

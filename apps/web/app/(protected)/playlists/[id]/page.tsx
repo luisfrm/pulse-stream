@@ -133,7 +133,12 @@ export default async function PlaylistDetailPage({ params }: PlaylistDetailPageP
             </p>
 
             <div className="mt-5 flex flex-wrap items-center gap-2.5">
-              <PlaylistPlayButton songs={initialSongs.items} />
+              <PlaylistPlayButton
+        playlistId={id}
+        playlistName={playlist.name}
+        songs={initialSongs.items}
+        total={songCount}
+      />
               {playlist.kind === "system" && (
                 <PlaylistLikeButton
                   playlistId={playlist.id}
@@ -165,6 +170,7 @@ export default async function PlaylistDetailPage({ params }: PlaylistDetailPageP
       ) : (
         <PlaylistSongs
           playlistId={id}
+          playlistName={playlist.name}
           initialPage={initialSongs}
           library={library}
           onMutated={refreshPlaylist}
