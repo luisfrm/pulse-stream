@@ -423,7 +423,7 @@ function QueueRow({
 
   return (
     <li
-      aria-current={active ? "page" : undefined}
+      aria-current={active ? "true" : undefined}
       className={cn(
         "rounded-lg",
         active ? "bg-bg-elevated" : "transition-colors hover:bg-bg-elevated/60"

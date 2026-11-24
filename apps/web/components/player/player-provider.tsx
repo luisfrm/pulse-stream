@@ -131,6 +131,12 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
    */
   const [chainFailed, setChainFailed] = React.useState(false);
   const chainFailedRef = React.useRef(false);
+  /**
+   * Contexto cuyo último `extendContext` falló por RED (no por agotarse):
+   * el encadenado lo consulta para NO latchear `chainFailed` ante un error
+   * transitorio — el próximo `next()` reintenta.
+   */
+  const extendFailedRef = React.useRef<PlayContext | null>(null);
 
   const recordPlay = React.useCallback((song: Song) => {
     // Fire-and-forget: el backend deduplica plays consecutivos. Si no hay
@@ -227,6 +233,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       .then((page) => {
         // Contexto reemplazado durante el fetch: la página vieja no entra.
         if (contextRef.current !== context) return [] as Song[];
+        extendFailedRef.current = null;
 
         offsetRef.current += page.length;
         if (page.length < CONTEXT_PAGE_SIZE) exhaustedRef.current = true;
@@ -245,6 +252,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       })
       .catch(() => {
         if (contextRef.current !== context) return [] as Song[];
+        // Se recuerda el fallo: el encadenado no lo confunde con "agotado".
+        extendFailedRef.current = context;
         exhaustedRef.current = true;
         syncContextHasMore();
         return [] as Song[];
@@ -336,14 +345,23 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     const chainedNext =
       chainedIndex >= 0 ? chained[chainedIndex + 1] : undefined;
     if (!chainedNext) {
-      // Cadena estéril (artista/género sin nada nuevo): se detiene de verdad
-      // y no se reintenta hasta el próximo `play()`.
-      chainFailedRef.current = true;
-      setChainFailed(true);
+      // Cadena estéril (artista/género sin nada nuevo): se detiene de verdad.
+      // Un fallo de RED en el pull NO se latchea (es reintentable): sólo la
+      // esterilidad real bloquea el autoplay hasta el próximo `play()`.
+      const failedByNetwork = extendFailedRef.current === radio;
+      extendFailedRef.current = null;
+      if (!failedByNetwork) {
+        chainFailedRef.current = true;
+        setChainFailed(true);
+      }
       exhaustedRef.current = true;
       syncContextHasMore();
       return false;
     }
+    // El usuario se movió DURANTE el fetch (prev o click en la Cola): su
+    // acción manda — no se pisa con el salto del chain (y devolver true evita
+    // que el onEnded corte lo que acaba de poner).
+    if (currentRef.current?.id !== last.id) return true;
     startSong(chainedNext);
     return true;
   }
@@ -352,6 +370,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     // Nueva reproducción: la cadena de radio vuelve a estar disponible.
     chainFailedRef.current = false;
     setChainFailed(false);
+    extendFailedRef.current = null;
 
     if (isPlayContext(source)) {
       const context = source;

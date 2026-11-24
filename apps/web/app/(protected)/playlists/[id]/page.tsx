@@ -54,7 +54,15 @@ export default async function PlaylistDetailPage({ params }: PlaylistDetailPageP
     songsService
       .getSongs(
         { playlistId: id, offset: 0, limit: SONGS_PAGE_LIMIT },
-        { next: { revalidate: 300, tags: [CACHE_TAGS.playlists] } },
+        // `playlists`: el CONTENIDO es dato de playlist → lo invalida
+        // refreshLibrary/panel al agregar/quitar. `songs`: las ediciones de
+        // una canción desde el panel revalidan las filas (título/cover).
+        {
+          next: {
+            revalidate: 300,
+            tags: [CACHE_TAGS.playlists, CACHE_TAGS.songs],
+          },
+        },
       )
       .catch(() => ({ items: [], total: 0, offset: 0, limit: SONGS_PAGE_LIMIT })),
   ]);
@@ -170,7 +178,7 @@ export default async function PlaylistDetailPage({ params }: PlaylistDetailPageP
         </div>
       ) : (
         <PlaylistSongs
-          key={`${id}:${initialSongs.total}`}
+          key={`${id}:${initialSongs.items.map((song) => song.id).join(",")}:${initialSongs.total}`}
           playlistId={id}
           playlistName={playlist.name}
           initialPage={initialSongs}

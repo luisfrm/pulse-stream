@@ -226,6 +226,25 @@ export function radioContext(args: {
   let source = 0;
   let cursor = 0;
 
+  /**
+   * Acumula lo NUEVO de una página de fuente sin pasarse de `limit` y devuelve
+   * cuántos ítems del cursor se consumieron. Los que quedan fuera NO se marcan
+   * `served` y el cursor no los salta: la próxima página de la fuente los
+   * vuelve a traer (antes un `slice` los descartaba ya marcados como servidos).
+   */
+  function drain(items: Song[], out: Song[], limit: number): number {
+    let consumed = 0;
+    for (const item of items) {
+      if (out.length >= limit) break;
+      consumed += 1;
+      if (!served.has(item.id)) {
+        served.add(item.id);
+        out.push(item);
+      }
+    }
+    return consumed;
+  }
+
   async function pull(limit: number): Promise<Song[]> {
     const out: Song[] = [];
     while (out.length < limit && source <= genres.length) {
@@ -236,13 +255,7 @@ export function radioContext(args: {
           offset: cursor,
           limit: 50,
         });
-        cursor += page.items.length;
-        for (const item of page.items) {
-          if (!served.has(item.id)) {
-            served.add(item.id);
-            out.push(item);
-          }
-        }
+        cursor += drain(page.items, out, limit);
         if (page.items.length < 50) {
           source = 1;
           cursor = 0;
@@ -260,19 +273,15 @@ export function radioContext(args: {
           offset: cursor,
           limit: 50,
         });
-        cursor += page.items.length;
-        for (const item of page.items) {
-          if (!served.has(item.id)) {
-            served.add(item.id);
-            out.push(item);
-          }
-        }
+        cursor += drain(page.items, out, limit);
         if (page.items.length < 50) {
           source += 1;
           cursor = 0;
         }
       }
     }
+    // `drain` nunca pasa de `limit`: la página cumple el contrato de
+    // `loadPage` sin recortar (recortar perdería canciones no entregadas).
     return out;
   }
 

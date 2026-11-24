@@ -148,8 +148,9 @@ describe("PlayerProvider — cola por contexto (Q1)", () => {
     // mientras suene algo — como Spotify, el botón no se deshabilita.
     expect(getPlayer().hasNext).toBe(true);
 
-    // El intento de encadenar no produce nada (getSongs sin configurar en
-    // este test → rechaza): cadena estéril → recién ahí se detiene.
+    // La radio no encuentra nada nuevo (mock explícito de página vacía):
+    // cadena estéril → recién ahí se detiene.
+    getSongsMock.mockResolvedValue(pageOf([]));
     await act(async () => getPlayer().next());
     expect(getPlayer().current?.id).toBe("4");
     expect(getPlayer().hasNext).toBe(false);
@@ -157,6 +158,9 @@ describe("PlayerProvider — cola por contexto (Q1)", () => {
 
   it("si la página siguiente viene vacía, se detiene sin ciclar", async () => {
     const loadPage = vi.fn().mockResolvedValue([]);
+    // Mock explícito (no heredado de otro test): la radio encadenada también
+    // viene vacía → cadena estéril → stop real.
+    getSongsMock.mockResolvedValue(pageOf([]));
     renderPlayer();
 
     await act(async () => {
@@ -174,8 +178,9 @@ describe("PlayerProvider — cola por contexto (Q1)", () => {
     expect(loadPage).toHaveBeenCalledTimes(1);
   });
 
-  it("un array (cola fija) nunca fetchea y se detiene al final", async () => {
+  it("un array (cola fija) no fetchea hasta el final; la cadena estéril lo detiene", async () => {
     const items = [song("1"), song("2")];
+    getSongsMock.mockResolvedValue(pageOf([]));
     renderPlayer();
 
     await act(async () => {
@@ -185,10 +190,50 @@ describe("PlayerProvider — cola por contexto (Q1)", () => {
 
     act(() => getPlayer().next());
     expect(getPlayer().current?.id).toBe("2");
+    // Hasta acá no hubo ningún fetch (la cola es fija).
+    expect(getSongsMock).not.toHaveBeenCalled();
 
     await act(async () => getPlayer().next());
     expect(getPlayer().current?.id).toBe("2");
     expect(getPlayer().hasNext).toBe(false);
+  });
+
+  it("Q4: un fallo de red en la radio NO latchea; el próximo next reintenta", async () => {
+    const a1 = song("a1");
+    getSongsMock.mockRejectedValue(new Error("offline"));
+    renderPlayer();
+
+    await act(async () => {
+      getPlayer().play(a1, [a1]);
+    });
+    await act(async () => getPlayer().next());
+    // Falló por red (no por esterilidad): sigue habiendo siguiente posible.
+    expect(getPlayer().hasNext).toBe(true);
+
+    // La red vuelve y el retry produce canciones: la cadena avanza.
+    const fresh = song("b-new");
+    getSongsMock.mockResolvedValue(pageOf([fresh], 1));
+    await act(async () => getPlayer().next());
+    expect(getPlayer().current?.id).toBe("b-new");
+  });
+
+  it("Q4: la cadena estéril se resetea con un play() nuevo", async () => {
+    const a1 = song("a1");
+    getSongsMock.mockResolvedValue(pageOf([]));
+    renderPlayer();
+
+    await act(async () => {
+      getPlayer().play(a1, [a1]);
+    });
+    await act(async () => getPlayer().next());
+    expect(getPlayer().hasNext).toBe(false);
+
+    // Reproducir otra cosa reactiva el autoplay.
+    const b1 = song("b1");
+    await act(async () => {
+      getPlayer().play(b1, [b1]);
+    });
+    expect(getPlayer().hasNext).toBe(true);
   });
 
   it("dos next() con el fetch en vuelo comparten una sola página", async () => {
@@ -312,6 +357,8 @@ describe("PlayerProvider — cola por contexto (Q1)", () => {
   });
 
   it("onEnded sin más canciones (cola fija) detiene la reproducción", async () => {
+    // Mock explícito: la cadena de radio es estéril (no un fallo de red).
+    getSongsMock.mockResolvedValue(pageOf([]));
     renderPlayer();
 
     await act(async () => {
@@ -374,7 +421,7 @@ describe("PlayerProvider — cola por contexto (Q1)", () => {
     expect(getPlayer().current?.id).toBe("top-1");
   });
 
-  it("cola anclada: si el fetch de la radio falla, queda la semilla sin romperse", async () => {
+  it("cola anclada: un fallo de red en la radio deja la semilla y el next sigue posible", async () => {
     const anchor = song("seed");
     getSongsMock.mockRejectedValue(new Error("boom"));
     renderPlayer();
@@ -384,9 +431,21 @@ describe("PlayerProvider — cola por contexto (Q1)", () => {
     });
     await act(async () => getPlayer().next());
 
-    // El catch del motor marca el contexto agotado: la cola queda en la
-    // semilla, sin más next, y la canción sigue sonando (no se detiene).
-    await waitFor(() => expect(getPlayer().hasNext).toBe(false));
+    // Fallan la página anclada y el pull de la radio (2 fetches), pero un fallo
+    // de RED no es esterilidad: la cola queda en la semilla y `hasNext` sigue
+    // true — el próximo next reintenta el encadenado.
+    await waitFor(() =>
+      expect(getSongsMock.mock.calls.length).toBeGreaterThanOrEqual(2),
+    );
+    expect(getPlayer().hasNext).toBe(true);
+    expect(getPlayer().queue.map((item) => item.id)).toEqual(["seed"]);
+    expect(getPlayer().current?.id).toBe("seed");
+
+    // La red vuelve pero la radio no tiene nada nuevo: recién ahí la cadena es
+    // estéril y se detiene de verdad (la semilla sigue sonando).
+    getSongsMock.mockResolvedValue(pageOf([]));
+    await act(async () => getPlayer().next());
+    expect(getPlayer().hasNext).toBe(false);
     expect(getPlayer().queue.map((item) => item.id)).toEqual(["seed"]);
     expect(getPlayer().current?.id).toBe("seed");
   });
