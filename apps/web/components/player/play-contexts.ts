@@ -194,6 +194,96 @@ export function songAnchoredContext(args: {
 }
 
 /**
+ * Radio encadenada de una canción (Q4 — autoplay al agotar el contexto, como
+ * el "Autoplay" de Spotify): primero el top del artista de la canción por
+ * plays y, cuando se seca, canciones de sus mismos GÉNEROS por plays.
+ *
+ * Se construye LATE-BINDING —al agotarse el contexto anterior, cuando ya se
+ * conoce TODO lo reproducido— y `excludeIds` hornea esas exclusiones: las
+ * páginas devuelven SOLO canciones nuevas (cursor interno; el offset del
+ * motor se ignora). Así el dedupe del motor nunca ve una página "sin
+ * novedades" mientras la radio todavía tiene contenido (el falso-agotado).
+ *
+ * Sin `total`: la radio se agota cuando sus fuentes devuelven una página
+ * corta o cero items nuevos.
+ */
+export function radioContext(args: {
+  seed: Song;
+  excludeIds: ReadonlySet<string>;
+}): PlayContext {
+  const { seed, excludeIds } = args;
+  /** Ya servidas (o excluidas): filtrado O(1) por id. */
+  const served = new Set<string>(excludeIds);
+  served.add(seed.id);
+  const genres = [...new Set(seed.genres ?? [])];
+
+  /**
+   * Cursor interno multi-fuente: `source 0` = top del artista; `source n`
+   * (1..genres.length) = canciones del género `genres[n-1]`. Cada fuente se
+   * pagina con su propio offset y se abandona cuando devuelve una página
+   * corta (las fuentes son rankings estables, no mutan entre páginas).
+   */
+  let source = 0;
+  let cursor = 0;
+
+  async function pull(limit: number): Promise<Song[]> {
+    const out: Song[] = [];
+    while (out.length < limit && source <= genres.length) {
+      if (source === 0) {
+        const page = await songsService.getSongs({
+          artistId: seed.artist.id,
+          sort: "plays",
+          offset: cursor,
+          limit: 50,
+        });
+        cursor += page.items.length;
+        for (const item of page.items) {
+          if (!served.has(item.id)) {
+            served.add(item.id);
+            out.push(item);
+          }
+        }
+        if (page.items.length < 50) {
+          source = 1;
+          cursor = 0;
+        }
+      } else {
+        const genre = genres[source - 1];
+        if (!genre) {
+          source += 1;
+          cursor = 0;
+          continue;
+        }
+        const page = await songsService.getSongs({
+          genre,
+          sort: "plays",
+          offset: cursor,
+          limit: 50,
+        });
+        cursor += page.items.length;
+        for (const item of page.items) {
+          if (!served.has(item.id)) {
+            served.add(item.id);
+            out.push(item);
+          }
+        }
+        if (page.items.length < 50) {
+          source += 1;
+          cursor = 0;
+        }
+      }
+    }
+    return out;
+  }
+
+  return {
+    label: `Radio de ${seed.artist.name}`,
+    key: `radio:${seed.id}`,
+    loadPage: async (_offset, limit) => pull(limit),
+  };
+}
+
+/**
  * Álbum: UNA sola fetch completa (`GET /albums/{id}` ya devuelve TODAS las
  * canciones y en orden de creación ASC = orden de track). El resto son slices
  * del array cacheado, así no hay paginación real ni orden invertido.

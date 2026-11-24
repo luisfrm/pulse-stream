@@ -5,6 +5,9 @@ import * as React from "react";
 import { listensService } from "@/lib/services/listens-service";
 import type { Song } from "@/lib/services/types";
 import { claimAudio, releaseAudio, type AudioHandle } from "./audio-orchestrator";
+// Runtime-safe: play-contexts importa de acá SOLO tipos (import type), no hay
+// ciclo de módulos en ejecución.
+import { radioContext } from "./play-contexts";
 
 /**
  * Descriptor PEREZOSO de cola: la superficie describe CÓMO seguir trayendo
@@ -117,6 +120,14 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     context: PlayContext;
     promise: Promise<Song[]>;
   } | null>(null);
+  /**
+   * Última cadena de radio fue estéril (catálogo chico): no se reintenta en
+   * loop — hasta que el usuario reproduzca otra cosa (`play()` lo resetea).
+   * Doble via (estado + ref) porque `hasNext` se lee en render y el flag se
+   * escribe en un flujo async.
+   */
+  const [chainFailed, setChainFailed] = React.useState(false);
+  const chainFailedRef = React.useRef(false);
 
   const recordPlay = React.useCallback((song: Song) => {
     // Fire-and-forget: el backend deduplica plays consecutivos. Si no hay
@@ -286,12 +297,59 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       ? grown.findIndex((song) => song.id === currentNow.id)
       : -1;
     const nextSong = indexNow >= 0 ? grown[indexNow + 1] : undefined;
-    if (!nextSong) return false;
-    startSong(nextSong);
+    if (nextSong) {
+      startSong(nextSong);
+      return true;
+    }
+
+    // Final REAL del contexto: encadenar la radio de la última canción (Q4 —
+    // autoplay, como Spotify). Late binding: las exclusiones son todo lo ya
+    // reproducido, horneadas en el contexto nuevo para que sus páginas
+    // devuelvan SOLO canciones nuevas (el dedupe del motor no la marcaría
+    // agotada por ver ids conocidos).
+    if (chainFailedRef.current) return false;
+    const last = currentRef.current;
+    if (!last) return false;
+
+    const radio = radioContext({
+      seed: last,
+      excludeIds: new Set(queueRef.current.map((song) => song.id)),
+    });
+    contextRef.current = radio;
+    setContextLabel(radio.label);
+    setContextKey(radio.key ?? null);
+    offsetRef.current = 0;
+    exhaustedRef.current = false;
+    // Nuevo contexto: no hereda el inflight del anterior.
+    inflightRef.current = null;
+    syncContextHasMore();
+
+    await extendContext();
+    // Raza estándar: otra superficie pudo tomar el control durante el fetch.
+    if (contextRef.current !== radio) return false;
+
+    const chained = queueRef.current;
+    const chainedIndex = chained.findIndex((song) => song.id === last.id);
+    const chainedNext =
+      chainedIndex >= 0 ? chained[chainedIndex + 1] : undefined;
+    if (!chainedNext) {
+      // Cadena estéril (artista/género sin nada nuevo): se detiene de verdad
+      // y no se reintenta hasta el próximo `play()`.
+      chainFailedRef.current = true;
+      setChainFailed(true);
+      exhaustedRef.current = true;
+      syncContextHasMore();
+      return false;
+    }
+    startSong(chainedNext);
     return true;
   }
 
   function play(song: Song, source?: PlaySource) {
+    // Nueva reproducción: la cadena de radio vuelve a estar disponible.
+    chainFailedRef.current = false;
+    setChainFailed(false);
+
     if (isPlayContext(source)) {
       const context = source;
       contextRef.current = context;
@@ -382,8 +440,12 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const currentIndex = current
     ? queue.findIndex((song) => song.id === current.id)
     : -1;
+  // Como Spotify: mientras suene algo SIEMPRE hay siguiente posible (el motor
+  // encadena la radio al agotar el contexto) — salvo que la última cadena haya
+  // resultado estéril.
   const hasNext =
-    currentIndex >= 0 && (currentIndex < queue.length - 1 || contextHasMore);
+    currentIndex >= 0 &&
+    (currentIndex < queue.length - 1 || contextHasMore || !chainFailed);
   const hasPrev = currentIndex > 0;
 
   // Media Session API: metadata + controles del sistema operativo. next/prev se
@@ -431,8 +493,9 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     if (!audio) return;
 
     const onEnded = () => {
-      // Al final de lo materializado intenta extender el contexto; si no hay
-      // más, se detiene como siempre (el autoplay tipo radio es otra fase).
+      // Al final de lo materializado extiende el contexto; si se agota,
+      // encadena la radio de la última canción (Q4). Si la cadena es estéril,
+      // ahí sí se detiene.
       void advance(1).then((moved) => {
         if (moved) return;
         setPlaying(false);
@@ -497,6 +560,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       duration,
       currentIndex,
       contextHasMore,
+      chainFailed,
     ]
   );
 
