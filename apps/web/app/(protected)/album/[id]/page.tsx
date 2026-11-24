@@ -105,6 +105,7 @@ export default async function AlbumPage({ params }: AlbumPageProps) {
 
       <AlbumSongs
         albumId={id}
+        albumTitle={album.title}
         initialPage={initialSongs}
         library={library}
       />

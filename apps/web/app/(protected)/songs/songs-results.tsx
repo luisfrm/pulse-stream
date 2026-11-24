@@ -3,6 +3,7 @@
 import * as React from "react";
 
 import { LoadMoreButton } from "@/components/load-more-button";
+import { catalogSongsContext } from "@/components/player/play-contexts";
 import { SongCard } from "@/components/song-card";
 import { MediaCardSkeleton } from "@/components/loading-skeletons";
 import { songsService } from "@/lib/services/songs-service";
@@ -65,6 +66,8 @@ export function SongsResults({
     }
   }
 
+  const context = catalogSongsContext({ query, genre, seed: songs, total });
+
   return (
     <>
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
@@ -72,7 +75,7 @@ export function SongsResults({
           <SongCard
             key={song.id}
             song={song}
-            queue={songs}
+            context={context}
             playlists={playlists}
             favoriteIds={favoriteIds}
             onMutated={onMutated}

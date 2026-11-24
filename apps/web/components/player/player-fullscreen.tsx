@@ -7,6 +7,7 @@ import { ChevronDown, Pause, Play, SkipBack, SkipForward } from "lucide-react";
 import { OfflineButton } from "@/components/offline-button";
 import { cn } from "@/components/ui";
 import { NoCover } from "@/components/no-cover";
+import type { Song } from "@/lib/services/types";
 import { formatGenre, formatTime } from "@/lib/utils/format";
 import { usePlayer } from "./player-provider";
 
@@ -17,13 +18,25 @@ interface PlayerFullscreenProps {
 
 /**
  * Reproductor en pantalla completa: fondo con el cover desenfocado, cover
- * grande, progreso, controles y la letra en un bloque tipográfico elegante.
- * En desktop muestra cover+controles a la izquierda y la letra a la derecha.
+ * grande, progreso, controles y las tabs "Ahora suena" / "Letra" / "Cola".
+ * En desktop muestra cover+controles a la izquierda y la tab activa a la derecha.
  */
 export function PlayerFullscreen({ open, onClose }: PlayerFullscreenProps) {
-  const { current, playing, toggle, next, prev, hasPrev, hasNext, progress, duration, seek } =
-    usePlayer();
-  const [tab, setTab] = React.useState<"now" | "lyrics">("now");
+  const {
+    current,
+    queue,
+    contextLabel,
+    playing,
+    toggle,
+    next,
+    prev,
+    hasPrev,
+    hasNext,
+    progress,
+    duration,
+    seek,
+  } = usePlayer();
+  const [tab, setTab] = React.useState<"now" | "lyrics" | "queue">("now");
 
   React.useEffect(() => {
     if (!open) return;
@@ -40,7 +53,11 @@ export function PlayerFullscreen({ open, onClose }: PlayerFullscreenProps) {
 
   if (!open || !current) return null;
 
-  const hasLyrics = Boolean(current.lyrics?.trim());
+  const tabs = [
+    { value: "now", label: "Ahora suena" },
+    { value: "lyrics", label: "Letra" },
+    { value: "queue", label: "Cola" },
+  ] as const;
 
   return (
     <div
@@ -83,40 +100,32 @@ export function PlayerFullscreen({ open, onClose }: PlayerFullscreenProps) {
         <div className="w-11" />
       </div>
 
-      {/* Tabs (móvil) / división (desktop) — en móvil el contenido scrollea
-          (svh + overflow-y-auto) para que nada quede cortado; en desktop se
-          mantiene fijo con scroll interno en la letra. */}
+      {/* Tabs (todos los tamaños: en desktop son la única forma de abrir la
+          Cola) — el contenido del panel derecho cambia con la tab activa. */}
       <div className="relative z-10 mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 overflow-y-auto overscroll-contain px-5 pb-[max(env(safe-area-inset-bottom),1rem)] pt-4 sm:overflow-hidden">
-        <div className="relative flex items-center justify-center gap-2 sm:hidden">
-          <button
-            type="button"
-            onClick={() => setTab("now")}
-            className={cn(
-              "rounded-pill px-4 py-1.5 text-sm font-medium transition-colors",
-              tab === "now"
-                ? "bg-bg-highlight text-text-primary"
-                : "text-text-subdued hover:text-text-primary"
-            )}
-          >
-            Ahora suena
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab("lyrics")}
-            className={cn(
-              "rounded-pill px-4 py-1.5 text-sm font-medium transition-colors",
-              tab === "lyrics"
-                ? "bg-bg-highlight text-text-primary"
-                : "text-text-subdued hover:text-text-primary"
-            )}
-          >
-            Letra
-          </button>
+        <div className="relative flex items-center justify-center gap-1.5 pr-12 sm:pr-0">
+          {tabs.map(({ value, label }) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setTab(value)}
+              aria-pressed={tab === value}
+              className={cn(
+                "rounded-pill px-3.5 py-1.5 text-sm font-medium transition-colors",
+                tab === value
+                  ? "bg-bg-highlight text-text-primary"
+                  : "text-text-subdued hover:text-text-primary"
+              )}
+            >
+              {label}
+            </button>
+          ))}
 
-          {/* Descarga flotando a la derecha de las tabs (móvil) */}
+          {/* Descarga flotando a la derecha de las tabs (solo móvil: en desktop
+              hay una con label debajo de los controles) */}
           <OfflineButton
             song={current}
-            className="absolute right-0 top-1/2 -translate-y-1/2"
+            className="absolute right-0 top-1/2 -translate-y-1/2 sm:hidden"
           />
         </div>
 
@@ -125,7 +134,7 @@ export function PlayerFullscreen({ open, onClose }: PlayerFullscreenProps) {
           <div
             className={cn(
               "flex flex-col items-center gap-5",
-              tab === "lyrics" && "hidden sm:flex"
+              tab !== "now" && "hidden sm:flex"
             )}
           >
             <div className="relative aspect-square w-full max-w-sm overflow-hidden rounded-2xl border border-bg-highlight/60 shadow-2xl">
@@ -216,49 +225,194 @@ export function PlayerFullscreen({ open, onClose }: PlayerFullscreenProps) {
             </div>
           </div>
 
-          {/* Columna 2: letra */}
+          {/* Columna 2: letra o cola (según la tab) */}
           <div
             className={cn(
               "min-h-0 overflow-y-auto sm:h-full",
               tab === "now" && "hidden sm:block"
             )}
           >
-            <h3 className="mb-4 text-center font-display text-sm font-semibold uppercase tracking-[0.2em] text-text-subdued">
-              Letra
-            </h3>
-            {hasLyrics ? (
-              <div className="mx-auto max-w-xl space-y-6">
-                {current.lyrics!
-                  .split(/\n{2,}/)
-                  .map((stanza, index) => (
-                    <div key={index} className="space-y-3">
-                      {stanza
-                        .split("\n")
-                        .filter(Boolean)
-                        .map((line, lineIndex) => (
-                          <p
-                            key={lineIndex}
-                            className="font-display text-lg font-medium leading-relaxed text-text-primary/90"
-                          >
-                            {line}
-                          </p>
-                        ))}
-                    </div>
-                  ))}
-              </div>
+            {tab === "queue" ? (
+              <QueuePanel
+                queue={queue}
+                current={current}
+                contextLabel={contextLabel}
+                playing={playing}
+                onClose={onClose}
+              />
             ) : (
-              <div className="flex h-full min-h-40 flex-col items-center justify-center gap-2 text-center">
-                <p className="font-display text-lg text-text-subdued">
-                  Esta canción no tiene letra todavía.
-                </p>
-                <p className="text-sm text-text-subdued/70">
-                  Cuando el artista la suba, va a aparecer acá.
-                </p>
-              </div>
+              <LyricsPanel lyrics={current.lyrics ?? null} />
             )}
           </div>
         </div>
       </div>
     </div>
+  );
+}
+
+function LyricsPanel({ lyrics }: { lyrics: string | null }) {
+  const hasLyrics = Boolean(lyrics?.trim());
+
+  return (
+    <>
+      <h3 className="mb-4 text-center font-display text-sm font-semibold uppercase tracking-[0.2em] text-text-subdued">
+        Letra
+      </h3>
+      {hasLyrics ? (
+        <div className="mx-auto max-w-xl space-y-6">
+          {lyrics!
+            .split(/\n{2,}/)
+            .map((stanza, index) => (
+              <div key={index} className="space-y-3">
+                {stanza
+                  .split("\n")
+                  .filter(Boolean)
+                  .map((line, lineIndex) => (
+                    <p
+                      key={lineIndex}
+                      className="font-display text-lg font-medium leading-relaxed text-text-primary/90"
+                    >
+                      {line}
+                    </p>
+                  ))}
+              </div>
+            ))}
+        </div>
+      ) : (
+        <div className="flex h-full min-h-40 flex-col items-center justify-center gap-2 text-center">
+          <p className="font-display text-lg text-text-subdued">
+            Esta canción no tiene letra todavía.
+          </p>
+          <p className="text-sm text-text-subdued/70">
+            Cuando el artista la suba, va a aparecer acá.
+          </p>
+        </div>
+      )}
+    </>
+  );
+}
+
+/**
+ * Tab "Cola" (patrón Spotify): "Sonando" con la canción actual y "Siguiente
+ * de: {contexto}" con el resto materializado de `queue`. Informativa: sin
+ * acciones (saltar a una fila es interactividad de otra fase). Cuando el motor
+ * extiende el contexto, los items nuevos aparecen solos (estado del provider).
+ */
+function QueuePanel({
+  queue,
+  current,
+  contextLabel,
+  playing,
+  onClose,
+}: {
+  queue: Song[];
+  current: Song;
+  contextLabel: string | null;
+  playing: boolean;
+  onClose: () => void;
+}) {
+  const currentIndex = queue.findIndex((song) => song.id === current.id);
+  // Sólo lo que viene DESPUÉS de la actual (Spotify no muestra las pasadas).
+  const upcoming =
+    currentIndex >= 0
+      ? queue.slice(currentIndex + 1)
+      : queue.filter((song) => song.id !== current.id);
+
+  return (
+    <div className="mx-auto w-full max-w-xl">
+      <h3 className="mb-4 text-center font-display text-sm font-semibold uppercase tracking-[0.2em] text-text-subdued">
+        Cola
+      </h3>
+
+      <p
+        id="queue-now-heading"
+        className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-widest text-text-subdued/70"
+      >
+        Sonando
+      </p>
+      <ul aria-labelledby="queue-now-heading">
+        <QueueRow song={current} active playing={playing} onClose={onClose} />
+      </ul>
+
+      <p
+        id="queue-next-heading"
+        className="mb-2 mt-6 px-3 text-[11px] font-semibold uppercase tracking-widest text-text-subdued/70"
+      >
+        {contextLabel ? `Siguiente de: ${contextLabel}` : "A continuación"}
+      </p>
+
+      {upcoming.length === 0 ? (
+        <p className="rounded-xl border border-bg-highlight bg-bg-elevated/50 px-4 py-6 text-center text-sm text-text-subdued">
+          {queue.length > 0
+            ? "No hay más canciones en esta cola."
+            : "La cola aparece cuando reproduzcas algo."}
+        </p>
+      ) : (
+        <ul
+          aria-labelledby="queue-next-heading"
+          className="flex max-h-[50vh] flex-col gap-1 overflow-y-auto overscroll-contain pr-1 sm:max-h-none"
+        >
+          {upcoming.map((song) => (
+            <QueueRow key={song.id} song={song} onClose={onClose} />
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/** Mini-row de la cola: cover 40px + título (link) + artista. */
+function QueueRow({
+  song,
+  active = false,
+  playing = false,
+  onClose,
+}: {
+  song: Song;
+  active?: boolean;
+  playing?: boolean;
+  onClose: () => void;
+}) {
+  return (
+    <li
+      className={cn(
+        "flex items-center gap-3 rounded-lg px-2 py-2",
+        active ? "bg-bg-elevated" : "transition-colors hover:bg-bg-elevated/60"
+      )}
+    >
+      <div className="h-10 w-10 shrink-0 overflow-hidden rounded">
+        {song.cover_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={song.cover_url} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <NoCover size="sm" />
+        )}
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <Link
+          href={`/song/${song.id}`}
+          onClick={onClose}
+          className={cn(
+            "block truncate text-sm font-medium hover:underline",
+            active && "text-brand-400"
+          )}
+        >
+          {song.title}
+        </Link>
+        <p className="truncate text-xs text-text-subdued">{song.artist.name}</p>
+      </div>
+
+      {active && playing && (
+        <span
+          className="flex h-4 items-end gap-0.5 text-brand-400"
+          aria-hidden="true"
+        >
+          <span className="eq-bar h-2" />
+          <span className="eq-bar h-2" />
+          <span className="eq-bar h-2" />
+        </span>
+      )}
+    </li>
   );
 }

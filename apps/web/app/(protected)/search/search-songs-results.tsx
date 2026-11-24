@@ -3,6 +3,7 @@
 import * as React from "react";
 
 import { LoadMoreButton } from "@/components/load-more-button";
+import { searchContext } from "@/components/player/play-contexts";
 import { SongItem } from "@/components/song-item";
 import { songsService } from "@/lib/services/songs-service";
 import type { MyPlaylist, Page, Song } from "@/lib/services/types";
@@ -60,6 +61,10 @@ export function SearchSongsResults({
     }
   }
 
+  // Un solo descriptor por render: todas las filas comparten el contexto
+  // (la semilla se actualiza con cada "Ver más").
+  const context = searchContext({ query, seed: songs, total });
+
   return (
     <>
       <ul className="flex flex-col gap-2">
@@ -67,7 +72,7 @@ export function SearchSongsResults({
           <SongItem
             key={song.id}
             song={song}
-            queue={songs}
+            context={context}
             playlists={playlists}
             favoriteIds={favoriteIds}
             onMutated={onMutated}

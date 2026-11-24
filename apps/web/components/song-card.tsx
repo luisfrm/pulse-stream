@@ -4,7 +4,8 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 
 import type { MyPlaylist, Song } from "@/lib/services/types";
-import { usePlayer } from "./player/player-provider";
+import { songAnchoredContext } from "./player/play-contexts";
+import { usePlayer, type PlayContext } from "./player/player-provider";
 import { MediaCard } from "./media-card";
 
 // Solo se usan con sesión (corner de la card). dynamic → chunk separado que el
@@ -20,6 +21,8 @@ const PlaylistPicker = dynamic(() =>
 interface SongCardProps {
   song: Song;
   queue?: Song[];
+  /** Contexto perezoso (tiene prioridad sobre `queue`). */
+  context?: PlayContext;
   className?: string;
   /** Badge superior (ej. "3×" = plays del usuario en recientes). */
   badge?: string;
@@ -36,6 +39,7 @@ interface SongCardProps {
 export function SongCard({
   song,
   queue,
+  context,
   className,
   badge,
   playlists,
@@ -54,7 +58,11 @@ export function SongCard({
 
   function handlePlay() {
     if (isCurrent) toggle();
-    else play(song, queue);
+    else {
+      // Sin fuente, la cola se ancla a la canción (radio del artista). Así las
+      // superficies RSC (home público) no tienen que pasar funciones.
+      play(song, context ?? queue ?? songAnchoredContext({ song }));
+    }
   }
 
   return (

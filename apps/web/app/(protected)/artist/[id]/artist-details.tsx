@@ -6,6 +6,10 @@ import { AlbumCard } from "@/components/album-card";
 import { Carousel } from "@/components/carousel";
 import { LoadMoreButton } from "@/components/load-more-button";
 import { MediaCard } from "@/components/media-card";
+import {
+  artistCollaborationsContext,
+  artistTopContext,
+} from "@/components/player/play-contexts";
 import { SongItem } from "@/components/song-item";
 import { Title } from "@/components/ui";
 import { albumsService } from "@/lib/services/albums-service";
@@ -66,6 +70,7 @@ export function ArtistDetails({
 
       <TopSongsSection
         artistId={artistId}
+        artistName={artistName}
         initial={initialSongs}
         library={library}
         onMutated={onMutated}
@@ -73,6 +78,7 @@ export function ArtistDetails({
 
       <CollaborationsSection
         artistId={artistId}
+        artistName={artistName}
         initial={initialCollaborations}
         library={library}
         onMutated={onMutated}
@@ -88,11 +94,13 @@ export function ArtistDetails({
  */
 function TopSongsSection({
   artistId,
+  artistName,
   initial,
   library,
   onMutated,
 }: {
   artistId: string;
+  artistName: string;
   initial: Page<Song>;
   library: ArtistDetailsProps["library"];
   onMutated?: () => Promise<void>;
@@ -139,6 +147,13 @@ function TopSongsSection({
     );
   }
 
+  const context = artistTopContext({
+    artistId,
+    artistName,
+    seed: items,
+    total,
+  });
+
   return (
     <section>
       <Title as="h2" size="section">
@@ -149,7 +164,7 @@ function TopSongsSection({
           <SongItem
             key={song.id}
             song={song}
-            queue={items}
+            context={context}
             favoriteIds={library?.favoriteIds}
             playlists={library?.playlists}
             onMutated={onMutated}
@@ -280,11 +295,13 @@ function FeaturedInSection({
 /** Colaboraciones: canciones donde el artista participa como invitado. */
 function CollaborationsSection({
   artistId,
+  artistName,
   initial,
   library,
   onMutated,
 }: {
   artistId: string;
+  artistName: string;
   initial: Page<Song>;
   library: ArtistDetailsProps["library"];
   onMutated?: () => Promise<void>;
@@ -319,6 +336,13 @@ function CollaborationsSection({
 
   if (items.length === 0) return null;
 
+  const context = artistCollaborationsContext({
+    artistId,
+    artistName,
+    seed: items,
+    total,
+  });
+
   return (
     <section>
       <Title as="h2" size="section">
@@ -332,7 +356,7 @@ function CollaborationsSection({
           <SongItem
             key={song.id}
             song={song}
-            queue={items}
+            context={context}
             favoriteIds={library?.favoriteIds}
             playlists={library?.playlists}
             onMutated={onMutated}
