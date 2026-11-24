@@ -2,7 +2,8 @@ import { act, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { songsService } from "@/lib/services/songs-service";
-import type { Song } from "@/lib/services/types";
+import type { GetSongsParams } from "@/lib/services/songs-service";
+import type { Page, Song } from "@/lib/services/types";
 
 // La fábrica anclada habla con la API: se mockea el service (sin red).
 vi.mock("@/lib/services/songs-service", () => ({
@@ -10,9 +11,18 @@ vi.mock("@/lib/services/songs-service", () => ({
 }));
 
 import { songAnchoredContext } from "./play-contexts";
-import { PlayerProvider, usePlayer } from "./player-provider";
+import {
+  PlayerProvider,
+  usePlayer,
+  type PlayContext,
+} from "./player-provider";
 
 const getSongsMock = vi.mocked(songsService.getSongs);
+
+/** Página del mock con el shape exacto (`Page<Song>`) que exige el service. */
+function pageOf(items: Song[], total = items.length): Page<Song> {
+  return { items, total, offset: 0, limit: 50 };
+}
 
 type Player = ReturnType<typeof usePlayer>;
 
@@ -133,7 +143,15 @@ describe("PlayerProvider — cola por contexto (Q1)", () => {
 
     act(() => getPlayer().next());
     expect(getPlayer().current?.id).toBe("4");
-    // total conocido (4) y offset consumido: no queda nada por pedir.
+    // total conocido (4) y offset consumido: no queda nada por pedir DEL
+    // CONTEXTO. Con la radio encadenada (Q4) siempre hay siguiente posible
+    // mientras suene algo — como Spotify, el botón no se deshabilita.
+    expect(getPlayer().hasNext).toBe(true);
+
+    // El intento de encadenar no produce nada (getSongs sin configurar en
+    // este test → rechaza): cadena estéril → recién ahí se detiene.
+    await act(async () => getPlayer().next());
+    expect(getPlayer().current?.id).toBe("4");
     expect(getPlayer().hasNext).toBe(false);
   });
 
@@ -371,5 +389,127 @@ describe("PlayerProvider — cola por contexto (Q1)", () => {
     await waitFor(() => expect(getPlayer().hasNext).toBe(false));
     expect(getPlayer().queue.map((item) => item.id)).toEqual(["seed"]);
     expect(getPlayer().current?.id).toBe("seed");
+  });
+
+  // --- Q4: radio encadenada al agotar la cola (autoplay tipo Spotify) ------
+
+  it("Q4: array finito agotado encadena la radio con exclusiones", async () => {
+    const a1 = song("a1");
+    const a2 = song("a2");
+    const fresh = song("b-new");
+    const byArtist: typeof songsService.getSongs = (params) =>
+      params?.artistId
+        ? Promise.resolve(pageOf([a1, a2, fresh], 3))
+        : Promise.resolve(pageOf([]));
+    getSongsMock.mockImplementation(byArtist);
+    renderPlayer();
+
+    await act(async () => {
+      getPlayer().play(a2, [a1, a2]);
+    });
+    expect(getPlayer().contextLabel).toBeNull();
+
+    // Siguiente al final del array: encadena "Radio de Artista" y salta al
+    // primer item NUEVO (a1/a2 ya reproducidas quedaron excluidas).
+    await act(async () => getPlayer().next());
+    expect(getPlayer().contextLabel).toBe("Radio de Artista");
+    expect(getPlayer().current?.id).toBe("b-new");
+    expect(getPlayer().queue.map((item) => item.id)).toEqual([
+      "a1",
+      "a2",
+      "b-new",
+    ]);
+    expect(getPlayer().hasNext).toBe(true);
+  });
+
+  it("Q4: contexto finito agotado también encadena", async () => {
+    const a1 = song("a1");
+    const fresh = song("b-new");
+    const byArtistFinite: typeof songsService.getSongs = (params) =>
+      params?.artistId
+        ? Promise.resolve(pageOf([a1, fresh], 2))
+        : Promise.resolve(pageOf([]));
+    getSongsMock.mockImplementation(byArtistFinite);
+    const finiteContext: PlayContext = {
+      label: "Populares ahora",
+      seed: [a1],
+      total: 1,
+    };
+    renderPlayer();
+
+    await act(async () => {
+      getPlayer().play(a1, finiteContext);
+    });
+    await act(async () => getPlayer().next());
+    expect(getPlayer().contextLabel).toBe("Radio de Artista");
+    expect(getPlayer().current?.id).toBe("b-new");
+  });
+
+  it("Q4: la radio cae a los géneros cuando el artista se seca", async () => {
+    const a1 = song("a1");
+    a1.genres = ["rock"];
+    const genreMate = song("g-new");
+    const bySource: typeof songsService.getSongs = (params) => {
+      if (params?.artistId) {
+        return Promise.resolve(pageOf([a1], 1));
+      }
+      if (params?.genre === "rock") {
+        return Promise.resolve(pageOf([a1, genreMate], 2));
+      }
+      return Promise.resolve(pageOf([]));
+    };
+    getSongsMock.mockImplementation(bySource);
+    renderPlayer();
+
+    await act(async () => {
+      getPlayer().play(a1, [a1]);
+    });
+    await act(async () => getPlayer().next());
+    // a1 ya está reproducida: la radio pasa al compañero de género.
+    expect(getPlayer().current?.id).toBe("g-new");
+    expect(getPlayer().contextLabel).toBe("Radio de Artista");
+  });
+
+  it("Q4: cadena estéril detiene de verdad y no reintenta en loop", async () => {
+    const a1 = song("a1");
+    getSongsMock.mockResolvedValue(pageOf([]));
+    renderPlayer();
+
+    await act(async () => {
+      getPlayer().play(a1, [a1]);
+    });
+    // Mientras suena algo, siempre HAY siguiente posible (encadenar).
+    expect(getPlayer().hasNext).toBe(true);
+
+    await act(async () => getPlayer().next());
+    expect(getPlayer().current?.id).toBe("a1");
+    expect(getPlayer().hasNext).toBe(false);
+
+    // Sin cadena estéril no se vuelve a fetchar (flag anti-loop).
+    const calls = getSongsMock.mock.calls.length;
+    await act(async () => getPlayer().next());
+    expect(getSongsMock.mock.calls.length).toBe(calls);
+    expect(getPlayer().current?.id).toBe("a1");
+  });
+
+  it("Q4: prev tras encadenar vuelve al contexto original", async () => {
+    const a1 = song("a1");
+    const fresh = song("b-new");
+    const byArtistPrev: typeof songsService.getSongs = (params) =>
+      params?.artistId
+        ? Promise.resolve(pageOf([fresh], 1))
+        : Promise.resolve(pageOf([]));
+    getSongsMock.mockImplementation(byArtistPrev);
+    renderPlayer();
+
+    await act(async () => {
+      getPlayer().play(a1, [a1]);
+    });
+    await act(async () => getPlayer().next());
+    expect(getPlayer().current?.id).toBe("b-new");
+
+    await act(async () => getPlayer().prev());
+    expect(getPlayer().current?.id).toBe("a1");
+    expect(getPlayer().contextLabel).toBe("Radio de Artista");
   });
 });

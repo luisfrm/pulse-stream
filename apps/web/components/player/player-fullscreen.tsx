@@ -270,7 +270,7 @@ function LyricsPanel({ lyrics }: { lyrics: string | null }) {
                   .map((line, lineIndex) => (
                     <p
                       key={lineIndex}
-                      className="font-display text-lg font-medium leading-relaxed text-text-primary/90"
+                      className="font-display text-2xl font-medium leading-relaxed text-text-primary/90"
                     >
                       {line}
                     </p>

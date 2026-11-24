@@ -19,8 +19,11 @@ const PlayerFullscreen = dynamic(
   }
 );
 
-/** Barra inferior fija del reproductor. Entra animada; al tocarla abre el
- *  fullscreen. El progreso vive en una línea fina en el borde superior. */
+/**
+ * Barra inferior del reproductor. En mobile flota alineada con el nav (mismo
+ * ancho/aire) como pill de card; en desktop es full-width como siempre. El
+ * progreso vive en una línea fina DENTRO del pill (clippeada por el rounded).
+ */
 export function PlayerBar() {
   const { current, playing, progress, duration, toggle } = usePlayer();
   const [open, setOpen] = React.useState(false);
@@ -31,67 +34,70 @@ export function PlayerBar() {
 
   return (
     <>
-      <footer className="animate-player-in fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 lg:bottom-0">
-        {/* Línea de progreso fina en el borde superior de la barra */}
-        <div className="h-0.5 w-full bg-bg-highlight/60">
-          <div
-            className="h-full bg-brand-400 transition-[width] duration-300"
-            style={{ width: `${pct}%` }}
-          />
-        </div>
+      <footer className="animate-player-in pointer-events-none fixed inset-x-0 bottom-[calc(4.5rem+max(env(safe-area-inset-bottom),0.75rem))] z-40 px-4 lg:bottom-0 lg:px-0">
+        <div className="pointer-events-auto rounded-3xl border border-bg-highlight bg-bg-elevated/95 shadow-xl shadow-black/20 backdrop-blur-md lg:rounded-none lg:border-x-0 lg:border-b-0 lg:bg-bg-base/95 lg:shadow-none">
+          {/* Línea de progreso fina, dentro del pill (inset: el radio grande la
+              recortaría si tocara los bordes) */}
+          <div className="mx-3 h-0.5 overflow-hidden rounded-full bg-bg-highlight/60">
+            <div
+              className="h-full bg-brand-400 transition-[width] duration-300"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
 
-        <div className="flex items-center gap-3 border-t border-bg-highlight bg-bg-base/95 px-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-2.5 backdrop-blur-md">
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            aria-label={`Abrir reproductor: ${current.title} de ${current.artist.name}`}
-            className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-1 py-1 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-400"
-          >
-            <div className="h-11 w-11 shrink-0 overflow-hidden rounded-lg border border-bg-highlight bg-bg-highlight/40">
-              {current.cover_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={current.cover_url}
-                  alt=""
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <NoCover size="sm" />
-              )}
-            </div>
+          <div className="flex items-center gap-3 px-3 pb-3 pt-2.5">
+            <button
+              type="button"
+              onClick={() => setOpen(true)}
+              aria-label={`Abrir reproductor: ${current.title} de ${current.artist.name}`}
+              className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-1 py-1 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-400"
+            >
+              <div className="h-11 w-11 shrink-0 overflow-hidden rounded-lg border border-bg-highlight bg-bg-highlight/40">
+                {current.cover_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={current.cover_url}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <NoCover size="sm" />
+                )}
+              </div>
 
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-medium leading-tight">{current.title}</p>
-              <p className="truncate text-xs text-text-subdued">
-                {current.artist.name}
-              </p>
-            </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-medium leading-tight">{current.title}</p>
+                <p className="truncate text-xs text-text-subdued">
+                  {current.artist.name}
+                </p>
+              </div>
 
-            <span className="hidden shrink-0 text-xs tabular-nums text-text-subdued sm:block">
-              {formatTime(progress)} / {formatTime(duration)}
-            </span>
-          </button>
+              <span className="hidden shrink-0 text-xs tabular-nums text-text-subdued sm:block">
+                {formatTime(progress)} / {formatTime(duration)}
+              </span>
+            </button>
 
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              toggle();
-            }}
-            aria-label={playing ? "Pausar" : "Reproducir"}
-            className="rounded-full bg-brand-400 p-3 text-bg-base transition-colors hover:bg-brand-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-400"
-          >
-            {playing ? <Pause size={20} /> : <Play size={20} className="translate-x-[1px]" />}
-          </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                toggle();
+              }}
+              aria-label={playing ? "Pausar" : "Reproducir"}
+              className="rounded-full bg-brand-400 p-3 text-bg-base transition-colors hover:bg-brand-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-400"
+            >
+              {playing ? <Pause size={20} /> : <Play size={20} className="translate-x-[1px]" />}
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            aria-label="Ver reproductor completo"
-            className="rounded-full p-2.5 text-text-subdued transition-colors hover:text-text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-400"
-          >
-            <ChevronUp size={20} />
-          </button>
+            <button
+              type="button"
+              onClick={() => setOpen(true)}
+              aria-label="Ver reproductor completo"
+              className="rounded-full p-2.5 text-text-subdued transition-colors hover:text-text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-400"
+            >
+              <ChevronUp size={20} />
+            </button>
+          </div>
         </div>
       </footer>
 

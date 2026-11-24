@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { Heart } from "lucide-react";
-import { useRouter } from "next/navigation";
 
 import { cn } from "@/components/ui";
 import { favoritesService } from "@/lib/services/favorites-service";
@@ -26,7 +25,6 @@ export function FavoriteButton({
   onMutated,
   className,
 }: FavoriteButtonProps) {
-  const router = useRouter();
   const [favorited, setFavorited] = React.useState(initialFavorited);
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -41,14 +39,17 @@ export function FavoriteButton({
     try {
       if (previous) await favoritesService.remove(songId);
       else await favoritesService.add(songId);
-      await onMutated?.();
-      router.refresh();
     } catch (err) {
       setFavorited(previous);
       setError(friendlyError(err));
-    } finally {
       setPending(false);
+      return;
     }
+    // La Server Action (`updateTag`) ya revalida; un `router.refresh()` extra
+    // provocaba un segundo flash. Va FUERA del try de la mutación: si el
+    // refresco falla, el like YA se persistió y no debe revertirse.
+    await onMutated?.().catch(() => undefined);
+    setPending(false);
   }
 
   return (

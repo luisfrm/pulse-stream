@@ -3,7 +3,6 @@
 import * as React from "react";
 import { createPortal } from "react-dom";
 import { Check, ListPlus, Loader2, Plus } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { BottomSheet, Button, Input, Textarea, cn } from "@/components/ui";
@@ -34,7 +33,6 @@ export function PlaylistPicker({
   onMutated,
   triggerClassName,
 }: PlaylistPickerProps) {
-  const router = useRouter();
   const isMobile = useIsMobile();
   const [open, setOpen] = React.useState(false);
   const [pendingId, setPendingId] = React.useState<string | null>(null);
@@ -144,25 +142,27 @@ export function PlaylistPicker({
     const containsSong = pl.song_ids?.includes(song.id) ?? false;
     setPendingId(pl.id);
     setError(null);
+    let removed = false;
     try {
       if (containsSong) {
         await playlistsService.removeSong(pl.id, song.id);
-        close();
-        await onMutated?.();
-        router.refresh();
-        toast.success(`Quitada de «${pl.name}»`);
+        removed = true;
       } else {
         await playlistsService.addSong(pl.id, song.id);
-        close();
-        await onMutated?.();
-        router.refresh();
-        toast.success(`Agregada a «${pl.name}»`);
       }
     } catch (err) {
       setError(friendlyError(err));
-    } finally {
       setPendingId(null);
+      return;
     }
+    close();
+    // La Server Action (`updateTag`) ya re-renderiza. Fuera del try: la mutación
+    // ya se persistió y un fallo del refresh no debe mostrarse como error.
+    await onMutated?.().catch(() => undefined);
+    toast.success(
+      removed ? `Quitada de «${pl.name}»` : `Agregada a «${pl.name}»`,
+    );
+    setPendingId(null);
   }
 
   async function handleCreate(e: React.FormEvent) {
@@ -170,21 +170,23 @@ export function PlaylistPicker({
     if (!newName.trim()) return;
     setCreatePending(true);
     setError(null);
+    let createdName = newName.trim();
     try {
       const pl = await playlistsService.create({
-        name: newName.trim(),
+        name: createdName,
         description: newDesc.trim() || undefined,
       });
+      createdName = pl.name;
       await playlistsService.addSong(pl.id, song.id);
-      close();
-      await onMutated?.();
-      router.refresh();
-      toast.success(`Playlist «${pl.name}» creada con la canción`);
     } catch (err) {
       setError(friendlyError(err));
-    } finally {
       setCreatePending(false);
+      return;
     }
+    close();
+    await onMutated?.().catch(() => undefined);
+    toast.success(`Playlist «${createdName}» creada con la canción`);
+    setCreatePending(false);
   }
 
   const content = (
