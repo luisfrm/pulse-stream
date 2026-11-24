@@ -465,5 +465,13 @@ contexto: `ContextMediaCard` (fetch al click, cap 25).
 | **Q4** (diferida) | Autoplay al agotar el contexto (tras el top del artista → compañeros de género por plays), estilo Spotify/Apple. Comportamiento fuerte: merece decisión propia (¿toggle en settings?) | Anotada |
 | Nits diferidos | Q1: `/recently-played` en RSC del dashboard sigue como array finito (desviación documentada); Q3: tabs "Ahora suena"/"Letra" redundantes en desktop, roles ARIA tablist/tabpanel, hint de cola perezosa cargando | Anotado |
 
+## Nav móvil flotante + fixes de navegación — PR `feat/floating-bottom-nav` (#12)
+
+| Fase | Alcance | Estado |
+|---|---|---|
+| **Nav flotante** | Bottom nav y player bar como pills flotantes (rounded-3xl 24px, borde completo, bg-bg-elevated/95 + blur, sombra), márgenes 16/12px y gap 6px; Crear en slot de icono 28px alineado con los labels; popup reposicionado. Desktop full-width como antes. Fixes del review: focus ring sin clipping, safe-area unificada (nav/player/popup), wrappers pointer-events-none | Hecho (reviewer approved con cambios aplicados; verificado a 390px) |
+| **Loading al navegar (N2)** | Investigación rankeada: (1) fetch serializado en 2 niveles por navegación → `library.ts` en un solo Promise.all; (2) **SearchInput re-navegaba solo** (estado sin resync) → `lastNavigatedRef` + `adoptingRef` + guard anti-fantasma para la ventana `useSearchParams`-antes-que-prop RSC (cazada en vivo con Atrás); (3) el timeout de ofetch no cubría el body (único cuelgue literal) → `AbortSignal.timeout(30s)` sin retry; (4) `router.refresh()` duplicado tras `updateTag` fuera (un solo flash por mutación); (5) `getSession` null solo en 401 + `app/error.tsx` con Reintentar (un blip ya no desloguea) | Hecho (`db45a5b`; tests search-input 3/3; Atrás verificado en vivo: adopta y la URL queda estable) |
+| Diferido | N3.2 Suspense interno en /recently-played, /playlists, /catalog/songs y panel (header pinta ya, datos streamean) | Anotado |
+
 
 
