@@ -5,7 +5,7 @@ import { Heart } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui";
+import { cn } from "@/components/ui";
 import { favoritesService } from "@/lib/services/favorites-service";
 import { friendlyError } from "@/lib/utils/error";
 
@@ -19,6 +19,10 @@ interface PlaylistLikeButtonProps {
  * Like de playlist (PUT/DELETE /me/favorites/playlists/{id}) con corazón
  * lleno/vacío. Se muestra en las playlists del sistema: una `system` puede
  * estar "likeada" por el usuario sin que eso mute su contenido.
+ *
+ * Icon-only (mismo patrón que el corazón de `FavoriteButton`): el nombre
+ * accesible va en `aria-label`, el `title` da el tooltip en desktop y el error
+ * solo aparece ahí (en un hero no hay espacio para texto inline).
  */
 export function PlaylistLikeButton({
   playlistId,
@@ -52,18 +56,19 @@ export function PlaylistLikeButton({
   }
 
   return (
-    <div className="flex flex-col gap-1">
-      <Button
-        variant={liked ? "primary" : "outline"}
-        onClick={toggle}
-        loading={pending}
-        aria-pressed={liked}
-        aria-label={liked ? "Quitar de tu catálogo" : "Guardar en tu catálogo"}
-        title={error ?? undefined}
-      >
-        <Heart size={16} fill={liked ? "currentColor" : "none"} />
-        {liked ? "En tu catálogo" : "Guardar"}
-      </Button>
-    </div>
+    <button
+      type="button"
+      onClick={toggle}
+      disabled={pending}
+      aria-pressed={liked}
+      aria-label={liked ? "Quitar de tu catálogo" : "Guardar en tu catálogo"}
+      title={error ?? (liked ? "Quitar de tu catálogo" : "Guardar en tu catálogo")}
+      className={cn(
+        "rounded-pill p-2 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-400 disabled:opacity-50",
+        liked ? "text-brand-400" : "text-text-subdued hover:text-brand-400"
+      )}
+    >
+      <Heart size={18} fill={liked ? "currentColor" : "none"} />
+    </button>
   );
 }
