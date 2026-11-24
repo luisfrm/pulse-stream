@@ -79,17 +79,24 @@ export function BottomNav() {
   }
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-50 lg:hidden">
-      {/* Popup de creación: overlay + panel justo encima de la barra */}
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 px-4 pb-[max(env(safe-area-inset-bottom),0.75rem)] lg:hidden">
+      {/* Popup de creación: overlay + panel justo encima del pill del nav
+          (12px de aire del wrapper + 66px del nav + 6px de gap = 4.5rem sobre
+          el safe-area, misma derivación que el bottom del player bar). */}
       {createOpen && (
-        <div className="fixed inset-0" role="dialog" aria-modal="true" aria-label="Crear">
+        <div
+          className="pointer-events-auto fixed inset-0"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Crear"
+        >
           <button
             type="button"
             onClick={close}
             aria-label="Cerrar"
             className="absolute inset-0 h-full w-full cursor-default bg-black/60 backdrop-blur-sm"
           />
-          <div className="animate-rise absolute inset-x-3 bottom-[calc(4rem+env(safe-area-inset-bottom)+0.75rem)] overflow-hidden rounded-2xl border border-bg-highlight bg-bg-elevated shadow-2xl">
+          <div className="animate-rise absolute inset-x-4 bottom-[calc(4.5rem+max(env(safe-area-inset-bottom),0.75rem))] overflow-hidden rounded-2xl border border-bg-highlight bg-bg-elevated shadow-2xl">
             {view === "menu" ? (
               <>
                 <button
@@ -152,8 +159,8 @@ export function BottomNav() {
         </div>
       )}
 
-      {/* Barra */}
-      <nav className="border-t border-bg-highlight bg-bg-base/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md">
+      {/* Barra: pill flotante con el lenguaje de las cards */}
+      <nav className="pointer-events-auto rounded-3xl border border-bg-highlight bg-bg-elevated/95 shadow-xl shadow-black/20 backdrop-blur-md">
         <div className="flex h-16 items-stretch justify-around px-2">
           {items.map((item) => {
             const active = isActive(item);
@@ -169,10 +176,14 @@ export function BottomNav() {
                 )}
               >
                 {item.brand ? (
-                  <BrandLogo size={22} />
+                  <span className="flex h-7 w-7 items-center justify-center">
+                    <BrandLogo size={22} />
+                  </span>
                 ) : (
                   item.icon && (
-                    <item.icon size={22} className={cn(active && "text-brand-400")} />
+                    <span className="flex h-7 w-7 items-center justify-center">
+                      <item.icon size={22} className={cn(active && "text-brand-400")} />
+                    </span>
                   )
                 )}
                 <span className="truncate">{item.label}</span>
@@ -198,13 +209,13 @@ export function BottomNav() {
           >
             <span
               className={cn(
-                "flex h-10 w-10 items-center justify-center rounded-full shadow-lg transition-all",
+                "flex h-7 w-7 items-center justify-center rounded-full shadow-lg transition-all",
                 createOpen
                   ? "bg-white text-bg-base shadow-black/30"
                   : "bg-brand-400 text-bg-base shadow-brand-900/40"
               )}
             >
-              {createOpen ? <X size={20} aria-hidden /> : <Plus size={22} aria-hidden />}
+              {createOpen ? <X size={16} aria-hidden /> : <Plus size={18} aria-hidden />}
             </span>
             <span
               className={cn(
