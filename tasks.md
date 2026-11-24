@@ -490,7 +490,7 @@ Desktop tiene espacio y no se toca.
 |---|---|---|
 | **B1** barra | Mobile: el chevron `⌃` (abrir fullscreen) pasa a Siguiente (`next`/`hasNext`, 44 px de área táctil, `disabled` si la cadena salió estéril). Desktop conserva el chevron (`hidden lg:inline-flex`). Como en mobile desaparece el acceso explícito al fullscreen, el pill entero lo abre al tocarlo (`cursor-pointer`), con `stopPropagation` en play y siguiente. Sin estado nuevo ni cambios en el provider | Hecho (`e1b8bf8`; verificado en vivo a 390 px: siguiente pasa "Si veo a tu mama" → "KLOuFRENS" sin abrir el fullscreen, play tampoco lo abre y un tap en el hueco de la barra sí; a 1280 px el chevron sigue visible y el botón de siguiente oculto) |
 | **B2** docs | AGENTS.md §2 + este ledger. Sin tests nuevos (105/105) | Hecho |
-| Diferido | En mobile el fullscreen ya no tiene un affordance explícito (solo el tap en la barra): evaluar gesto/label si no se descubre. Un `next` deshabilitado deja pasar el tap al pill (abre el fullscreen) | Anotado |
+| Diferido | En mobile el fullscreen ya no tiene un affordance explícito (solo el tap en la barra): evaluar gesto/label si no se descubre. Un `next` deshabilitado no dispara click (no abre nada), así que ese hueco es el único de la barra que no abre el fullscreen | Anotado |
 
 
 

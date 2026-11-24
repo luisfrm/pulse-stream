@@ -110,7 +110,7 @@ export function PlayerBar() {
               }}
               disabled={!hasNext}
               aria-label="Siguiente"
-              className="rounded-full p-3 text-text-primary transition-colors hover:bg-bg-highlight focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-400 disabled:opacity-30 lg:hidden"
+              className="rounded-full p-3 text-text-primary transition-colors hover:bg-bg-highlight focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-400 disabled:cursor-not-allowed disabled:opacity-30 lg:hidden"
             >
               <SkipForward size={20} />
             </button>
