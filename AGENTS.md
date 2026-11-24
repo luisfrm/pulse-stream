@@ -356,8 +356,12 @@ estos tokens** — no crear paletas paralelas. Para diseño UI usar el skill
 `usePlayer()`: `play(song, queue)`, `toggle`, `pause`, `next`, `prev`, `seek`,
 más `current/playing/progress/duration`. `PlayerBar` (barra inferior fija,
 animada) abre `PlayerFullscreen` (pantalla completa con cover, controles y
-letra). Media Session API integrada. El provider **registra cada play** (`POST
-/me/listens`) cuando una canción empieza a reproducirse.
+letra). En **mobile** la barra es `[canción][play][⏭]` (`⏭` = `next`, con
+`disabled` si la cadena salió estéril) y **el pill entero abre el fullscreen al
+tocarlo**, salvo play y siguiente (`stopPropagation`); en **desktop** sigue
+`[canción][tiempo][play][⌃]` con el chevron explícito. Media Session API
+integrada. El provider **registra cada play** (`POST /me/listens`) cuando una
+canción empieza a reproducirse.
 
 **Persistencia de sesión (F5):** `lib/player/persisted-session.ts` guarda en
 **`sessionStorage`** (`pulse-player-v1`, por pestaña; sin DB ni cookies) la cola
