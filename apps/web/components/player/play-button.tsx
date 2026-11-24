@@ -26,8 +26,8 @@ export function usePlaySong(
       toggle();
     } else {
       // Sin fuente (canción suelta) la cola se ancla a la canción: radio del
-      // artista. Es lo que permite que `<PlayButton song>` desde una página de
-      // detalle (RSC, no puede pasar funciones) no quede huérfano.
+      // artista. Hoy las listas y cards siempre pasan contexto o cola; el `??`
+      // queda como defensa para un `<PlayButton song>` suelto.
       play(song, context ?? queue ?? songAnchoredContext({ song }));
     }
   }

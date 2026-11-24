@@ -475,8 +475,9 @@ Reglas:
    se muestra), `N reproducciones` (suma de plays), `Populares` (top 5 con
    contador), `Discografía` (carrusel con chips Álbumes/Sencillos),
    `Aparece en` (colaboraciones), `Fans también escuchan` (Fase 5).
-5. **Canción** (`/song/[id]`): hero con cover del álbum + like/"+"/download
-   (hoy faltan) + letra.
+5. ~~**Canción** (`/song/[id]`): hero con cover del álbum + like/"+"/download
+   (hoy faltan) + letra.~~ **Removido**: la ruta ya no existe; las canciones
+   reproducen al tocar cover/título y `/song/*` cae en el 404 branded.
 
 ## Fase 5 — Reproductor (1 PR)
 

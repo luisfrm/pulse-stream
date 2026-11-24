@@ -101,15 +101,18 @@ export function MediaCard({
         )}
 
         {/*
-         * Cover clickeable (solo modo reproducción). Va DEBAJO del play y de
-         * `actions` en el hit-test: el play lo pisa por orden de DOM y las
-         * acciones por `z-10`, así el popover del picker sigue funcionando.
+         * Cover clickeable (solo modo reproducción) — SOLO POINTER: hit-area de
+         * mouse/touch. Va DEBAJO del play y de `actions` en el hit-test: el play
+         * lo pisa por orden de DOM y las acciones por `z-10`, así el popover del
+         * picker sigue funcionando. Sin nombre ni tab-stop: el acceso por teclado
+         * y lectores de pantalla queda en el título y el ▶ (un solo nombre).
          */}
         {onSelect && (
           <button
             type="button"
-            onClick={onSelect}
-            aria-label={`Reproducir ${title}`}
+            onClick={playDisabled ? undefined : onSelect}
+            tabIndex={-1}
+            aria-hidden="true"
             className={cn(
               "absolute inset-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-200",
               shape === "circle" ? "rounded-full" : "rounded-md"
@@ -144,7 +147,7 @@ export function MediaCard({
         {onSelect ? (
           <button
             type="button"
-            onClick={onSelect}
+            onClick={playDisabled ? undefined : onSelect}
             aria-label={`Reproducir ${title}`}
             className={cn(
               titleClass,
