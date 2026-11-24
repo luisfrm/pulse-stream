@@ -61,6 +61,9 @@ interface PlayerState {
   progress: number;
   duration: number;
   play: (song: Song, source?: PlaySource) => void;
+  /** Salta a una canción YA materializada en la cola (click en la Cola del
+   *  fullscreen). Conserva contexto/offset/radio encadenada. */
+  jumpTo: (songId: string) => void;
   toggle: () => void;
   pause: () => void;
   next: () => void;
@@ -403,6 +406,19 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     startSong(song);
   }
 
+  /**
+   * Salta a una canción YA materializada en la cola (click en la Cola del
+   * fullscreen). NO toca el contexto: se conserva `contextLabel`, el
+   * offset/exhausted y la radio encadenada, así "Siguiente de: X" sigue siendo
+   * el mismo. El play se registra por el listener `play` del <audio>, igual que
+   * en `next`/`prev`.
+   */
+  function jumpTo(songId: string) {
+    const target = queueRef.current.find((song) => song.id === songId);
+    if (!target) return;
+    startSong(target);
+  }
+
   function pause() {
     const audio = audioRef.current;
     if (!audio) return;
@@ -543,6 +559,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       progress,
       duration,
       play,
+      jumpTo,
       toggle,
       pause,
       next,

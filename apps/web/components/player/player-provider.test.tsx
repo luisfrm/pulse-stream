@@ -512,4 +512,41 @@ describe("PlayerProvider — cola por contexto (Q1)", () => {
     expect(getPlayer().current?.id).toBe("a1");
     expect(getPlayer().contextLabel).toBe("Radio de Artista");
   });
+
+  // --- F2: salto dentro de la cola (click en la tab Cola) ------------------
+
+  it("jumpTo salta dentro de la cola sin perder el contexto", async () => {
+    const items = [song("1"), song("2"), song("3")];
+    renderPlayer();
+
+    await act(async () => {
+      getPlayer().play(items[0], { label: "ctx", seed: items, total: 3 });
+    });
+
+    await act(async () => getPlayer().jumpTo("3"));
+
+    expect(getPlayer().current?.id).toBe("3");
+    expect(getPlayer().playing).toBe(true);
+    // Contexto y cola intactos: no re-fetchea ni re-arma nada.
+    expect(getPlayer().contextLabel).toBe("ctx");
+    expect(getPlayer().queue.map((item) => item.id)).toEqual(["1", "2", "3"]);
+
+    // El índice es global: prev camina la misma cola.
+    await act(async () => getPlayer().prev());
+    expect(getPlayer().current?.id).toBe("2");
+  });
+
+  it("jumpTo con un id fuera de la cola no hace nada", async () => {
+    const items = [song("1"), song("2")];
+    renderPlayer();
+
+    await act(async () => {
+      getPlayer().play(items[0], { label: "ctx", seed: items, total: 2 });
+    });
+
+    await act(async () => getPlayer().jumpTo("missing"));
+
+    expect(getPlayer().current?.id).toBe("1");
+    expect(getPlayer().queue).toHaveLength(2);
+  });
 });
