@@ -2,7 +2,6 @@ import { act, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { songsService } from "@/lib/services/songs-service";
-import type { GetSongsParams } from "@/lib/services/songs-service";
 import type { Page, Song } from "@/lib/services/types";
 
 // La fábrica anclada habla con la API: se mockea el service (sin red).
@@ -118,7 +117,7 @@ afterEach(() => {
 });
 
 describe("PlayerProvider — cola por contexto (Q1)", () => {
-  it("next() al final del seed pide UNA página, la appendea y avanza", async () => {
+  it("next() al final del seed usa la página prefetcheada y avanza", async () => {
     const seed = [song("1"), song("2")];
     const loadPage = vi.fn().mockResolvedValue([song("3"), song("4")]);
     renderPlayer();
@@ -127,21 +126,29 @@ describe("PlayerProvider — cola por contexto (Q1)", () => {
       getPlayer().play(seed[0], { label: "ctx", seed, loadPage, total: 4 });
     });
     expect(getPlayer().contextLabel).toBe("ctx");
-    expect(getPlayer().queue.map((item) => item.id)).toEqual(["1", "2"]);
 
-    act(() => getPlayer().next());
-    expect(getPlayer().current?.id).toBe("2");
-
-    await act(async () => getPlayer().next());
-
+    // El prefetch anticipado (2 de margen) ya trajo la página sola.
+    await waitFor(() =>
+      expect(getPlayer().queue.map((item) => item.id)).toEqual([
+        "1",
+        "2",
+        "3",
+        "4",
+      ]),
+    );
     expect(loadPage).toHaveBeenCalledTimes(1);
     // La página siguiente arranca donde terminó la semilla, con el tope del motor.
     expect(loadPage).toHaveBeenCalledWith(2, 50);
-    expect(getPlayer().queue.map((item) => item.id)).toEqual(["1", "2", "3", "4"]);
+    expect(getPlayer().current?.id).toBe("1");
+
+    await act(async () => getPlayer().next());
+    expect(getPlayer().current?.id).toBe("2");
+
+    await act(async () => getPlayer().next());
     expect(getPlayer().current?.id).toBe("3");
     expect(getPlayer().hasNext).toBe(true);
 
-    act(() => getPlayer().next());
+    await act(async () => getPlayer().next());
     expect(getPlayer().current?.id).toBe("4");
     // total conocido (4) y offset consumido: no queda nada por pedir DEL
     // CONTEXTO. Con la radio encadenada (Q4) siempre hay siguiente posible
@@ -178,7 +185,7 @@ describe("PlayerProvider — cola por contexto (Q1)", () => {
     expect(loadPage).toHaveBeenCalledTimes(1);
   });
 
-  it("un array (cola fija) no fetchea hasta el final; la cadena estéril lo detiene", async () => {
+  it("un array (cola fija) prefetchea la radio; la cadena estéril lo detiene", async () => {
     const items = [song("1"), song("2")];
     getSongsMock.mockResolvedValue(pageOf([]));
     renderPlayer();
@@ -188,10 +195,12 @@ describe("PlayerProvider — cola por contexto (Q1)", () => {
     });
     expect(getPlayer().contextLabel).toBeNull();
 
+    // El prefetch ya intentó encadenar la radio (estéril): no agregó nada.
+    await waitFor(() => expect(getSongsMock).toHaveBeenCalled());
+    expect(getPlayer().queue.map((item) => item.id)).toEqual(["1", "2"]);
+
     act(() => getPlayer().next());
     expect(getPlayer().current?.id).toBe("2");
-    // Hasta acá no hubo ningún fetch (la cola es fija).
-    expect(getSongsMock).not.toHaveBeenCalled();
 
     await act(async () => getPlayer().next());
     expect(getPlayer().current?.id).toBe("2");
@@ -374,7 +383,7 @@ describe("PlayerProvider — cola por contexto (Q1)", () => {
     expect(getPlayer().playing).toBe(false);
   });
 
-  it("cola anclada: suena la canción ya y el top del artista llega después sin duplicarla", async () => {
+  it("cola anclada: suena la canción ya y el top del artista se prefetchea sin duplicarla", async () => {
     const anchor = song("seed");
     getSongsMock.mockResolvedValue({
       // El top del artista INCLUYE la canción anclada (caso normal).
@@ -389,16 +398,12 @@ describe("PlayerProvider — cola por contexto (Q1)", () => {
       getPlayer().play(anchor, songAnchoredContext({ song: anchor }));
     });
 
-    // Arranca con la semilla: sin fetch inicial y con el audio ya cargado.
-    expect(getSongsMock).not.toHaveBeenCalled();
+    // Arranca con la semilla: audio ya cargado, sin esperar el fetch.
     expect(getPlayer().contextLabel).toBe("Radio de Artista");
     expect(getPlayer().contextKey).toBe(`radio:${anchor.artist.id}:${anchor.id}`);
-    expect(getPlayer().queue.map((item) => item.id)).toEqual(["seed"]);
     expect(getPlayer().current?.id).toBe("seed");
-    expect(getPlayer().hasNext).toBe(true);
 
-    // Al borde: el motor pide la página (offset 1 = después de la semilla).
-    await act(async () => getPlayer().next());
+    // El prefetch trae el top del artista solo, sin pulsar next.
     await waitFor(() =>
       expect(getPlayer().queue.map((item) => item.id)).toEqual([
         "seed",
@@ -406,8 +411,6 @@ describe("PlayerProvider — cola por contexto (Q1)", () => {
         "top-2",
       ]),
     );
-
-    expect(getSongsMock).toHaveBeenCalledTimes(1);
     expect(getSongsMock).toHaveBeenCalledWith(
       expect.objectContaining({
         artistId: anchor.artist.id,
@@ -418,6 +421,8 @@ describe("PlayerProvider — cola por contexto (Q1)", () => {
     );
     // Dedupe: la semilla venía en el top y no se repite en la cola.
     expect(new Set(getPlayer().queue.map((item) => item.id)).size).toBe(3);
+
+    await act(async () => getPlayer().next());
     expect(getPlayer().current?.id).toBe("top-1");
   });
 
@@ -576,6 +581,8 @@ describe("PlayerProvider — cola por contexto (Q1)", () => {
 
   it("jumpTo salta dentro de la cola sin perder el contexto", async () => {
     const items = [song("1"), song("2"), song("3")];
+    // La radio del prefetch es estéril: no agrega material ajeno a la cola.
+    getSongsMock.mockResolvedValue(pageOf([]));
     renderPlayer();
 
     await act(async () => {
@@ -597,6 +604,8 @@ describe("PlayerProvider — cola por contexto (Q1)", () => {
 
   it("jumpTo con un id fuera de la cola no hace nada", async () => {
     const items = [song("1"), song("2")];
+    // La radio del prefetch es estéril: no agrega material ajeno a la cola.
+    getSongsMock.mockResolvedValue(pageOf([]));
     renderPlayer();
 
     await act(async () => {
@@ -607,5 +616,73 @@ describe("PlayerProvider — cola por contexto (Q1)", () => {
 
     expect(getPlayer().current?.id).toBe("1");
     expect(getPlayer().queue).toHaveLength(2);
+  });
+
+  // --- Prefetch anticipado + historial (cola que se regenera sola) ---------
+
+  it("prefetch: en la última canción la cola se regenera sola, sin pulsar next", async () => {
+    const a1 = song("a1");
+    const a2 = song("a2");
+    const fresh = song("b-new");
+    getSongsMock.mockResolvedValue(pageOf([fresh], 1));
+    renderPlayer();
+
+    await act(async () => {
+      getPlayer().play(a2, [a1, a2]);
+    });
+
+    // Suena la ÚLTIMA: el prefetch ya encadenó la radio y agregó material.
+    await waitFor(() =>
+      expect(getPlayer().queue.map((item) => item.id)).toEqual([
+        "a1",
+        "a2",
+        "b-new",
+      ]),
+    );
+    // No movió la canción: el cambio lo hace el usuario o el `onEnded`.
+    expect(getPlayer().current?.id).toBe("a2");
+    expect(getPlayer().playing).toBe(true);
+    expect(getPlayer().hasNext).toBe(true);
+  });
+
+  it("prefetch: no refetchea mientras hay colchón por delante", async () => {
+    const seed = [song("1"), song("2"), song("3"), song("4")];
+    const loadPage = vi.fn().mockResolvedValue([song("5"), song("6")]);
+    renderPlayer();
+
+    await act(async () => {
+      getPlayer().play(seed[0], { label: "ctx", seed, loadPage, total: 10 });
+    });
+    // 3 canciones por delante: no se pide nada todavía.
+    expect(loadPage).not.toHaveBeenCalled();
+
+    act(() => getPlayer().next()); // quedan 2: tampoco
+    expect(loadPage).not.toHaveBeenCalled();
+
+    act(() => getPlayer().next()); // queda 1: recién ahí prefetchea
+    await waitFor(() => expect(loadPage).toHaveBeenCalledTimes(1));
+    expect(getPlayer().current?.id).toBe("3");
+  });
+
+  it("playedIds marca sólo lo que empezó a sonar (historial)", async () => {
+    const seed = [song("1"), song("2"), song("3")];
+    getSongsMock.mockResolvedValue(pageOf([]));
+    renderPlayer();
+
+    await act(async () => {
+      getPlayer().play(seed[0], { label: "ctx", seed, total: 3 });
+    });
+    expect([...getPlayer().playedIds]).toEqual(["1"]);
+
+    // Saltar a una fila de la cola arranca esa canción y la marca.
+    await act(async () => getPlayer().jumpTo("3"));
+    expect([...getPlayer().playedIds].sort()).toEqual(["1", "3"]);
+
+    // Estar materializada NO alcanza: "2" todavía no sonó.
+    expect(getPlayer().queue.map((item) => item.id)).toContain("2");
+    expect(getPlayer().playedIds.has("2")).toBe(false);
+
+    await act(async () => getPlayer().prev());
+    expect([...getPlayer().playedIds].sort()).toEqual(["1", "2", "3"]);
   });
 });

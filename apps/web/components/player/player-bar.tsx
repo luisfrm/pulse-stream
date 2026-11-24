@@ -27,6 +27,10 @@ const PlayerFullscreen = dynamic(
 export function PlayerBar() {
   const { current, playing, progress, duration, toggle } = usePlayer();
   const [open, setOpen] = React.useState(false);
+  // Identidad estable: con el fullscreen montado, un `onClose` nuevo en cada
+  // render de la barra (4×/s por `progress`) re-ejecutaría su efecto de Escape
+  // + lock del scroll del body.
+  const close = React.useCallback(() => setOpen(false), []);
 
   if (!current) return null;
 
@@ -101,7 +105,9 @@ export function PlayerBar() {
         </div>
       </footer>
 
-      <PlayerFullscreen open={open} onClose={() => setOpen(false)} />
+      {/* Montaje condicional: el chunk lazy carga recién al abrir y al cerrar
+          se desmonta (reset gratis de tab + memoria de scroll). */}
+      {open ? <PlayerFullscreen onClose={close} /> : null}
     </>
   );
 }
