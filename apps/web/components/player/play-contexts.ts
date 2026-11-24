@@ -152,6 +152,48 @@ export function favoriteSongsContext(args: {
 }
 
 /**
+ * Cola anclada a UNA canción suelta: `[canción elegida] + top del artista por
+ * plays` (el patrón de "radio" de Spotify: elegís un tema y sigue más del
+ * artista aunque no estuviera en la lista de donde vino).
+ *
+ * Arranca YA con `seed = [song]`: el audio no espera ningún fetch; el resto
+ * llega por `loadPage`.
+ *
+ * OJO con el invariante del motor: acá el seed NO es el prefijo del orden de
+ * páginas (el orden virtual es `[song, ...top sin song]`). Se compensa con
+ * `offset - 1` en el fetch y un `limit + 1` para no marcar "agotado" antes de
+ * tiempo cuando la canción cae dentro de la página pedida. La dedupe del motor
+ * cubre cualquier solapamiento del borde entre páginas.
+ */
+export function songAnchoredContext(args: {
+  song: Song;
+  /** Total virtual (normalmente el total de canciones del artista). */
+  total?: number;
+}): PlayContext {
+  const { song } = args;
+
+  return {
+    label: `Radio de ${song.artist.name}`,
+    key: `radio:${song.artist.id}:${song.id}`,
+    seed: [song],
+    total: args.total,
+    loadPage: async (offset, limit) => {
+      const page = await songsService.getSongs({
+        artistId: song.artist.id,
+        sort: "plays",
+        offset: Math.max(offset - 1, 0),
+        // +1: compensa la canción anclada si entra en esta página; clamp al
+        // tope de la API (un limit de 101 daría 422 y agotaría la radio).
+        limit: Math.min(limit + 1, 100),
+      });
+      return page.items
+        .filter((item) => item.id !== song.id)
+        .slice(0, limit);
+    },
+  };
+}
+
+/**
  * Álbum: UNA sola fetch completa (`GET /albums/{id}` ya devuelve TODAS las
  * canciones y en orden de creación ASC = orden de track). El resto son slices
  * del array cacheado, así no hay paginación real ni orden invertido.

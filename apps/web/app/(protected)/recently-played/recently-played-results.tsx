@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 
 import { LoadMoreButton } from "@/components/load-more-button";
+import { songAnchoredContext } from "@/components/player/play-contexts";
 import { SongCard } from "@/components/song-card";
 import { MediaCardSkeleton } from "@/components/loading-skeletons";
 import { listensService } from "@/lib/services/listens-service";
@@ -16,7 +17,8 @@ interface RecentlyPlayedResultsProps {
 
 /**
  * Historial de escuchas recientes: grid paginado client-side con "Ver más".
- * Sin paginación por URL — `SongCard` reproduce la cola de lo cargado.
+ * Sin paginación por URL — cada card reproduce con la cola ANCLADA a la
+ * canción (radio del artista), no con el slice cargado.
  */
 export function RecentlyPlayedResults({
   initialPage,
@@ -72,7 +74,7 @@ export function RecentlyPlayedResults({
           <SongCard
             key={song.id}
             song={song}
-            queue={songs as never}
+            context={songAnchoredContext({ song })}
             badge={
               (song.user_play_count ?? 0) > 1
                 ? `${song.user_play_count}×`

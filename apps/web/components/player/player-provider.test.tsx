@@ -1,9 +1,18 @@
 import { act, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { songsService } from "@/lib/services/songs-service";
 import type { Song } from "@/lib/services/types";
 
+// La fábrica anclada habla con la API: se mockea el service (sin red).
+vi.mock("@/lib/services/songs-service", () => ({
+  songsService: { getSongs: vi.fn() },
+}));
+
+import { songAnchoredContext } from "./play-contexts";
 import { PlayerProvider, usePlayer } from "./player-provider";
+
+const getSongsMock = vi.mocked(songsService.getSongs);
 
 type Player = ReturnType<typeof usePlayer>;
 
@@ -90,6 +99,7 @@ function getPlayer(): Player {
 
 beforeEach(() => {
   FakeAudio.instances = [];
+  vi.clearAllMocks();
   vi.stubGlobal("Audio", FakeAudio);
 });
 
@@ -297,5 +307,69 @@ describe("PlayerProvider — cola por contexto (Q1)", () => {
 
     expect(getPlayer().current?.id).toBe("1");
     expect(getPlayer().playing).toBe(false);
+  });
+
+  it("cola anclada: suena la canción ya y el top del artista llega después sin duplicarla", async () => {
+    const anchor = song("seed");
+    getSongsMock.mockResolvedValue({
+      // El top del artista INCLUYE la canción anclada (caso normal).
+      items: [anchor, song("top-1"), song("top-2")],
+      total: 3,
+      offset: 0,
+      limit: 51,
+    });
+    renderPlayer();
+
+    await act(async () => {
+      getPlayer().play(anchor, songAnchoredContext({ song: anchor }));
+    });
+
+    // Arranca con la semilla: sin fetch inicial y con el audio ya cargado.
+    expect(getSongsMock).not.toHaveBeenCalled();
+    expect(getPlayer().contextLabel).toBe("Radio de Artista");
+    expect(getPlayer().contextKey).toBe(`radio:${anchor.artist.id}:${anchor.id}`);
+    expect(getPlayer().queue.map((item) => item.id)).toEqual(["seed"]);
+    expect(getPlayer().current?.id).toBe("seed");
+    expect(getPlayer().hasNext).toBe(true);
+
+    // Al borde: el motor pide la página (offset 1 = después de la semilla).
+    await act(async () => getPlayer().next());
+    await waitFor(() =>
+      expect(getPlayer().queue.map((item) => item.id)).toEqual([
+        "seed",
+        "top-1",
+        "top-2",
+      ]),
+    );
+
+    expect(getSongsMock).toHaveBeenCalledTimes(1);
+    expect(getSongsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        artistId: anchor.artist.id,
+        sort: "plays",
+        offset: 0,
+        limit: 51,
+      }),
+    );
+    // Dedupe: la semilla venía en el top y no se repite en la cola.
+    expect(new Set(getPlayer().queue.map((item) => item.id)).size).toBe(3);
+    expect(getPlayer().current?.id).toBe("top-1");
+  });
+
+  it("cola anclada: si el fetch de la radio falla, queda la semilla sin romperse", async () => {
+    const anchor = song("seed");
+    getSongsMock.mockRejectedValue(new Error("boom"));
+    renderPlayer();
+
+    await act(async () => {
+      getPlayer().play(anchor, songAnchoredContext({ song: anchor }));
+    });
+    await act(async () => getPlayer().next());
+
+    // El catch del motor marca el contexto agotado: la cola queda en la
+    // semilla, sin más next, y la canción sigue sonando (no se detiene).
+    await waitFor(() => expect(getPlayer().hasNext).toBe(false));
+    expect(getPlayer().queue.map((item) => item.id)).toEqual(["seed"]);
+    expect(getPlayer().current?.id).toBe("seed");
   });
 });

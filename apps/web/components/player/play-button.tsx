@@ -4,6 +4,7 @@ import { Pause, Play } from "lucide-react";
 
 import { Button } from "@/components/ui";
 import type { Song } from "@/lib/services/types";
+import { songAnchoredContext } from "./play-contexts";
 import { usePlayer, type PlayContext } from "./player-provider";
 
 interface PlayButtonProps {
@@ -32,7 +33,10 @@ export function PlayButton({
     if (isCurrent) {
       toggle();
     } else {
-      play(song, context ?? queue);
+      // Sin fuente (canción suelta) la cola se ancla a la canción: radio del
+      // artista. Es lo que permite que `<PlayButton song>` desde una página de
+      // detalle (RSC, no puede pasar funciones) no quede huérfano.
+      play(song, context ?? queue ?? songAnchoredContext({ song }));
     }
   }
 

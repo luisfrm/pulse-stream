@@ -122,7 +122,9 @@ export default async function HomePage() {
                   todo el catálogo vive bajo el fold (hero 88dvh). Eager/high
                   acá solo compite por ancho de banda con el LCP. */}
               {songs.map((song) => (
-                <SongCard key={song.id} song={song} queue={songs} />
+                // Sin `queue`: cada card ancla la reproducción a la canción
+                // (radio del artista) en vez de encolar este slice de 10.
+                <SongCard key={song.id} song={song} />
               ))}
             </div>
           </div>
