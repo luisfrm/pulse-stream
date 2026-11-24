@@ -1,0 +1,171 @@
+"use client";
+
+import * as React from "react";
+import { cva } from "class-variance-authority";
+
+import { cn } from "./utils";
+
+const sliderVariants = cva("relative", {
+  variants: {
+    mode: {
+      interactive:
+        "flex h-6 cursor-pointer touch-none select-none items-center rounded-full focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-400",
+      display: "block",
+    },
+  },
+  defaultVariants: { mode: "interactive" },
+});
+
+const trackVariants = cva(
+  "relative w-full overflow-hidden rounded-full",
+  {
+    variants: {
+      mode: {
+        interactive: "h-1 bg-bg-highlight",
+        // La barra inferior conserva el riel de master (más tenue).
+        display: "h-0.5 bg-bg-highlight/60",
+      },
+    },
+    defaultVariants: { mode: "interactive" },
+  }
+);
+
+interface SliderProps {
+  value: number;
+  max: number;
+  /** Sin `onSeek` (o con `interactive={false}`) es solo display. */
+  onSeek?: (value: number) => void;
+  ariaLabel: string;
+  ariaValueText?: string;
+  /** `false` = barra de progreso no manipulable (barra inferior). */
+  interactive?: boolean;
+  className?: string;
+}
+
+/**
+ * Slider propio (divs + Pointer Events). Reemplaza `input[type=range]`, que en
+ * WebKit pinta su thumb blanco de ~26px recortado por un riel de 4px (la "barra
+ * blanca" de iPhone); `accent-color` no lo cubre. Soporta drag, tap-to-seek
+ * (iOS no lo hace nativo) y teclado. El thumb vive FUERA del `overflow-hidden`
+ * del riel para no recortarse.
+ */
+export function Slider({
+  value,
+  max,
+  onSeek,
+  ariaLabel,
+  ariaValueText,
+  interactive = true,
+  className,
+}: SliderProps) {
+  const [dragging, setDragging] = React.useState(false);
+  /** Posición bajo el dedo durante el drag (gana sobre `value` hasta soltar). */
+  const [draft, setDraft] = React.useState<number | null>(null);
+
+  const mode = interactive ? "interactive" : "display";
+  const shown = draft ?? value;
+  // Guard: `duration = 0` (sin metadata) no debe generar `NaN%`.
+  const ratio = max > 0 ? Math.min(1, Math.max(0, shown / max)) : 0;
+  const pct = ratio * 100;
+  // Redondeado: con `max` decimal, `round(now)` podía superar `round(max)`.
+  const roundedMax = Math.round(max);
+  const roundedNow = Math.round(Math.min(roundedMax, Math.max(0, shown)));
+
+  function seekTo(clientX: number, element: HTMLElement) {
+    if (max <= 0) return;
+    const rect = element.getBoundingClientRect();
+    if (rect.width <= 0) return;
+    const next =
+      Math.min(1, Math.max(0, (clientX - rect.left) / rect.width)) * max;
+    setDraft(next);
+    onSeek?.(next);
+  }
+
+  function handlePointerDown(event: React.PointerEvent<HTMLDivElement>) {
+    if (!interactive) return;
+    event.preventDefault();
+    // `preventDefault` inhibe el foco implícito: sin esto las flechas no
+    // funcionan después de clickear.
+    event.currentTarget.focus({ preventScroll: true });
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // Puntero ya liberado (Safari): el drag sigue sin captura.
+    }
+    setDragging(true);
+    // Tap-to-seek: un toque sin arrastre también salta.
+    seekTo(event.clientX, event.currentTarget);
+  }
+
+  function handlePointerMove(event: React.PointerEvent<HTMLDivElement>) {
+    if (!interactive || !dragging) return;
+    seekTo(event.clientX, event.currentTarget);
+  }
+
+  function endDrag(event: React.PointerEvent<HTMLDivElement>) {
+    if (!dragging) return;
+    setDragging(false);
+    setDraft(null);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  }
+
+  function handleKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+    if (!interactive || max <= 0) return;
+    let next: number | null = null;
+    if (event.key === "ArrowRight") next = value + 5;
+    else if (event.key === "ArrowLeft") next = value - 5;
+    else if (event.key === "PageUp") next = value + 10;
+    else if (event.key === "PageDown") next = value - 10;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = max;
+    if (next === null) return;
+    event.preventDefault();
+    onSeek?.(Math.min(max, Math.max(0, next)));
+  }
+
+  return (
+    <div
+      role={interactive ? "slider" : "progressbar"}
+      aria-label={ariaLabel}
+      aria-valuemin={0}
+      aria-valuemax={roundedMax}
+      aria-valuenow={roundedNow}
+      aria-valuetext={ariaValueText}
+      tabIndex={interactive ? 0 : undefined}
+      onPointerDown={interactive ? handlePointerDown : undefined}
+      onPointerMove={interactive ? handlePointerMove : undefined}
+      onPointerUp={interactive ? endDrag : undefined}
+      onPointerCancel={interactive ? endDrag : undefined}
+      // Si el puntero se pierde (captura fallida), `dragging` no debe quedar
+      // colgado: el próximo `pointermove` haría scrub sin botón presionado.
+      onLostPointerCapture={interactive ? endDrag : undefined}
+      onKeyDown={interactive ? handleKeyDown : undefined}
+      className={cn(sliderVariants({ mode }), className)}
+    >
+      <div className={trackVariants({ mode })}>
+        <div
+          className={cn(
+            "absolute inset-y-0 left-0 rounded-full bg-brand-400",
+            // Al arrastrar no se anima el ancho: el thumb debe seguir al dedo.
+            !dragging &&
+              "transition-[width] duration-300 motion-reduce:transition-none"
+          )}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+
+      {/* Hermano del riel (no hijo): el `overflow-hidden` del riel lo recortaría.
+          El clamp evita que a 0%/100% el thumb genere overflow horizontal en
+          los paneles con `overflow-y: auto` (que convierte x en `auto`). */}
+      {interactive && (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute top-1/2 size-3 -translate-y-1/2 rounded-full bg-brand-200 ring-2 ring-bg-base"
+          style={{ left: `clamp(0px, calc(${pct}% - 6px), calc(100% - 12px))` }}
+        />
+      )}
+    </div>
+  );
+}

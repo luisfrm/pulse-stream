@@ -13,7 +13,7 @@ import {
 
 import { OfflineButton } from "@/components/offline-button";
 import { NoCover } from "@/components/no-cover";
-import { Button, Skeleton, cn } from "@/components/ui";
+import { Button, Skeleton, Slider, cn } from "@/components/ui";
 import { useMediaQuery } from "@/lib/hooks/use-media-query";
 import type { Song } from "@/lib/services/types";
 import { formatGenre, formatTime } from "@/lib/utils/format";
@@ -350,14 +350,12 @@ export function PlayerFullscreen({ onClose }: PlayerFullscreenProps) {
               </div>
 
               <div className="w-full">
-                <input
-                  type="range"
-                  min={0}
-                  max={duration || 100}
+                <Slider
                   value={progress}
-                  onChange={(e) => seek(Number(e.target.value))}
-                  className="h-1 w-full accent-brand-400"
-                  aria-label="Progreso de reproducción"
+                  max={duration}
+                  onSeek={seek}
+                  ariaLabel="Progreso de reproducción"
+                  ariaValueText={`${formatTime(progress)} de ${formatTime(duration)}`}
                 />
                 <div className="mt-1 flex justify-between text-xs tabular-nums text-text-subdued">
                   <span>{formatTime(progress)}</span>

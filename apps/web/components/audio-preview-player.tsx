@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Loader2, Pause, Play } from "lucide-react";
 
-import { cn } from "@/components/ui";
+import { Slider, cn } from "@/components/ui";
 import { formatTime } from "@/lib/utils/format";
 import {
   claimAudio,
@@ -88,19 +88,10 @@ export function AudioPreviewPlayer({ src, title, className }: AudioPreviewPlayer
     }
   }
 
-  function seek(e: React.MouseEvent<HTMLDivElement>) {
+  function seekTo(time: number) {
     const audio = ensureAudio();
-    const rect = e.currentTarget.getBoundingClientRect();
-    const ratio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
-    const t = ratio * (audio.duration || 0);
-    audio.currentTime = t;
-    setCurrentTime(t);
-  }
-
-  function seekBy(delta: number) {
-    const audio = ensureAudio();
-    audio.currentTime = Math.max(0, Math.min(audio.duration || 0, audio.currentTime + delta));
-    setCurrentTime(audio.currentTime);
+    audio.currentTime = time;
+    setCurrentTime(time);
   }
 
   return (
@@ -121,32 +112,13 @@ export function AudioPreviewPlayer({ src, title, className }: AudioPreviewPlayer
       </button>
 
       <div className="min-w-0 flex-1">
-        <div
-          role="slider"
-          aria-label="Progreso de la preview"
-          aria-valuemin={0}
-          aria-valuemax={duration || 0}
-          aria-valuenow={currentTime}
-          tabIndex={0}
-          onClick={seek}
-          onKeyDown={(e) => {
-            if (e.key === "ArrowRight") {
-              e.preventDefault();
-              seekBy(5);
-            } else if (e.key === "ArrowLeft") {
-              e.preventDefault();
-              seekBy(-5);
-            }
-          }}
-          className="flex h-4 cursor-pointer items-center outline-none focus-visible:ring-1 focus-visible:ring-brand-400"
-        >
-          <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-bg-highlight">
-            <div
-              className="bg-brand-gradient absolute inset-y-0 left-0 rounded-full"
-              style={{ width: `${duration ? Math.min(100, (currentTime / duration) * 100) : 0}%` }}
-            />
-          </div>
-        </div>
+        <Slider
+          value={currentTime}
+          max={duration}
+          onSeek={seekTo}
+          ariaLabel="Progreso de la preview"
+          ariaValueText={`${formatTime(currentTime)} / ${formatTime(duration)}`}
+        />
         <p className="mt-0.5 text-[11px] tabular-nums text-text-subdued">
           {formatTime(currentTime)} / {formatTime(duration)}
         </p>
