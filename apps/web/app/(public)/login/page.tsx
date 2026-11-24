@@ -9,6 +9,7 @@ import { authService } from "@/lib/services/auth-service";
 import { friendlyError } from "@/lib/utils/error";
 import { AuthBackground } from "@/components/auth-background";
 import { BrandLogo } from "@/components/brand-logo";
+import { ClearPlayerSession } from "@/components/clear-player-session";
 import { Checkbox, Input } from "@/components/ui";
 import { toast } from "sonner";
 
@@ -171,8 +172,12 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={null}>
-      <LoginForm />
-    </Suspense>
+    <>
+      {/* Frontera de sesión: no arrastrar el reproductor de otro usuario. */}
+      <ClearPlayerSession />
+      <Suspense fallback={null}>
+        <LoginForm />
+      </Suspense>
+    </>
   );
 }

@@ -1,6 +1,9 @@
+"use client";
+
 import { LogOut } from "lucide-react";
 
 import { cn } from "@/components/ui";
+import { clearPersistedSession } from "@/lib/player/persisted-session";
 
 interface LogoutButtonProps {
   /** "icon" muestra solo el ícono (para chips de sidebar con poco espacio). */
@@ -20,7 +23,11 @@ export default function LogoutButton({
 }: LogoutButtonProps) {
   if (variant === "icon") {
     return (
-      <form method="POST" action="/api/logout">
+      <form
+        method="POST"
+        action="/api/logout"
+        onSubmit={() => clearPersistedSession()}
+      >
         <button
           type="submit"
           title="Cerrar sesión"
@@ -37,7 +44,11 @@ export default function LogoutButton({
   }
 
   return (
-    <form method="POST" action="/api/logout">
+    <form
+      method="POST"
+      action="/api/logout"
+      onSubmit={() => clearPersistedSession()}
+    >
       <button
         type="submit"
         className={cn(
