@@ -74,11 +74,12 @@ export function OfflineButton({
   if (variant === "menu") {
     return (
       <span className={cn("flex w-full flex-col gap-1", className)}>
+        {/* Sin `aria-pressed`: el estado ya viaja en el label ("Descargada" /
+            "Descargar"); un pressed acá diría lo contrario de la acción. */}
         <button
           type="button"
           onClick={toggle}
           disabled={pending}
-          aria-pressed={saved}
           className={cn(
             "flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors hover:bg-bg-highlight focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-400 disabled:opacity-50",
             saved ? "text-brand-400" : "text-text-primary"

@@ -64,11 +64,12 @@ export function FavoriteButton({
   if (variant === "menu") {
     return (
       <>
+        {/* Sin `aria-pressed`: el label ya dice la acción ("Quitar…"/"Agregar…")
+            y el lector anunciaría un "pressed" redundante. */}
         <button
           type="button"
           onClick={toggle}
           disabled={pending}
-          aria-pressed={favorited}
           aria-label={label}
           className={cn(
             "flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors hover:bg-bg-highlight focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-400 disabled:opacity-50",

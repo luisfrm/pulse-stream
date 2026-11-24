@@ -38,8 +38,8 @@ interface PlaylistPickerProps {
  *
  * Con `open`/`onOpenChange`/`hideTrigger` funciona en modo controlado y sin
  * disparador: lo usa el menú de acciones mobile de `SongActions`, que abre
- * esta hoja en un segundo paso (nunca hay hojas anidadas). Ese caso es siempre
- * menor a 640 px, así que siempre cae en la rama `isMobile` de `useIsMobile`.
+ * esta hoja en un segundo paso (nunca hay hojas anidadas). Ese caso siempre usa
+ * la hoja, aunque `isMobile` cambie con el viewport.
  */
 export function PlaylistPicker({
   song,
@@ -51,6 +51,10 @@ export function PlaylistPicker({
   hideTrigger,
 }: PlaylistPickerProps) {
   const isMobile = useIsMobile();
+  // `hideTrigger` siempre usa la hoja (es un dialog válido también en desktop):
+  // el modo controlado no depende de `isMobile`, que cambia si rotás con el
+  // panel abierto.
+  const sheetMode = isMobile || hideTrigger;
   const [internalOpen, setInternalOpen] = React.useState(false);
   // Controlado si el padre pasa `open`; si no, el estado es local.
   const isOpen = open ?? internalOpen;
@@ -83,9 +87,26 @@ export function PlaylistPicker({
     [open, onOpenChange]
   );
 
+  const resetCreate = React.useCallback(() => {
+    setCreating(false);
+    setNewName("");
+    setNewDesc("");
+  }, []);
+
+  // Cierre único: apertura + error + formulario de "Nueva playlist". En modo
+  // controlado el padre se entera por `onOpenChange`. Identidad estable porque
+  // el efecto de abajo lo usa como dependencia.
+  const close = React.useCallback(() => {
+    setOpenSafe(false);
+    setError(null);
+    resetCreate();
+  }, [setOpenSafe, resetCreate]);
+
   // Desktop: cierre con click fuera y Escape (el BottomSheet lo maneja solo).
+  // En `sheetMode` no corre: el contenido de la hoja vive en un portal, fuera de
+  // `rootRef`/`panelRef`, así que cualquier pointerdown la cerraría.
   React.useEffect(() => {
-    if (isMobile || !isOpen) return;
+    if (sheetMode || !isOpen) return;
     const onPointerDown = (e: PointerEvent) => {
       const target = e.target as Node;
       if (
@@ -96,7 +117,9 @@ export function PlaylistPicker({
       }
     };
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpenSafe(false);
+      // `close()` y no `setOpenSafe(false)`: resetea error y el form de
+      // "Nueva playlist" igual que el resto de los cierres.
+      if (e.key === "Escape") close();
     };
     // El panel es `fixed`: al scrollear la página se desancla, así que se cierra.
     const onScroll = (e: Event) => {
@@ -116,7 +139,7 @@ export function PlaylistPicker({
       document.removeEventListener("scroll", onScroll, true);
       window.removeEventListener("resize", onResize);
     };
-  }, [isMobile, isOpen, setOpenSafe]);
+  }, [sheetMode, isOpen, setOpenSafe, close]);
 
   function toggleOpen() {
     if (isOpen) {
@@ -152,18 +175,6 @@ export function PlaylistPicker({
     }
     setOpenSafe(true);
     setError(null);
-  }
-
-  function resetCreate() {
-    setCreating(false);
-    setNewName("");
-    setNewDesc("");
-  }
-
-  function close() {
-    setOpenSafe(false);
-    setError(null);
-    resetCreate();
   }
 
   async function handleTogglePlaylist(pl: MyPlaylist) {
@@ -347,7 +358,7 @@ export function PlaylistPicker({
     </button>
   );
 
-  if (isMobile) {
+  if (sheetMode) {
     return (
       <>
         {!hideTrigger && trigger}

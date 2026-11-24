@@ -7,7 +7,7 @@ import { FavoriteButton } from "@/components/favorite-button";
 import { NoCover } from "@/components/no-cover";
 import { OfflineButton } from "@/components/offline-button";
 import { PlaylistPicker } from "@/components/playlist-picker";
-import { BottomSheet } from "@/components/ui";
+import { BottomSheet, cn } from "@/components/ui";
 import type { MyPlaylist, Song } from "@/lib/services/types";
 
 interface SongActionsProps {
@@ -70,7 +70,14 @@ export function SongActions({
           (si no, quedaría el scroll bloqueado por un modal invisible). */}
       <BottomSheet open={sheetOpen} onClose={closeSheet} title="Acciones">
         <div className="mb-3 flex items-center gap-3">
-          <span className="h-11 w-11 shrink-0 overflow-hidden rounded-lg border border-bg-highlight">
+          {/* Mismo patrón que la fila: el borde/radio solo cuando hay cover
+              real; `NoCover` ya trae los suyos (si no, doble borde). */}
+          <span
+            className={cn(
+              "h-11 w-11 shrink-0 overflow-hidden",
+              song.cover_url && "rounded-lg border border-bg-highlight"
+            )}
+          >
             {song.cover_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -116,14 +123,19 @@ export function SongActions({
         </div>
       </BottomSheet>
 
-      <PlaylistPicker
-        song={song}
-        playlists={playlists}
-        onMutated={onMutated}
-        hideTrigger
-        open={pickerOpen}
-        onOpenChange={setPickerOpen}
-      />
+      {/* Montado solo mientras hace falta: si no, cada fila pagaría un segundo
+          `useIsMobile` (dos listeners de matchMedia por fila, 2N con el scroll
+          infinito). El controlado siempre está abierto. */}
+      {pickerOpen && (
+        <PlaylistPicker
+          song={song}
+          playlists={playlists}
+          onMutated={onMutated}
+          hideTrigger
+          open
+          onOpenChange={setPickerOpen}
+        />
+      )}
     </>
   );
 }
