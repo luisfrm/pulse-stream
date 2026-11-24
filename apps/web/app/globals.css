@@ -204,6 +204,12 @@ body {
   font-family: var(--font-sans);
 }
 
+/* Form controls nativos (select, date pickers, scrollbars) en apariencia
+   oscura: sin esto iOS los pinta con el UA style claro (riel/thumb blancos). */
+:root {
+  color-scheme: dark;
+}
+
 /* iOS hace zoom al enfocar inputs con font < 16px: debajo de lg (sm, md y
    default) todo input/select/textarea queda en 16px (1rem) siempre, incluso
    si una utilidad text-sm del label le llegaba por herencia. En lg+ mandan

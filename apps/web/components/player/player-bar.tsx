@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { ChevronUp, Pause, Play } from "lucide-react";
 
 import { NoCover } from "@/components/no-cover";
+import { Slider } from "@/components/ui";
 import { formatTime } from "@/lib/utils/format";
 import { usePlayer } from "./player-provider";
 
@@ -34,20 +35,19 @@ export function PlayerBar() {
 
   if (!current) return null;
 
-  const pct = duration ? Math.min(100, (progress / duration) * 100) : 0;
-
   return (
     <>
       <footer className="animate-player-in pointer-events-none fixed inset-x-0 bottom-[calc(4.5rem+max(env(safe-area-inset-bottom),0.75rem))] z-40 px-4 lg:bottom-0 lg:px-0">
         <div className="pointer-events-auto rounded-3xl border border-bg-highlight bg-bg-elevated/95 shadow-xl shadow-black/20 backdrop-blur-md lg:rounded-none lg:border-x-0 lg:border-b-0 lg:bg-bg-base/95 lg:shadow-none">
           {/* Línea de progreso fina, dentro del pill (inset: el radio grande la
-              recortaría si tocara los bordes) */}
-          <div className="mx-3 h-0.5 overflow-hidden rounded-full bg-bg-highlight/60">
-            <div
-              className="h-full bg-brand-400 transition-[width] duration-300"
-              style={{ width: `${pct}%` }}
-            />
-          </div>
+              recortaría si tocara los bordes). Solo display. */}
+          <Slider
+            value={progress}
+            max={duration}
+            interactive={false}
+            ariaLabel="Progreso de reproducción"
+            className="mx-3"
+          />
 
           <div className="flex items-center gap-3 px-3 pb-3 pt-2.5">
             <button

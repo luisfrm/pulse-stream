@@ -8,6 +8,7 @@ export * from "./input";
 export * from "./title";
 export * from "./select";
 export * from "./skeleton";
+export * from "./slider";
 export * from "./bottom-sheet";
 export * from "./textarea";
 export * from "./sonner";
