@@ -3,7 +3,6 @@
 import * as React from "react";
 import { createPortal } from "react-dom";
 import { Check, ListPlus, Loader2, Plus } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { BottomSheet, Button, Input, Textarea, cn } from "@/components/ui";
@@ -34,7 +33,6 @@ export function PlaylistPicker({
   onMutated,
   triggerClassName,
 }: PlaylistPickerProps) {
-  const router = useRouter();
   const isMobile = useIsMobile();
   const [open, setOpen] = React.useState(false);
   const [pendingId, setPendingId] = React.useState<string | null>(null);
@@ -148,14 +146,14 @@ export function PlaylistPicker({
       if (containsSong) {
         await playlistsService.removeSong(pl.id, song.id);
         close();
+        // La Server Action (`updateTag`) ya re-renderiza la ruta: el refresh
+        // extra sólo duplicaba el flash de skeleton.
         await onMutated?.();
-        router.refresh();
         toast.success(`Quitada de «${pl.name}»`);
       } else {
         await playlistsService.addSong(pl.id, song.id);
         close();
         await onMutated?.();
-        router.refresh();
         toast.success(`Agregada a «${pl.name}»`);
       }
     } catch (err) {
@@ -178,7 +176,6 @@ export function PlaylistPicker({
       await playlistsService.addSong(pl.id, song.id);
       close();
       await onMutated?.();
-      router.refresh();
       toast.success(`Playlist «${pl.name}» creada con la canción`);
     } catch (err) {
       setError(friendlyError(err));

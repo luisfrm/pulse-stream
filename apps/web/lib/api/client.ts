@@ -24,6 +24,20 @@ export const api = ofetch.create({
   timeout: 30_000,
 
   async onRequest({ options }) {
+    /**
+     * Deadline REAL de la request, no sólo de los headers.
+     *
+     * `options.timeout` de ofetch se limpia cuando llegan los headers: si el
+     * worker cuelga a mitad del BODY, la promesa nunca settlea y las páginas
+     * quedan en skeleton eterno. Un `signal` de abort corta también la lectura
+     * del body. Es NUESTRO signal (no un `TimeoutError` de ofetch), así que
+     * `retry: 1` no la reintenta: el cuelgue termina en ~30s con error → los
+     * `.catch` de las páginas caen a estado vacío / error boundary.
+     */
+    if (!options.signal) {
+      options.signal = AbortSignal.timeout(30_000);
+    }
+
     if (isServer) {
       // Lectura en RSC / Server Action: reenviar cookie del request entrante
       const { cookies } = await import("next/headers");
