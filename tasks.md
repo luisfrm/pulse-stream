@@ -473,5 +473,16 @@ contexto: `ContextMediaCard` (fetch al click, cap 25).
 | **Loading al navegar (N2)** | Investigación rankeada: (1) fetch serializado en 2 niveles por navegación → `library.ts` en un solo Promise.all; (2) **SearchInput re-navegaba solo** (estado sin resync) → `lastNavigatedRef` + `adoptingRef` + guard anti-fantasma para la ventana `useSearchParams`-antes-que-prop RSC (cazada en vivo con Atrás); (3) el timeout de ofetch no cubría el body (único cuelgue literal) → `AbortSignal.timeout(30s)` sin retry; (4) `router.refresh()` duplicado tras `updateTag` fuera (un solo flash por mutación); (5) `getSession` null solo en 401 + `app/error.tsx` con Reintentar (un blip ya no desloguea) | Hecho (`db45a5b`; tests search-input 3/3; Atrás verificado en vivo: adopta y la URL queda estable) |
 | Diferido | N3.2 Suspense interno en /recently-played, /playlists, /catalog/songs y panel (header pinta ya, datos streamean) | Anotado |
 
+## Acciones de fila en mobile — PR `feat/mobile-song-row-actions`
+
+Problema medido a 390 px: `[Play][♥][+][↓]` deja ~60-74 px de título ("Si veo ...").
+Desktop tiene espacio y no se toca.
+
+| Fase | Alcance | Estado |
+|---|---|---|
+| **A1** fila | Mobile: `[Play][⋯]` con `BottomSheet` (cabecera con la canción + filas Me gusta/Agregar a playlist/Descargar). `FavoriteButton`/`OfflineButton` con `variant="menu"`; `PlaylistPicker` con `open`/`onOpenChange`/`hideTrigger` (segundo paso, sin hojas anidadas). Superficie por CSS (`sm:`), no `matchMedia`. `gap-3 sm:gap-4` en la fila | Hecho (`db618c5`; verificado en vivo: título completo a 390 px con 148 px de caja y sin ellipsis, kebab 44×44, like con ida y vuelta, descarga 0→1→0 en la Cache API, desktop con los 5 controles de siempre a 1280) |
+| **A2** fix z-index | `BottomSheet` `z-50` → `z-[55]`: la bottom nav (z-50) le ganaba por DOM y tapaba las últimas filas de CUALQUIER hoja (el "Descargar" nuevo y el "Nueva playlist" del picker quedaban debajo; el tap lo interceptaba el `<a href="/catalog">` del nav). Preexistente | Hecho (verificado: hoja sobre la nav, "Nueva playlist" abre el form, Escape cierra y libera el lock) |
+| **A3** acabado | `SongItemSkeleton` a juego con la fila (2 acciones en mobile / 4 en desktop, `rounded-xl px-4 py-3`); AGENTS.md §2 + este ledger. Sin tests nuevos (105/105) | Hecho |
+
 
 

@@ -249,6 +249,15 @@ props — "Cuenta" y "Panel" viven en el sidebar/drawer).
   agregadas (favoritos) con **infinite scroll** — `songs-list.tsx` (client)
   usa IntersectionObserver sobre un sentinel y pagina `GET /me/favorites`
   offset/limit de a 20; `loading.tsx` propio + estado vacío.
+- **Acciones de fila (`SongActions`)**: desde `sm` (640 px) los tres icon-buttons
+  van visibles; en mobile se colapsan en un kebab `⋯` (44 px, `aria-haspopup` +
+  `aria-expanded`) que abre un `BottomSheet` con la canción en la cabecera
+  (cover + título + artista) y las acciones como filas etiquetadas
+  (`FavoriteButton`/`OfflineButton` con `variant="menu"`). Me gusta y Descargar
+  dejan la hoja abierta (se ve el estado cambiar); "Agregar a playlist" la cierra
+  y abre la del `PlaylistPicker` (modo controlado `open`/`onOpenChange` +
+  `hideTrigger`) — nunca hojas anidadas. La superficie se decide por CSS, no por
+  `useIsMobile`: el DOM es igual en server y cliente.
 - **Explorar canciones** (`/songs`): catálogo completo vía `GET /songs?q=`
   (cache tags, `revalidate: 60`) con estado en URL (`SearchInput`). Separación
   conceptual: `/catalog` = biblioteca del usuario; `/songs` = catálogo público.
@@ -391,6 +400,11 @@ la página. **No poner `overflow-x: clip` en `html` en `globals.css`**: rompe la
 propagación del overflow del body al viewport y el lock de scroll de los
 modales deja de funcionar (la página scrollea con el modal abierto). El clip
 horizontal vive solo en `body`.
+
+**Z-index del chrome móvil** (de abajo arriba): player bar `z-40` < bottom nav
+`z-50` < `BottomSheet` `z-[55]` < `PlayerFullscreen` `z-[60]`. Un overlay en
+`z-50` empata con la nav y pierde por orden de DOM (la nav se renderiza después
+de `<main>`): sus últimas filas quedan tapadas y el tap lo intercepta la nav.
 
 ---
 
