@@ -18,6 +18,15 @@ interface PlaylistPickerProps {
   onMutated?: () => Promise<void>;
   /** Clases extra para el botón disparador (icon-button del contexto). */
   triggerClassName?: string;
+  /**
+   * Modo controlado (opcional): si se pasa, el padre manda la apertura y el
+   * picker solo reporta los cambios con `onOpenChange`. Sin esta prop el
+   * componente sigue manejando su estado como siempre.
+   */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** Sin disparador: solo la hoja/popover (el padre lo abre por otro medio). */
+  hideTrigger?: boolean;
 }
 
 /**
@@ -26,15 +35,29 @@ interface PlaylistPickerProps {
  * con su cantidad de canciones y permite crear una nueva (crear + agregar)
  * sin salir del flujo. Los errores se muestran con `friendlyError` y el
  * éxito con un toast de sonner.
+ *
+ * Con `open`/`onOpenChange`/`hideTrigger` funciona en modo controlado y sin
+ * disparador: lo usa el menú de acciones mobile de `SongActions`, que abre
+ * esta hoja en un segundo paso (nunca hay hojas anidadas). Ese caso siempre usa
+ * la hoja, aunque `isMobile` cambie con el viewport.
  */
 export function PlaylistPicker({
   song,
   playlists,
   onMutated,
   triggerClassName,
+  open,
+  onOpenChange,
+  hideTrigger,
 }: PlaylistPickerProps) {
   const isMobile = useIsMobile();
-  const [open, setOpen] = React.useState(false);
+  // `hideTrigger` siempre usa la hoja (es un dialog válido también en desktop):
+  // el modo controlado no depende de `isMobile`, que cambia si rotás con el
+  // panel abierto.
+  const sheetMode = isMobile || hideTrigger;
+  const [internalOpen, setInternalOpen] = React.useState(false);
+  // Controlado si el padre pasa `open`; si no, el estado es local.
+  const isOpen = open ?? internalOpen;
   const [pendingId, setPendingId] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [creating, setCreating] = React.useState(false);
@@ -54,29 +77,58 @@ export function PlaylistPicker({
     maxHeight?: number;
   } | null>(null);
 
+  // En modo controlado el estado vive en el padre: acá solo se notifica. El
+  // callback es estable para no re-suscribir los listeners del popover.
+  const setOpenSafe = React.useCallback(
+    (next: boolean) => {
+      if (open === undefined) setInternalOpen(next);
+      onOpenChange?.(next);
+    },
+    [open, onOpenChange]
+  );
+
+  const resetCreate = React.useCallback(() => {
+    setCreating(false);
+    setNewName("");
+    setNewDesc("");
+  }, []);
+
+  // Cierre único: apertura + error + formulario de "Nueva playlist". En modo
+  // controlado el padre se entera por `onOpenChange`. Identidad estable porque
+  // el efecto de abajo lo usa como dependencia.
+  const close = React.useCallback(() => {
+    setOpenSafe(false);
+    setError(null);
+    resetCreate();
+  }, [setOpenSafe, resetCreate]);
+
   // Desktop: cierre con click fuera y Escape (el BottomSheet lo maneja solo).
+  // En `sheetMode` no corre: el contenido de la hoja vive en un portal, fuera de
+  // `rootRef`/`panelRef`, así que cualquier pointerdown la cerraría.
   React.useEffect(() => {
-    if (isMobile || !open) return;
+    if (sheetMode || !isOpen) return;
     const onPointerDown = (e: PointerEvent) => {
       const target = e.target as Node;
       if (
         !rootRef.current?.contains(target) &&
         !panelRef.current?.contains(target)
       ) {
-        setOpen(false);
+        setOpenSafe(false);
       }
     };
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      // `close()` y no `setOpenSafe(false)`: resetea error y el form de
+      // "Nueva playlist" igual que el resto de los cierres.
+      if (e.key === "Escape") close();
     };
     // El panel es `fixed`: al scrollear la página se desancla, así que se cierra.
     const onScroll = (e: Event) => {
       if (panelRef.current?.contains(e.target as Node)) return;
-      setOpen(false);
+      setOpenSafe(false);
     };
     // En `resize` el target es `window` (no un Node): `Node.contains(window)`
     // lanza TypeError. Handler dedicado (zoom/rotación cierran el panel).
-    const onResize = () => setOpen(false);
+    const onResize = () => setOpenSafe(false);
     document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
     document.addEventListener("scroll", onScroll, true);
@@ -87,11 +139,11 @@ export function PlaylistPicker({
       document.removeEventListener("scroll", onScroll, true);
       window.removeEventListener("resize", onResize);
     };
-  }, [isMobile, open]);
+  }, [sheetMode, isOpen, setOpenSafe, close]);
 
   function toggleOpen() {
-    if (open) {
-      setOpen(false);
+    if (isOpen) {
+      setOpenSafe(false);
       return;
     }
     const rect = triggerRef.current?.getBoundingClientRect();
@@ -121,20 +173,8 @@ export function PlaylistPicker({
         });
       }
     }
-    setOpen(true);
+    setOpenSafe(true);
     setError(null);
-  }
-
-  function resetCreate() {
-    setCreating(false);
-    setNewName("");
-    setNewDesc("");
-  }
-
-  function close() {
-    setOpen(false);
-    setError(null);
-    resetCreate();
   }
 
   async function handleTogglePlaylist(pl: MyPlaylist) {
@@ -308,7 +348,7 @@ export function PlaylistPicker({
       type="button"
       onClick={toggleOpen}
       aria-label="Agregar a playlist"
-      aria-expanded={open}
+      aria-expanded={isOpen}
       className={cn(
         "rounded-pill p-2 text-text-subdued transition-colors hover:text-brand-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-400",
         triggerClassName
@@ -318,21 +358,25 @@ export function PlaylistPicker({
     </button>
   );
 
-  if (isMobile) {
+  if (sheetMode) {
     return (
       <>
-        {trigger}
-        <BottomSheet open={open} onClose={close} title="Agregar a playlist">
+        {!hideTrigger && trigger}
+        <BottomSheet open={isOpen} onClose={close} title="Agregar a playlist">
           {content}
         </BottomSheet>
       </>
     );
   }
 
+  // Sin disparador y cerrado no hay nada que pintar: un wrapper vacío sería un
+  // flex item fantasma (gap de más) dentro de la fila.
+  if (hideTrigger && !isOpen) return null;
+
   return (
     <div ref={rootRef} className="relative">
-      {trigger}
-      {open &&
+      {!hideTrigger && trigger}
+      {isOpen &&
         panelPos &&
         createPortal(
           <div

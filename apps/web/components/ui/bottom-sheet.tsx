@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 import { cn } from "./utils";
@@ -37,9 +38,15 @@ export function BottomSheet({ open, onClose, title, children, className }: Botto
 
   if (!open) return null;
 
-  return (
+  // z-[55]: por encima de la bottom nav (z-50) y del player bar (z-40), por
+  // debajo del PlayerFullscreen (z-[60]). Sin esto la nav flota sobre la hoja
+  // y tapa las últimas filas (el tap lo intercepta el nav).
+  // Va en un portal a `document.body` porque el z-index solo vale dentro del
+  // stacking context del padre: abierta desde el slot `actions` de las cards
+  // (`absolute z-10`) quedaría por debajo de la nav. Solo se evalúa con `open`.
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
+      className="fixed inset-0 z-[55] flex items-end justify-center"
       role="dialog"
       aria-modal="true"
       aria-label={title ?? "Panel inferior"}
@@ -99,6 +106,7 @@ export function BottomSheet({ open, onClose, title, children, className }: Botto
           }
         }
       `}</style>
-    </div>
+    </div>,
+    document.body
   );
 }

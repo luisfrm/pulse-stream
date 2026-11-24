@@ -57,13 +57,19 @@ export function CarouselSkeleton({
 /** Fila de canción (cover chico + 2 líneas + acciones) — listas/detalles. */
 export function SongItemSkeleton() {
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-bg-highlight bg-bg-elevated/60 p-3">
+    <div className="flex items-center gap-3 rounded-xl border border-bg-highlight bg-bg-elevated/60 px-4 py-3 sm:gap-4">
       <Skeleton className="h-11 w-11 shrink-0" shape="rect" />
       <div className="min-w-0 flex-1 space-y-2">
         <Skeleton className="h-4 w-1/3" />
         <Skeleton className="h-3 w-1/4" />
       </div>
-      <Skeleton className="h-9 w-9 shrink-0" shape="circle" />
+      {/* Mobile: ▶ + kebab. Desktop: ▶ + los tres icon-buttons de la fila. */}
+      <div className="flex shrink-0 items-center gap-1.5">
+        <Skeleton className="h-9 w-9" shape="circle" />
+        <Skeleton className="h-9 w-9" shape="circle" />
+        <Skeleton className="hidden h-9 w-9 sm:block" shape="circle" />
+        <Skeleton className="hidden h-9 w-9 sm:block" shape="circle" />
+      </div>
     </div>
   );
 }
