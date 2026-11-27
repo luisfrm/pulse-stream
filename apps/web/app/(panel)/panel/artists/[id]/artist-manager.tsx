@@ -3,7 +3,16 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Disc3, Loader2, Minus, Music, Plus, Sparkles, Trash2 } from "lucide-react";
+import {
+  CheckCircle2,
+  Disc3,
+  Loader2,
+  Minus,
+  Music,
+  Plus,
+  Sparkles,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { CoverUploader } from "@/components/cover-uploader";
@@ -37,6 +46,7 @@ export function ArtistManager({
   const [name, setName] = React.useState(artist.name);
   const [coverKey, setCoverKey] = React.useState<string | null>(artist.cover_key ?? null);
   const [pending, setPending] = React.useState(false);
+  const [savedBanner, setSavedBanner] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [deleting, setDeleting] = React.useState(false);
   const [albumToDelete, setAlbumToDelete] = React.useState<Album | null>(null);
@@ -64,11 +74,14 @@ export function ArtistManager({
 
   const totalPlays = songs.reduce((sum, s) => sum + (s.play_count ?? 0), 0);
   const totalSongs = songs.length + collaborations.length;
+  const artistReturnTo = encodeURIComponent(`/panel/artists/${artist.id}`);
 
   async function saveArtist(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (!name.trim()) return setError("El nombre no puede quedar vacío.");
     setPending(true);
     setError(null);
+    setSavedBanner(false);
     try {
       await artistsService.updateArtist(artist.id, {
         name: name.trim(),
@@ -76,6 +89,7 @@ export function ArtistManager({
       });
       await onMutated();
       router.refresh();
+      setSavedBanner(true);
     } catch (err) {
       setError(friendlyError(err));
     } finally {
@@ -196,6 +210,13 @@ export function ArtistManager({
           </p>
         </div>
       </div>
+
+      {savedBanner && (
+        <p className="mt-4 flex items-center gap-2 rounded-xl border border-brand-400/40 bg-brand-400/15 px-4 py-3 text-sm text-brand-200">
+          <CheckCircle2 size={16} className="shrink-0" aria-hidden />
+          <span>Cambios guardados.</span>
+        </p>
+      )}
 
       {error && (
         <p className="mt-4 rounded-xl bg-brand-900/30 px-4 py-3 text-sm text-brand-200">
@@ -335,6 +356,7 @@ export function ArtistManager({
             <CreateAlbumForm
               artist={artist}
               onCreated={async () => {
+                toast.success("Álbum creado.");
                 await onMutated();
                 router.refresh();
               }}
@@ -400,7 +422,7 @@ export function ArtistManager({
         <div className="flex items-center justify-between gap-3">
           <h2 className="font-display text-lg font-bold">Canciones</h2>
           <Link
-            href={`/panel/songs/new?artist=${artist.id}`}
+            href={`/panel/songs/new?artist=${artist.id}&returnTo=${artistReturnTo}`}
             className="rounded-pill bg-brand-400 px-4 py-2 text-sm font-semibold text-bg-base transition-colors hover:bg-brand-200"
           >
             + Subir canción
@@ -415,7 +437,7 @@ export function ArtistManager({
             {songs.map((song) => (
               <li key={song.id}>
                 <Link
-                  href={`/panel/songs/${song.id}`}
+                  href={`/panel/songs/${song.id}?returnTo=${artistReturnTo}`}
                   className="flex items-center gap-3 rounded-xl border border-bg-highlight bg-bg-elevated px-3 py-2 transition-colors hover:border-brand-400"
                 >
                   <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-bg-highlight/40">
@@ -453,7 +475,7 @@ export function ArtistManager({
             {collaborations.map((song) => (
               <li key={song.id}>
                 <Link
-                  href={`/panel/songs/${song.id}`}
+                  href={`/panel/songs/${song.id}?returnTo=${artistReturnTo}`}
                   className="flex items-center gap-3 rounded-xl border border-bg-highlight bg-bg-elevated px-3 py-2 transition-colors hover:border-brand-400"
                 >
                   <Music size={16} className="shrink-0 text-text-subdued" />
