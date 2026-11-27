@@ -40,6 +40,22 @@ export function isAlbumReturnPath(path: string): boolean {
 }
 
 /**
+ * Returns true when the return path points to a panel artist detail page.
+ */
+export function isArtistReturnPath(path: string): boolean {
+  return path.startsWith("/panel/artists/");
+}
+
+/**
+ * Returns the localized back-link label corresponding to a panel return path.
+ */
+export function getPanelReturnLabel(path: string): string {
+  if (isAlbumReturnPath(path)) return "← Volver al álbum";
+  if (isArtistReturnPath(path)) return "← Volver al artista";
+  return "← Volver a canciones";
+}
+
+/**
  * Presigns an audio file, uploads it directly to R2, and creates the song record.
  */
 export async function uploadAndCreateSong(
@@ -53,10 +69,11 @@ export async function uploadAndCreateSong(
   );
   await uploadToR2(presign.url, input.file);
 
+  const trimmedArtistName = input.artistName?.trim();
   const payload: CreateSongPayload = {
     title: input.title.trim(),
     ...(input.artistId ? { artist_id: input.artistId } : {}),
-    ...(input.artistName ? { artist_name: input.artistName.trim() } : {}),
+    ...(trimmedArtistName ? { artist_name: trimmedArtistName } : {}),
     album_id: input.albumId,
     genres: input.genres,
     lyrics: input.lyrics?.trim() || undefined,

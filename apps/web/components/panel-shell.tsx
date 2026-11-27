@@ -42,7 +42,11 @@ function PanelNav({ user, onNavigate }: { user: User; onNavigate?: () => void })
   const pathname = usePathname();
 
   function isActive(item: NavItem): boolean {
-    return item.exact ? pathname === item.href : pathname.startsWith(item.href);
+    if (item.exact) return pathname === item.href;
+    if (item.href === "/panel/artists" && pathname.startsWith("/panel/albums")) {
+      return true;
+    }
+    return pathname.startsWith(item.href);
   }
 
   return (
