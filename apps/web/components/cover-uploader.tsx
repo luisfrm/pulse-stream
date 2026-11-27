@@ -8,9 +8,60 @@ import { friendlyError } from "@/lib/utils/error";
 import { cn } from "@/components/ui";
 
 const MAX_COVER_BYTES = 256 * 1024; // 256 KB
+const MAX_DIMENSION = 800;
 // Resolución recomendada: 800×800 WebP q~75 (pesa 60-100 KB y cubre el slot
 // más grande — héroes de ~500px — con margen para DPR 2x en cards de ~300px).
 const SUGGESTED_SIZE = "800×800 px WebP";
+const CONVERTIBLE_TYPES = new Set(["image/webp", "image/jpeg", "image/png"]);
+
+/**
+ * Resizes and encodes an image file to a lightweight WebP <= `maxBytes`
+ * using an offscreen canvas.
+ */
+async function convertToLightweightWebp(
+  file: File,
+  maxBytes: number,
+): Promise<File> {
+  if (typeof createImageBitmap !== "function") {
+    throw new Error("Tu navegador no soporta conversión automática a WebP.");
+  }
+
+  const bitmap = await createImageBitmap(file);
+  try {
+    const scale = Math.min(1, MAX_DIMENSION / Math.max(bitmap.width, bitmap.height));
+    const width = Math.max(1, Math.round(bitmap.width * scale));
+    const height = Math.max(1, Math.round(bitmap.height * scale));
+
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("No se pudo inicializar el canvas para WebP.");
+    ctx.drawImage(bitmap, 0, 0, width, height);
+
+    const encode = (quality: number) =>
+      new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob(
+          (blob) => {
+            if (blob) resolve(blob);
+            else reject(new Error("No se pudo generar la imagen WebP."));
+          },
+          "image/webp",
+          quality,
+        );
+      });
+
+    let blob = await encode(0.75);
+    if (blob.size > maxBytes) {
+      blob = await encode(0.55);
+    }
+
+    const baseName = file.name.replace(/\.[^.]+$/, "") || "cover";
+    return new File([blob], `${baseName}.webp`, { type: "image/webp" });
+  } finally {
+    bitmap.close();
+  }
+}
 
 interface CoverUploaderProps {
   /** object_key actual (para mostrar el cover ya subido). */
@@ -18,7 +69,15 @@ interface CoverUploaderProps {
   /** URL pública del cover actual (para preview). */
   previewUrl?: string | null;
   onChange: (objectKey: string | null) => void;
+  onPendingChange?: (pending: boolean) => void;
   label?: string;
+  /**
+   * When true, accepts JPG/PNG/WebP and automatically resizes/converts to a
+   * lightweight WebP in the browser before requesting a presigned URL.
+   */
+  autoConvertToWebp?: boolean;
+  /** Compact layout for inline cards/modals. */
+  compact?: boolean;
 }
 
 /**
@@ -36,7 +95,10 @@ export function CoverUploader({
   value,
   previewUrl,
   onChange,
+  onPendingChange,
   label = "Cover",
+  autoConvertToWebp = false,
+  compact = false,
 }: CoverUploaderProps) {
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -57,32 +119,52 @@ export function CoverUploader({
     if (!file) return;
     setError(null);
 
-    // Validaciones locales (el backend valida lo mismo al firmar)
-    if (file.type !== "image/webp") {
+    let uploadFile = file;
+    if (autoConvertToWebp) {
+      if (!CONVERTIBLE_TYPES.has(file.type)) {
+        setError("Formato no compatible. Usá WebP, JPG o PNG.");
+        return;
+      }
+      if (file.type !== "image/webp" || file.size > MAX_COVER_BYTES) {
+        try {
+          uploadFile = await convertToLightweightWebp(file, MAX_COVER_BYTES);
+        } catch (err) {
+          setError(friendlyError(err));
+          return;
+        }
+      }
+    } else if (file.type !== "image/webp") {
       setError("Solo se acepta formato WebP (liviano y con transparencia si la necesitás).");
       return;
     }
-    if (file.size > MAX_COVER_BYTES) {
-      setError(`El archivo pesa ${(file.size / 1024).toFixed(0)} KB. Máximo 256 KB.`);
+
+    if (uploadFile.size > MAX_COVER_BYTES) {
+      setError(`El archivo pesa ${(uploadFile.size / 1024).toFixed(0)} KB. Máximo 256 KB.`);
       return;
     }
 
     // Preview inmediato con el archivo local (antes de subir).
     if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
-    const objectUrl = URL.createObjectURL(file);
+    const objectUrl = URL.createObjectURL(uploadFile);
     objectUrlRef.current = objectUrl;
     setLocalPreview(objectUrl);
 
     setPending(true);
+    onPendingChange?.(true);
     try {
-      const presign = await uploadsService.presignCover(file.name, file.type, file.size);
-      await uploadToR2(presign.url, file, COVER_CACHE_CONTROL);
+      const presign = await uploadsService.presignCover(
+        uploadFile.name,
+        uploadFile.type,
+        uploadFile.size,
+      );
+      await uploadToR2(presign.url, uploadFile, COVER_CACHE_CONTROL);
       onChange(presign.object_key);
     } catch (err) {
       setError(friendlyError(err));
       setLocalPreview(null);
     } finally {
       setPending(false);
+      onPendingChange?.(false);
     }
   }
 
@@ -92,9 +174,14 @@ export function CoverUploader({
     <div className="flex flex-col gap-2">
       <span className="text-sm font-medium">{label}</span>
 
-      <div className="flex items-center gap-4">
+      <div className={cn("flex items-center", compact ? "gap-3" : "gap-4")}>
         {/* Preview / placeholder */}
-        <div className="h-24 w-24 shrink-0 overflow-hidden rounded-xl border border-bg-highlight bg-bg-highlight/40">
+        <div
+          className={cn(
+            "shrink-0 overflow-hidden rounded-xl border border-bg-highlight bg-bg-highlight/40",
+            compact ? "h-16 w-16" : "h-24 w-24",
+          )}
+        >
           {shownPreview ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -113,7 +200,11 @@ export function CoverUploader({
           <label className="inline-flex w-fit cursor-pointer items-center gap-2">
             <input
               type="file"
-              accept="image/webp,.webp"
+              accept={
+                autoConvertToWebp
+                  ? "image/webp,image/jpeg,image/png,.webp,.jpg,.jpeg,.png"
+                  : "image/webp,.webp"
+              }
               className="sr-only"
               onChange={(e) => handleFile(e.target.files?.[0])}
             />
@@ -143,10 +234,19 @@ export function CoverUploader({
       </div>
 
       <p className="text-xs text-text-subdued">
-        Formato <strong>solo WebP</strong> · peso máximo <strong>256 KB</strong> ·
-        tamaño sugerido <strong>{SUGGESTED_SIZE}</strong> (cubre pills de 40px,
-        cards de ~300px y héroes de ~500px; la misma imagen se reutiliza en
-        todos lados y se cachea por años).
+        {autoConvertToWebp ? (
+          <>
+            Se convierte a <strong>WebP ligero</strong> (máx. <strong>256 KB</strong> ·{" "}
+            {SUGGESTED_SIZE}).
+          </>
+        ) : (
+          <>
+            Formato <strong>solo WebP</strong> · peso máximo <strong>256 KB</strong> ·
+            tamaño sugerido <strong>{SUGGESTED_SIZE}</strong> (cubre pills de 40px,
+            cards de ~300px y héroes de ~500px; la misma imagen se reutiliza en
+            todos lados y se cachea por años).
+          </>
+        )}
       </p>
 
       {error && (

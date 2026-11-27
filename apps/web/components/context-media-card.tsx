@@ -13,6 +13,7 @@ interface ContextMediaCardProps {
   title: string;
   href: string;
   coverUrl?: string | null;
+  collageUrls?: readonly string[] | null;
   /** "5 canciones" / "Bad Bunny · Álbum". */
   subtitle: React.ReactNode;
   /** Filtro serializable: el fetch de la cola se resuelve recién al clic. */
@@ -28,6 +29,7 @@ export function ContextMediaCard({
   title,
   href,
   coverUrl,
+  collageUrls,
   subtitle,
   queueParams,
 }: ContextMediaCardProps) {
@@ -78,6 +80,7 @@ export function ContextMediaCard({
       title={title}
       href={href}
       coverUrl={coverUrl}
+      collageUrls={collageUrls}
       subtitle={subtitle}
       onPlay={handlePlay}
       playDisabled={loading}

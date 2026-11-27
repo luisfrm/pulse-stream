@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { cn } from "@/components/ui";
-import { NoCover } from "@/components/no-cover";
+import { PlaylistCover } from "@/components/playlist-cover";
 import { authorHandle } from "@/lib/utils/format";
 import type { Playlist } from "@/lib/services/types";
 
@@ -35,20 +35,15 @@ export function PlaylistCard({
         )}
       >
         <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-bg-highlight bg-bg-highlight/40">
-          {playlist.cover_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={playlist.cover_url}
-              alt={`Cover de ${playlist.name}`}
-              loading={priority ? "eager" : "lazy"}
-              fetchPriority={priority ? "high" : "auto"}
-              decoding="async"
-              sizes="56px"
-              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
-            />
-          ) : (
-            <NoCover size="md" />
-          )}
+          <PlaylistCover
+            coverUrl={playlist.cover_url}
+            collageUrls={playlist.collage_cover_urls}
+            alt={`Cover de ${playlist.name}`}
+            size="md"
+            priority={priority}
+            hoverZoom
+            sizes="56px"
+          />
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium">{playlist.name}</p>
@@ -69,20 +64,15 @@ export function PlaylistCard({
       )}
     >
       <div className="relative aspect-square w-full overflow-hidden rounded-xl border border-bg-highlight bg-bg-highlight/40">
-        {playlist.cover_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={playlist.cover_url}
-            alt={`Cover de ${playlist.name}`}
-            loading={priority ? "eager" : "lazy"}
-            fetchPriority={priority ? "high" : "auto"}
-            decoding="async"
-            sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 20vw"
-            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
-          />
-        ) : (
-          <NoCover size="lg" />
-        )}
+        <PlaylistCover
+          coverUrl={playlist.cover_url}
+          collageUrls={playlist.collage_cover_urls}
+          alt={`Cover de ${playlist.name}`}
+          size="lg"
+          priority={priority}
+          hoverZoom
+          sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 20vw"
+        />
       </div>
 
       <div className="min-w-0 flex-1">

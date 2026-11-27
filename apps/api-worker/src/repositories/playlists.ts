@@ -18,6 +18,7 @@ import { and, asc, count, desc, eq, inArray, sql } from "drizzle-orm";
 import { createDb } from "@/db/client";
 import {
   ARTIST_TOP_QUERY,
+  albums,
   playlistSongs,
   playlists,
   songCollaborators,
@@ -39,8 +40,11 @@ export interface PlaylistItem {
   position: number;
 }
 
-/** Playlist + items cargados (para `song_ids` de `MyPlaylistRead`). */
-export type PlaylistWithItems = PlaylistWithOwner & { items: PlaylistItem[] };
+/** Playlist + items + up to 4 distinct collage cover keys. */
+export type PlaylistWithItems = PlaylistWithOwner & {
+  items: PlaylistItem[];
+  collageCoverKeys: string[];
+};
 
 /** Columnas que la API puede escribir en una playlist existente. */
 export type PlaylistPatch = Partial<
@@ -120,6 +124,55 @@ export async function loadPlaylistItems(
   return byPlaylist;
 }
 
+/**
+ * Loads up to 4 distinct album cover_keys per playlist in playlist order
+ * using a single batched SQL query (only for playlists without a custom cover).
+ */
+export async function loadPlaylistCollageCoverKeys(
+  config: AppConfig,
+  playlistIds: readonly string[],
+): Promise<Map<string, string[]>> {
+  const byPlaylist = new Map<string, string[]>();
+  if (playlistIds.length === 0) return byPlaylist;
+
+  const result = await createDb(config).execute(sql`
+    WITH distinct_covers AS (
+      SELECT
+        ${playlistSongs.playlistId} AS playlist_id,
+        ${albums.coverKey} AS cover_key,
+        MIN(${playlistSongs.position}) AS first_pos
+      FROM ${playlistSongs}
+      INNER JOIN ${songs} ON ${songs.id} = ${playlistSongs.songId}
+      INNER JOIN ${albums} ON ${albums.id} = ${songs.albumId}
+      WHERE ${inArray(playlistSongs.playlistId, [...playlistIds])}
+        AND ${albums.coverKey} IS NOT NULL
+      GROUP BY ${playlistSongs.playlistId}, ${albums.coverKey}
+    ),
+    ranked AS (
+      SELECT
+        playlist_id,
+        cover_key,
+        ROW_NUMBER() OVER (
+          PARTITION BY playlist_id
+          ORDER BY first_pos ASC, cover_key ASC
+        ) AS rn
+      FROM distinct_covers
+    )
+    SELECT playlist_id, cover_key
+    FROM ranked
+    WHERE rn <= 4
+    ORDER BY playlist_id, rn ASC
+  `);
+
+  const rows = (result as unknown as { rows?: Array<{ playlist_id: string; cover_key: string }> }).rows ?? [];
+  for (const row of rows) {
+    const list = byPlaylist.get(row.playlist_id) ?? [];
+    list.push(row.cover_key);
+    byPlaylist.set(row.playlist_id, list);
+  }
+  return byPlaylist;
+}
+
 /** Playlists del dueño (más nuevas primero) + items cargados. */
 export async function listPlaylistsByOwner(
   config: AppConfig,
@@ -140,15 +193,21 @@ export async function listPlaylistsByOwner(
   if (limit !== undefined) query = query.limit(limit);
 
   const rows = await query;
-  const items = await loadPlaylistItems(
-    config,
-    rows.map(({ playlist }) => playlist.id),
-  );
+  const allIds = rows.map(({ playlist }) => playlist.id);
+  const collageIds = rows
+    .filter(({ playlist }) => !playlist.coverKey)
+    .map(({ playlist }) => playlist.id);
+
+  const [items, collageCovers] = await Promise.all([
+    loadPlaylistItems(config, allIds),
+    loadPlaylistCollageCoverKeys(config, collageIds),
+  ]);
 
   return rows.map(({ playlist, ownerEmail }) => ({
     ...playlist,
     ownerEmail,
     items: items.get(playlist.id) ?? [],
+    collageCoverKeys: playlist.coverKey ? [] : (collageCovers.get(playlist.id) ?? []),
   }));
 }
 
@@ -237,15 +296,21 @@ export async function listPublicPlaylists(
     .offset(filters.offset)
     .limit(filters.limit);
 
-  const items = await loadPlaylistItems(
-    config,
-    rows.map(({ playlist }) => playlist.id),
-  );
+  const allIds = rows.map(({ playlist }) => playlist.id);
+  const collageIds = rows
+    .filter(({ playlist }) => !playlist.coverKey)
+    .map(({ playlist }) => playlist.id);
+
+  const [items, collageCovers] = await Promise.all([
+    loadPlaylistItems(config, allIds),
+    loadPlaylistCollageCoverKeys(config, collageIds),
+  ]);
 
   return rows.map(({ playlist, ownerEmail }) => ({
     ...playlist,
     ownerEmail,
     items: items.get(playlist.id) ?? [],
+    collageCoverKeys: playlist.coverKey ? [] : (collageCovers.get(playlist.id) ?? []),
   }));
 }
 

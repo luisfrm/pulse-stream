@@ -18,10 +18,12 @@ import {
   CONTRACT_DEVIATIONS,
   WORKER_ONLY_COMPONENTS,
   WORKER_ONLY_PATHS,
+  WORKER_ONLY_SCHEMA_FIELDS,
   normalizeComponents,
   normalizePaths,
   type NormalizedComponents,
   type NormalizedPaths,
+  type NormalizedSchema,
 } from "@/lib/contract";
 import { OPENAPI_VERSION, openApiInfo } from "@/lib/openapi";
 import pydanticContract from "@/lib/__fixtures__/openapi-contract.json";
@@ -94,7 +96,30 @@ describe("contrato OpenAPI vs backend Python", () => {
   );
 
   it.each(Object.keys(expected))("%s tiene la misma forma que Pydantic", (name) => {
-    expect(ourComponents[name]).toEqual(expected[name]);
+    const extraFields = WORKER_ONLY_SCHEMA_FIELDS[name];
+    if (!extraFields) {
+      expect(ourComponents[name]).toEqual(expected[name]);
+      return;
+    }
+
+    const actual = ourComponents[name];
+    expect(actual?.kind).toBe("object");
+    if (actual?.kind !== "object") return;
+
+    for (const field of extraFields) {
+      expect(actual.properties).toHaveProperty(field);
+    }
+
+    const strippedProperties = { ...actual.properties };
+    for (const field of extraFields) {
+      delete strippedProperties[field];
+    }
+    const stripped: NormalizedSchema = {
+      ...actual,
+      properties: strippedProperties,
+      required: actual.required.filter((field) => !extraFields.includes(field)),
+    };
+    expect(stripped).toEqual(expected[name]);
   });
 
   it("no registra alias de páginas que Pydantic no emite", () => {

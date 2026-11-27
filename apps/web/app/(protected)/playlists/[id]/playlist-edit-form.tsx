@@ -4,6 +4,7 @@ import * as React from "react";
 import { Pencil } from "lucide-react";
 import { useRouter } from "next/navigation";
 
+import { CoverUploader } from "@/components/cover-uploader";
 import { Button, Checkbox, Input, Modal, Textarea } from "@/components/ui";
 import { playlistsService } from "@/lib/services/playlists-service";
 import type { PlaylistDetail } from "@/lib/services/types";
@@ -25,6 +26,10 @@ export function PlaylistEditForm({ playlist, onMutated }: PlaylistEditFormProps)
   const [name, setName] = React.useState(playlist.name);
   const [description, setDescription] = React.useState(playlist.description ?? "");
   const [isPublic, setIsPublic] = React.useState(playlist.is_public);
+  const [coverKey, setCoverKey] = React.useState<string | null>(
+    playlist.cover_key ?? null,
+  );
+  const [coverPending, setCoverPending] = React.useState(false);
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -34,13 +39,14 @@ export function PlaylistEditForm({ playlist, onMutated }: PlaylistEditFormProps)
     setName(playlist.name);
     setDescription(playlist.description ?? "");
     setIsPublic(playlist.is_public);
+    setCoverKey(playlist.cover_key ?? null);
     setError(null);
     setOpen(true);
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim() || coverPending) return;
     setPending(true);
     setError(null);
     try {
@@ -48,6 +54,7 @@ export function PlaylistEditForm({ playlist, onMutated }: PlaylistEditFormProps)
         name: name.trim(),
         description: description.trim() || undefined,
         is_public: isPublic,
+        cover_key: coverKey,
       });
       setOpen(false);
       await onMutated();
@@ -90,6 +97,15 @@ export function PlaylistEditForm({ playlist, onMutated }: PlaylistEditFormProps)
             rows={3}
             placeholder="De qué se trata esta playlist…"
           />
+          <CoverUploader
+            label="Cover (opcional)"
+            value={coverKey}
+            previewUrl={playlist.cover_url}
+            onChange={setCoverKey}
+            onPendingChange={setCoverPending}
+            autoConvertToWebp
+            compact
+          />
           <label className="flex items-center gap-2.5 text-sm font-medium">
             <Checkbox
               checked={isPublic}
@@ -111,7 +127,12 @@ export function PlaylistEditForm({ playlist, onMutated }: PlaylistEditFormProps)
             >
               Cancelar
             </Button>
-            <Button type="submit" size="sm" loading={pending} disabled={!name.trim()}>
+            <Button
+              type="submit"
+              size="sm"
+              loading={pending}
+              disabled={!name.trim() || coverPending}
+            >
               Guardar
             </Button>
           </div>

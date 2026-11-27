@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { ChevronDown, Loader2, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
-import { NoCover } from "@/components/no-cover";
+import { PlaylistCover } from "@/components/playlist-cover";
 import {
   Button,
   Input,
@@ -220,12 +220,12 @@ export function PlaylistsManager({
                     className="flex min-w-0 flex-1 items-center gap-3"
                   >
                     <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-bg-highlight bg-bg-highlight/40">
-                      {pl.cover_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={pl.cover_url} alt="" className="h-full w-full object-cover" />
-                      ) : (
-                        <NoCover size="md" />
-                      )}
+                      <PlaylistCover
+                        coverUrl={pl.cover_url}
+                        collageUrls={pl.collage_cover_urls}
+                        size="md"
+                        sizes="48px"
+                      />
                     </div>
                     <div className="min-w-0">
                       <p className="truncate font-display text-sm font-bold hover:underline">

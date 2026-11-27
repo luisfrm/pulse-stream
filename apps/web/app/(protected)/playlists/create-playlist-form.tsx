@@ -4,6 +4,7 @@ import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { CoverUploader } from "@/components/cover-uploader";
 import { Button, Card, CardContent, Input, Textarea } from "@/components/ui";
 import { playlistsService } from "@/lib/services/playlists-service";
 import { friendlyError } from "@/lib/utils/error";
@@ -18,18 +19,21 @@ export function CreatePlaylistForm({ onCreated }: CreatePlaylistFormProps) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [coverKey, setCoverKey] = useState<string | null>(null);
+  const [coverPending, setCoverPending] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim() || coverPending) return;
     setPending(true);
     setError(null);
     try {
       const pl = await playlistsService.create({
         name: name.trim(),
         description: description.trim() || undefined,
+        cover_key: coverKey ?? undefined,
       });
       await onCreated();
       router.push(`/playlists/${pl.id}`);
@@ -73,6 +77,14 @@ export function CreatePlaylistForm({ onCreated }: CreatePlaylistFormProps) {
             rows={2}
             placeholder="De qué se trata esta playlist…"
           />
+          <CoverUploader
+            label="Cover (opcional)"
+            value={coverKey}
+            onChange={setCoverKey}
+            onPendingChange={setCoverPending}
+            autoConvertToWebp
+            compact
+          />
           {error && (
             <p className="rounded-xl bg-brand-900/30 px-3 py-2 text-sm text-brand-200">
               {error}
@@ -83,11 +95,20 @@ export function CreatePlaylistForm({ onCreated }: CreatePlaylistFormProps) {
               type="button"
               variant="ghost"
               size="sm"
-              onClick={() => setOpen(false)}
+              onClick={() => {
+                setCoverKey(null);
+                setError(null);
+                setOpen(false);
+              }}
             >
               Cancelar
             </Button>
-            <Button type="submit" size="sm" loading={pending} disabled={!name.trim()}>
+            <Button
+              type="submit"
+              size="sm"
+              loading={pending}
+              disabled={!name.trim() || coverPending}
+            >
               Crear
             </Button>
           </div>
