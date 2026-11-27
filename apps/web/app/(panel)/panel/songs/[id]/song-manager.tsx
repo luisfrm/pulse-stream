@@ -13,7 +13,7 @@ import { songsService } from "@/lib/services/songs-service";
 import type { Album, Artist, Song } from "@/lib/services/types";
 import { friendlyError } from "@/lib/utils/error";
 import { formatGenre } from "@/lib/utils/format";
-import { isAlbumReturnPath, safePanelReturnPath } from "@/lib/utils/song-upload";
+import { getPanelReturnLabel, safePanelReturnPath } from "@/lib/utils/song-upload";
 
 interface SongManagerProps {
   readonly song: Song;
@@ -35,9 +35,7 @@ export function SongManager({
 }: SongManagerProps) {
   const router = useRouter();
   const backHref = safePanelReturnPath(returnTo);
-  const backLabel = isAlbumReturnPath(backHref)
-    ? "← Volver al álbum"
-    : "← Volver a canciones";
+  const backLabel = getPanelReturnLabel(backHref);
   const [title, setTitle] = React.useState(song.title);
   const [artistId, setArtistId] = React.useState<string>(song.artist.id);
   const [albumId, setAlbumId] = React.useState<string>(song.album?.id ?? "");
@@ -121,10 +119,12 @@ export function SongManager({
     setError(null);
     try {
       await songsService.deleteSong(song.id);
+      await onMutated().catch(() => {});
       router.push(backHref);
       router.refresh();
     } catch (err) {
       setError(friendlyError(err));
+      setDeleting(false);
       setPending(false);
     }
   }
@@ -206,8 +206,8 @@ export function SongManager({
               value={artistId}
               onChange={(id) => {
                 setArtistId(id);
-                setAlbumId(""); // el álbum pertenece al artista elegido
-                setAlbumQuery("");
+                setAlbumId(""); // album belongs to the selected artist
+                setCollaboratorIds((prev) => prev.filter((c) => c !== id));
               }}
               placeholder="Elegí un artista…"
               searchable

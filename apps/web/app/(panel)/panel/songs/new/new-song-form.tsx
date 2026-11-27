@@ -14,7 +14,7 @@ import type { Album, Artist } from "@/lib/services/types";
 import { friendlyError } from "@/lib/utils/error";
 import { formatGenre } from "@/lib/utils/format";
 import {
-  isAlbumReturnPath,
+  getPanelReturnLabel,
   safePanelReturnPath,
   uploadAndCreateSong,
 } from "@/lib/utils/song-upload";
@@ -43,9 +43,7 @@ export function NewSongForm({
 }: NewSongFormProps) {
   const router = useRouter();
   const backHref = safePanelReturnPath(returnTo);
-  const backLabel = isAlbumReturnPath(backHref)
-    ? "← Volver al álbum"
-    : "← Volver a canciones";
+  const backLabel = getPanelReturnLabel(backHref);
 
   const [title, setTitle] = useState("");
   const [artistId, setArtistId] = useState(initialArtistId);
@@ -125,8 +123,11 @@ export function NewSongForm({
     if (!title.trim()) return setError("Falta el título.");
     if (!file) return setError("Elegí un archivo .mp3, .aac o .m4a para subir.");
 
+    const trimmedArtist = newArtistName.trim();
     const artistSpec = createNewArtist
-      ? { artist_name: newArtistName.trim() }
+      ? trimmedArtist
+        ? { artist_name: trimmedArtist }
+        : null
       : artistId
         ? { artist_id: artistId }
         : null;
@@ -146,7 +147,7 @@ export function NewSongForm({
       let resolvedArtistId = artistId;
       let resolvedAlbumId = albumId;
       if (createNewArtist) {
-        const artist = await artistsService.createArtist(newArtistName.trim());
+        const artist = await artistsService.createArtist(trimmedArtist);
         resolvedArtistId = artist.id;
         const album = await albumsService.create({
           title: newAlbumTitle.trim(),
@@ -159,9 +160,7 @@ export function NewSongForm({
       // 1-2) Presign, direct upload to R2, and create song record
       await uploadAndCreateSong({
         title,
-        ...(createNewArtist
-          ? { artistId: resolvedArtistId }
-          : { artistId: artistId || undefined, artistName: createNewArtist ? newArtistName : undefined }),
+        artistId: resolvedArtistId,
         albumId: resolvedAlbumId,
         genres: selectedGenres,
         lyrics,
@@ -404,8 +403,7 @@ function CreateAlbumInline({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  async function handleCreate() {
     if (!title.trim()) return setError("Falta el título del álbum.");
     setPending(true);
     setError(null);
@@ -425,7 +423,7 @@ function CreateAlbumInline({
       <p className="mb-2 text-xs text-text-subdued">
         Álbum nuevo para <strong className="text-text-primary">{artistName}</strong>:
       </p>
-      <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2">
         <Input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
@@ -438,13 +436,14 @@ function CreateAlbumInline({
           </p>
         )}
         <button
-          type="submit"
+          type="button"
+          onClick={handleCreate}
           disabled={pending}
           className="w-fit rounded-pill bg-brand-400 px-4 py-2 text-sm font-semibold text-bg-base transition-colors hover:bg-brand-200 disabled:opacity-60"
         >
           {pending ? "Creando…" : "Crear y elegir este álbum"}
         </button>
-      </form>
+      </div>
     </div>
   );
 }
