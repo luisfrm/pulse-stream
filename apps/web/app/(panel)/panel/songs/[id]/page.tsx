@@ -7,18 +7,21 @@ import { artistsService } from "@/lib/services/artists-service";
 import { genresService } from "@/lib/services/genres-service";
 import { songsService } from "@/lib/services/songs-service";
 import { CACHE_TAGS } from "@/lib/services/tags";
+import { safePanelReturnPath } from "@/lib/utils/song-upload";
 
 import { SongManager } from "./song-manager";
 
 interface PanelSongPageProps {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ returnTo?: string }>;
 }
 
 export const metadata: Metadata = { title: "Canción · Panel" };
 export const dynamic = "force-dynamic";
 
-export default async function PanelSongPage({ params }: PanelSongPageProps) {
-  const { id } = await params;
+export default async function PanelSongPage({ params, searchParams }: PanelSongPageProps) {
+  const [{ id }, query] = await Promise.all([params, searchParams]);
+  const returnTo = safePanelReturnPath(query.returnTo);
 
   const song = await songsService
     .getSongById(id, {
@@ -58,6 +61,7 @@ export default async function PanelSongPage({ params }: PanelSongPageProps) {
       genres={genres}
       albums={albumsPage.items}
       artists={artistsPage.items}
+      returnTo={returnTo}
       onMutated={refresh}
     />
   );

@@ -3,29 +3,35 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Archive, Plus } from "lucide-react";
+import { Archive, CheckCircle2, Plus } from "lucide-react";
 
 import { AudioPreviewPlayer } from "@/components/audio-preview-player";
 import { CoverUploader } from "@/components/cover-uploader";
 import { NoCover } from "@/components/no-cover";
 import { Button, Modal, Input } from "@/components/ui";
 import { albumsService } from "@/lib/services/albums-service";
-import type { AlbumDetail, ZipImportResult } from "@/lib/services/types";
+import type { AlbumDetail, Artist, ZipImportResult } from "@/lib/services/types";
 import { friendlyError } from "@/lib/utils/error";
+
+import { AlbumSongModal } from "./album-song-modal";
 
 interface AlbumManagerProps {
   readonly album: AlbumDetail;
+  readonly genres: string[];
+  readonly artists: Artist[];
   readonly onMutated: () => Promise<void>;
 }
 
-/** Página admin del álbum: editar datos, ver y gestionar sus canciones. */
-export function AlbumManager({ album, onMutated }: AlbumManagerProps) {
+/** Admin page for an album: edit metadata, upload songs, and manage its tracklist. */
+export function AlbumManager({ album, genres, artists, onMutated }: AlbumManagerProps) {
   const router = useRouter();
   const [title, setTitle] = React.useState(album.title);
   const [coverKey, setCoverKey] = React.useState<string | null>(album.cover_key ?? null);
   const [pending, setPending] = React.useState(false);
+  const [savedBanner, setSavedBanner] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [deleting, setDeleting] = React.useState(false);
+  const [uploadOpen, setUploadOpen] = React.useState(false);
   const [importing, setImporting] = React.useState(false);
   const [importResult, setImportResult] = React.useState<ZipImportResult | null>(
     null
@@ -61,6 +67,7 @@ export function AlbumManager({ album, onMutated }: AlbumManagerProps) {
     e.preventDefault();
     setPending(true);
     setError(null);
+    setSavedBanner(false);
     try {
       await albumsService.update(album.id, {
         title: title.trim(),
@@ -68,6 +75,7 @@ export function AlbumManager({ album, onMutated }: AlbumManagerProps) {
       });
       await onMutated();
       router.refresh();
+      setSavedBanner(true);
     } catch (err) {
       setError(friendlyError(err));
     } finally {
@@ -127,6 +135,13 @@ export function AlbumManager({ album, onMutated }: AlbumManagerProps) {
         </div>
       </div>
 
+      {savedBanner && (
+        <p className="mt-4 flex items-center gap-2 rounded-xl border border-brand-400/40 bg-brand-400/15 px-4 py-3 text-sm text-brand-200">
+          <CheckCircle2 size={16} className="shrink-0" aria-hidden />
+          <span>Cambios guardados.</span>
+        </p>
+      )}
+
       {error && (
         <p className="mt-4 rounded-xl bg-brand-900/30 px-4 py-3 text-sm text-brand-200">
           {error}
@@ -166,12 +181,13 @@ export function AlbumManager({ album, onMutated }: AlbumManagerProps) {
         <div className="rounded-2xl border border-bg-highlight bg-bg-elevated/50 p-5">
           <h2 className="font-display text-lg font-bold">Acciones</h2>
           <div className="mt-4 flex flex-col gap-3">
-            <Link
-              href={`/panel/songs/new?artist=${album.artist.id}&album=${album.id}`}
-              className="flex items-center gap-2 rounded-pill bg-brand-400 px-4 py-2.5 text-sm font-semibold text-bg-base transition-colors hover:bg-brand-200"
+            <Button
+              type="button"
+              onClick={() => setUploadOpen(true)}
+              className="w-full"
             >
               <Plus size={16} aria-hidden /> Subir canción a este álbum
-            </Link>
+            </Button>
             <Button
               type="button"
               variant="outline"
@@ -226,7 +242,7 @@ export function AlbumManager({ album, onMutated }: AlbumManagerProps) {
                   </div>
                   <div className="min-w-0 flex-1">
                     <Link
-                      href={`/panel/songs/${song.id}`}
+                      href={`/panel/songs/${song.id}?returnTo=${encodeURIComponent(`/panel/albums/${album.id}`)}`}
                       className="block truncate text-sm font-medium hover:underline"
                     >
                       {song.title}
@@ -239,7 +255,7 @@ export function AlbumManager({ album, onMutated }: AlbumManagerProps) {
                     <AudioPreviewPlayer src={song.stream_url} title={song.title} />
                   )}
                   <Link
-                    href={`/panel/songs/${song.id}`}
+                    href={`/panel/songs/${song.id}?returnTo=${encodeURIComponent(`/panel/albums/${album.id}`)}`}
                     className="shrink-0 rounded-pill border border-bg-highlight px-3 py-1.5 text-xs text-text-subdued transition-colors hover:border-brand-400 hover:text-text-primary"
                   >
                     Editar
@@ -319,6 +335,15 @@ export function AlbumManager({ album, onMutated }: AlbumManagerProps) {
           <Button onClick={() => setImportResult(null)}>Listo</Button>
         </div>
       </Modal>
+
+      <AlbumSongModal
+        open={uploadOpen}
+        onClose={() => setUploadOpen(false)}
+        album={album}
+        genres={genres}
+        artists={artists}
+        onCreated={onMutated}
+      />
 
       {/* Confirmación de borrado (la API bloquea si el álbum tiene canciones) */}
       <Modal
