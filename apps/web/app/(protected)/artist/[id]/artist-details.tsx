@@ -279,6 +279,7 @@ function FeaturedInSection({
               title={playlist.name}
               href={`/playlists/${playlist.id}`}
               coverUrl={playlist.cover_url}
+              collageUrls={playlist.collage_cover_urls}
               subtitle={
                 playlist.kind === "system"
                   ? "Curada por Pulse Stream"

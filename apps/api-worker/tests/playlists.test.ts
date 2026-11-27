@@ -223,6 +223,26 @@ describeDb("playlists", () => {
     expect(response.status).toBe(422);
   });
 
+  it("creates a playlist with optional WebP cover_key and validates invalid pattern", async () => {
+    await registerAndLogin(client);
+
+    const invalid = await client.postJson("/playlists", {
+      name: "Invalid cover",
+      cover_key: "covers/not-webp.png",
+    });
+    expect(invalid.status).toBe(422);
+
+    const coverKey = "covers/77777777-7777-4777-8777-777777777777.webp";
+    const created = await client.postJson("/playlists", {
+      name: "With cover",
+      cover_key: coverKey,
+    });
+    expect(created.status).toBe(201);
+    const body = await readJson<PlaylistDetail>(created);
+    expect(body.cover_key).toBe(coverKey);
+    expect(body.collage_cover_urls).toEqual([]);
+  });
+
   it("requiere sesión", async () => {
     expect((await client.get("/playlists")).status).toBe(401);
     expect((await client.postJson("/playlists", { name: "X" })).status).toBe(401);

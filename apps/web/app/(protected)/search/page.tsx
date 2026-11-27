@@ -178,6 +178,7 @@ async function IncludesSection({ query }: { query: string }) {
                 title={item.playlist.name}
                 href={`/playlists/${item.playlist.id}`}
                 coverUrl={item.playlist.cover_url}
+                collageUrls={item.playlist.collage_cover_urls}
                 subtitle={`Lista de ${authorHandle(item.playlist.owner_email)}`}
               />
             </div>

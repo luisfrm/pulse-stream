@@ -37,6 +37,7 @@ import {
   findPlaylistWithOwner,
   listPlaylistsByOwner,
   listPublicPlaylists,
+  loadPlaylistCollageCoverKeys,
   loadPlaylistItems,
   removeSongFromPlaylist,
   replacePlaylistSongs,
@@ -80,7 +81,7 @@ export const MY_PLAYLISTS_LIMIT = 200;
 
 /** `PlaylistDetail` a nivel dominio (el router serializa las canciones). */
 export interface PlaylistDetailData {
-  playlist: PlaylistWithOwner & { songCount: number };
+  playlist: PlaylistWithOwner & { songCount: number; collageCoverKeys: string[] };
   songs: SongWithRelations[];
 }
 
@@ -127,6 +128,18 @@ async function snapshotSongIds(
   return listNewestSongIds(config, SYSTEM_SNAPSHOT_LIMIT);
 }
 
+/** Extracts up to 4 distinct album cover_keys in playlist order. */
+function collageKeysFromSongs(songs: readonly SongWithRelations[]): string[] {
+  const seen = new Set<string>();
+  for (const song of songs) {
+    const key = song.album?.coverKey;
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    if (seen.size >= 4) break;
+  }
+  return [...seen];
+}
+
 /** Detalle completo (cabecera + dueño + canciones por posición). */
 async function detailFor(
   config: AppConfig,
@@ -137,7 +150,11 @@ async function detailFor(
   if (!playlist) throw new PlaylistNotFoundError(playlistId);
 
   const songs = await findSongsByPlaylistId(config, playlistId);
-  return { playlist: { ...playlist, songCount: songs.length }, songs };
+  const collageCoverKeys = playlist.coverKey ? [] : collageKeysFromSongs(songs);
+  return {
+    playlist: { ...playlist, songCount: songs.length, collageCoverKeys },
+    songs,
+  };
 }
 
 /**
@@ -242,10 +259,16 @@ export async function createPlaylistRecord(
     name: payload.name,
     description: payload.description ?? null,
     isPublic: payload.is_public,
+    coverKey: payload.cover_key ?? null,
   });
 
   return {
-    playlist: { ...created, ownerEmail: user.email, songCount: 0 },
+    playlist: {
+      ...created,
+      ownerEmail: user.email,
+      songCount: 0,
+      collageCoverKeys: [],
+    },
     songs: [],
   };
 }
@@ -525,12 +548,18 @@ export async function withItems(
   config: AppConfig,
   items: readonly PlaylistWithOwner[],
 ): Promise<PlaylistWithItems[]> {
-  const byPlaylist = await loadPlaylistItems(
-    config,
-    items.map((playlist) => playlist.id),
-  );
+  const allIds = items.map((playlist) => playlist.id);
+  const collageIds = items
+    .filter((playlist) => !playlist.coverKey)
+    .map((playlist) => playlist.id);
+
+  const [byPlaylist, collageCovers] = await Promise.all([
+    loadPlaylistItems(config, allIds),
+    loadPlaylistCollageCoverKeys(config, collageIds),
+  ]);
   return items.map((playlist) => ({
     ...playlist,
     items: byPlaylist.get(playlist.id) ?? [],
+    collageCoverKeys: playlist.coverKey ? [] : (collageCovers.get(playlist.id) ?? []),
   }));
 }

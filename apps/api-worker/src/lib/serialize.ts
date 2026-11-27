@@ -206,6 +206,8 @@ export type PlaylistInput = PlaylistRow &
   PlaylistLoad & {
     /** Email del dueño (join de `users`), `null` si no se cargó/no hay. */
     ownerEmail: string | null;
+    /** Up to 4 distinct album cover keys for auto-collage when coverKey is null. */
+    collageCoverKeys?: readonly string[];
   };
 
 /** Variante con las filas cargadas (lo que exige `song_ids`). */
@@ -222,6 +224,11 @@ function hasSongCount(
 
 function playlistBase(row: PlaylistInput, config: AppConfig): PlaylistRead {
   const songCount = hasSongCount(row) ? row.songCount : (row.items ?? []).length;
+  const collageCoverUrls = row.coverKey
+    ? []
+    : (row.collageCoverKeys ?? [])
+        .map((key) => coverUrl(config, key))
+        .filter((url): url is string => url !== null);
   return {
     id: row.id,
     kind: row.kind === "system" ? "system" : "user",
@@ -230,6 +237,7 @@ function playlistBase(row: PlaylistInput, config: AppConfig): PlaylistRead {
     is_public: row.isPublic,
     cover_key: row.coverKey ?? null,
     cover_url: coverUrl(config, row.coverKey),
+    collage_cover_urls: collageCoverUrls,
     song_count: songCount,
     query:
       row.query === "top_week" || row.query === "top_month" || row.query === "new"

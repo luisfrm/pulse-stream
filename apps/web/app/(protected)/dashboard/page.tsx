@@ -9,7 +9,7 @@ import { Chips } from "@/components/chips";
 import { ContextMediaCard } from "@/components/context-media-card";
 import { Greeting } from "@/components/greeting";
 import { CarouselSkeleton } from "@/components/loading-skeletons";
-import { NoCover } from "@/components/no-cover";
+import { PlaylistCover } from "@/components/playlist-cover";
 import { Section } from "@/components/section";
 import { SongCard } from "@/components/song-card";
 import { Skeleton } from "@/components/ui";
@@ -208,18 +208,14 @@ async function Shortcuts() {
           href={`/playlists/${playlist.id}`}
           className={SHORTCUT_TILE}
         >
-          {playlist.cover_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={playlist.cover_url}
-              alt=""
-              loading="lazy"
-              decoding="async"
-              className="h-16 w-16 shrink-0 rounded-md object-cover"
+          <div className="h-16 w-16 shrink-0 overflow-hidden rounded-md bg-bg-highlight/40">
+            <PlaylistCover
+              coverUrl={playlist.cover_url}
+              collageUrls={playlist.collage_cover_urls}
+              size="md"
+              sizes="64px"
             />
-          ) : (
-            <NoCover size="md" className="h-16 w-16 shrink-0" />
-          )}
+          </div>
           <span className="truncate font-display text-base font-bold">
             {playlist.name}
           </span>
@@ -306,6 +302,7 @@ async function MyPlaylistsSection() {
               title={playlist.name}
               href={`/playlists/${playlist.id}`}
               coverUrl={playlist.cover_url}
+              collageUrls={playlist.collage_cover_urls}
               subtitle={songCountLabel(playlist.song_count)}
               queueParams={{ playlistId: playlist.id }}
             />
@@ -401,6 +398,7 @@ async function CommunityPlaylistsSection() {
               title={playlist.name}
               href={`/playlists/${playlist.id}`}
               coverUrl={playlist.cover_url}
+              collageUrls={playlist.collage_cover_urls}
               subtitle={songCountLabel(playlist.song_count)}
               queueParams={{ playlistId: playlist.id }}
             />
@@ -454,6 +452,7 @@ async function FeaturedSection() {
               title={playlist.name}
               href={`/playlists/${playlist.id}`}
               coverUrl={playlist.cover_url}
+              collageUrls={playlist.collage_cover_urls}
               subtitle={songCountLabel(playlist.song_count)}
               queueParams={{ playlistId: playlist.id }}
             />

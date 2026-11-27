@@ -3,7 +3,7 @@ description: "Implementa y corrige código de Fit-Stack de punta a punta (esquem
 mode: subagent
 agent: build
 temperature: 0.2
-model: opencode-go/deepseek-v4.1-flash
+model: opencode-go/deepseek-v4.1-flash#high
 permissions:
   - {action: edit, resource: "*", effect: allow}
   - {action: shell, resource: "*", effect: deny}

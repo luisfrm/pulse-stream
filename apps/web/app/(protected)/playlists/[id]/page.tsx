@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { Sparkles } from "lucide-react";
 
 import { BackLink } from "@/components/back-link";
-import { NoCover } from "@/components/no-cover";
+import { PlaylistCover } from "@/components/playlist-cover";
 import { Badge, Button } from "@/components/ui";
 import { getUserLibrary } from "@/lib/services/library";
 import { playlistsService } from "@/lib/services/playlists-service";
@@ -97,16 +97,14 @@ export default async function PlaylistDetailPage({ params }: PlaylistDetailPageP
         />
         <div className="relative flex flex-col gap-6 p-6 sm:flex-row sm:items-end sm:gap-8 sm:p-8">
           <div className="h-40 w-40 shrink-0 overflow-hidden rounded-2xl border border-bg-highlight bg-bg-highlight/40 shadow-2xl sm:h-48 sm:w-48">
-            {playlist.cover_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={playlist.cover_url}
-                alt={`Cover de ${playlist.name}`}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <NoCover size="lg" />
-            )}
+            <PlaylistCover
+              coverUrl={playlist.cover_url}
+              collageUrls={playlist.collage_cover_urls}
+              alt={`Cover de ${playlist.name}`}
+              size="lg"
+              priority
+              sizes="(max-width:640px) 160px, 192px"
+            />
           </div>
 
           <div className="min-w-0 flex-1">

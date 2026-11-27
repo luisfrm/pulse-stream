@@ -5,12 +5,15 @@ import { Pause, Play } from "lucide-react";
 
 import { cn } from "@/components/ui";
 import { NoCover } from "./no-cover";
+import { PlaylistCover } from "./playlist-cover";
 
 interface MediaCardProps {
   title: string;
   /** Destino del título cuando la card navega (cards sin `onSelect`). */
   href?: string;
   coverUrl?: string | null;
+  /** Up to 4 distinct cover URLs for playlist auto-collage fallback. */
+  collageUrls?: readonly string[] | null;
   /** `circle` para artistas. */
   shape?: "square" | "circle";
   subtitle?: React.ReactNode;
@@ -42,6 +45,7 @@ export function MediaCard({
   title,
   href,
   coverUrl,
+  collageUrls,
   shape = "square",
   subtitle,
   badge,
@@ -76,6 +80,15 @@ export function MediaCard({
               decoding="async"
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 240px"
               className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
+            />
+          ) : collageUrls && collageUrls.length > 0 ? (
+            <PlaylistCover
+              collageUrls={collageUrls}
+              alt={`Cover de ${title}`}
+              size="lg"
+              priority={priority}
+              hoverZoom
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 240px"
             />
           ) : (
             <NoCover shape={shape} size="lg" />

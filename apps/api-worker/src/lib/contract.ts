@@ -65,6 +65,20 @@ export const WORKER_ONLY_PATHS = {
  */
 export const WORKER_ONLY_COMPONENTS = ["PlaylistEssentialsCreate"] as const;
 
+/**
+ * Additive Worker-only properties on schemas shared with the frozen Python
+ * OpenAPI fixture. All original Python properties and required fields are still
+ * strictly checked in `contract.test.ts`.
+ */
+export const WORKER_ONLY_SCHEMA_FIELDS: Readonly<
+  Record<string, readonly string[]>
+> = {
+  PlaylistCreate: ["cover_key"],
+  PlaylistRead: ["collage_cover_urls"],
+  PlaylistDetail: ["collage_cover_urls"],
+  MyPlaylistRead: ["collage_cover_urls"],
+};
+
 type JsonObject = Record<string, unknown>;
 
 const COMPONENT_REF_PREFIX = "#/components/schemas/";

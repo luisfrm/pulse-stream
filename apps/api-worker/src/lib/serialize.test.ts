@@ -236,6 +236,50 @@ describe("playlists", () => {
     expect(dto.song_count).toBe(2);
     expect(dto.song_ids).toEqual(["a", "b"]);
     expect(dto.kind).toBe("user");
+    expect(dto.collage_cover_urls).toEqual([]);
+  });
+
+  it("serializes collage_cover_urls when no custom coverKey is set", () => {
+    const dto = toPlaylistDto(
+      {
+        ...playlistRow,
+        ownerEmail: "ana@example.com",
+        songCount: 4,
+        collageCoverKeys: ["covers/1.webp", "covers/2.webp"],
+      },
+      config,
+    );
+    expect(dto.cover_url).toBeNull();
+    expect(dto.collage_cover_urls).toEqual([
+      "https://cdn.example.com/covers/1.webp",
+      "https://cdn.example.com/covers/2.webp",
+    ]);
+
+    const withoutR2 = toPlaylistDto(
+      {
+        ...playlistRow,
+        ownerEmail: "ana@example.com",
+        songCount: 2,
+        collageCoverKeys: ["covers/1.webp"],
+      },
+      noR2Config,
+    );
+    expect(withoutR2.collage_cover_urls).toEqual([]);
+  });
+
+  it("clears collage_cover_urls when playlist has a custom coverKey", () => {
+    const dto = toPlaylistDto(
+      {
+        ...playlistRow,
+        coverKey: "covers/custom.webp",
+        ownerEmail: "ana@example.com",
+        songCount: 4,
+        collageCoverKeys: ["covers/1.webp", "covers/2.webp"],
+      },
+      config,
+    );
+    expect(dto.cover_url).toBe("https://cdn.example.com/covers/custom.webp");
+    expect(dto.collage_cover_urls).toEqual([]);
   });
 
   it("normaliza kind/query legacy a valores válidos", () => {

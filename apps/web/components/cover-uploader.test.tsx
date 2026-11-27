@@ -140,4 +140,33 @@ describe("CoverUploader", () => {
       COVER_CACHE_CONTROL
     );
   });
+
+  it("rejects non-image files in autoConvertToWebp mode", async () => {
+    const onChange = vi.fn();
+    render(<CoverUploader value={null} onChange={onChange} autoConvertToWebp />);
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(["data"], "video.mp4", { type: "video/mp4" });
+    selectFile(fileInput, file);
+
+    expect(
+      await screen.findByText(/formato no compatible\. usá webp, jpg o png/i),
+    ).toBeInTheDocument();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("uploads lightweight webp directly in autoConvertToWebp mode", async () => {
+    const onChange = vi.fn();
+    render(<CoverUploader value={null} onChange={onChange} autoConvertToWebp />);
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(["data"], "cover.webp", { type: "image/webp" });
+    selectFile(fileInput, file);
+
+    await waitFor(() =>
+      expect(onChange).toHaveBeenCalledWith(
+        "covers/11111111-1111-4111-8111-111111111111.webp",
+      ),
+    );
+  });
 });

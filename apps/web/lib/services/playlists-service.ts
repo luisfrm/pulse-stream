@@ -11,13 +11,14 @@ export interface CreatePlaylistPayload {
   name: string;
   description?: string;
   is_public?: boolean;
+  cover_key?: string | null;
 }
 
 export interface UpdatePlaylistPayload {
   name?: string;
   description?: string;
   is_public?: boolean;
-  cover_key?: string;
+  cover_key?: string | null;
 }
 
 export interface CreateSystemPlaylistPayload {

@@ -189,6 +189,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
    * registra una vez): el label, la duración y el segundo vigentes viven acá.
    */
   const contextLabelRef = React.useRef<string | null>(null);
+  const contextKeyRef = React.useRef<string | null>(null);
   const durationRef = React.useRef(0);
   const progressRef = React.useRef(0);
   /** Última duración finita > 0 vista: nunca se pisa con 0 (metadata tarda). */
@@ -260,7 +261,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     setPlayedIds(playedRef.current);
     markPlayed(song.id);
     setContextLabel(blob.contextLabel);
-    setContextKey(null);
+    setContextKeyState(null);
     contextRef.current = null;
     exhaustedRef.current = true;
     syncContextHasMore();
@@ -392,6 +393,11 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     setCurrent(song);
   }
 
+  function setContextKeyState(key: string | null) {
+    contextKeyRef.current = key;
+    setContextKey(key);
+  }
+
   /** El contexto todavía puede entregar páginas (lee refs, siempre fresco). */
   function canLoadMore() {
     const context = contextRef.current;
@@ -434,7 +440,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     // suena la última pista y la UI de "Reproducir playlist" no debe cambiar
     // de identidad hasta que realmente empiece a sonar otra canción.
     setContextLabel(contextRef.current?.label ?? null);
-    setContextKey(contextRef.current?.key ?? null);
+    setContextKeyState(contextRef.current?.key ?? null);
 
     const audio = audioRef.current;
     if (!audio) return;
@@ -725,9 +731,24 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
     if (isPlayContext(source)) {
       const context = source;
+      // Fast path: if the player is already in this same context (by key) and
+      // the requested song is already materialized in the queue, switch to it
+      // synchronously without wiping the queue or re-fetching pages.
+      if (context.key && contextKeyRef.current === context.key) {
+        const existing = queueRef.current.find(
+          (candidate) => candidate.id === song.id
+        );
+        if (existing) {
+          startSong(existing);
+          setContextKeyState(context.key);
+          setContextLabel(context.label);
+          return;
+        }
+      }
+
       contextRef.current = context;
       setContextLabel(context.label);
-      setContextKey(context.key ?? null);
+      setContextKeyState(context.key ?? null);
       exhaustedRef.current = !context.loadPage;
 
       const seed = context.seed ?? [];
@@ -769,7 +790,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     // Array (o sin source): la cola ES ese slice, comportamiento histórico.
     contextRef.current = null;
     setContextLabel(null);
-    setContextKey(null);
+    setContextKeyState(null);
     exhaustedRef.current = true;
     setContextHasMore(false);
     setQueueState(source ? [...source] : queueRef.current);

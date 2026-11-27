@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Sparkles } from "lucide-react";
 
 import { Card, CardContent, Title } from "@/components/ui";
-import { NoCover } from "@/components/no-cover";
+import { PlaylistCover } from "@/components/playlist-cover";
 import { playlistsService } from "@/lib/services/playlists-service";
 import { CACHE_TAGS } from "@/lib/services/tags";
 
@@ -58,12 +58,12 @@ export default async function PlaylistsPage() {
                 <Card className="h-full border-brand-400/40 transition-colors hover:border-brand-400">
                   <CardContent className="flex items-center gap-4">
                     <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-bg-highlight bg-bg-highlight/40">
-                      {pl.cover_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={pl.cover_url} alt="" className="h-full w-full object-cover" />
-                      ) : (
-                        <NoCover size="md" className="rounded-xl" />
-                      )}
+                      <PlaylistCover
+                        coverUrl={pl.cover_url}
+                        collageUrls={pl.collage_cover_urls}
+                        size="md"
+                        sizes="64px"
+                      />
                     </div>
                     <div className="min-w-0">
                       <p className="truncate font-display font-bold">{pl.name}</p>
@@ -87,12 +87,12 @@ export default async function PlaylistsPage() {
               <Card className="h-full transition-colors hover:border-brand-400">
                 <CardContent className="flex items-center gap-4">
                   <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-bg-highlight bg-bg-highlight/40">
-                    {pl.cover_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={pl.cover_url} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <NoCover size="md" className="rounded-xl" />
-                    )}
+                    <PlaylistCover
+                      coverUrl={pl.cover_url}
+                      collageUrls={pl.collage_cover_urls}
+                      size="md"
+                      sizes="64px"
+                    />
                   </div>
                   <div className="min-w-0">
                     <p className="truncate font-display font-bold">{pl.name}</p>

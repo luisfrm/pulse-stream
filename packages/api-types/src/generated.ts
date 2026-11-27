@@ -1218,6 +1218,11 @@ export interface components {
             /** Cover Url */
             cover_url?: string | null;
             /**
+             * Collage Cover Urls
+             * @default []
+             */
+            collage_cover_urls: string[];
+            /**
              * Song Count
              * @default 0
              */
@@ -1318,6 +1323,8 @@ export interface components {
              * @default false
              */
             is_public: boolean;
+            /** Cover Key */
+            cover_key?: string | null;
         };
         /**
          * PlaylistDetail
@@ -1348,6 +1355,11 @@ export interface components {
             cover_key?: string | null;
             /** Cover Url */
             cover_url?: string | null;
+            /**
+             * Collage Cover Urls
+             * @default []
+             */
+            collage_cover_urls: string[];
             /**
              * Song Count
              * @default 0
@@ -1418,6 +1430,11 @@ export interface components {
             cover_key?: string | null;
             /** Cover Url */
             cover_url?: string | null;
+            /**
+             * Collage Cover Urls
+             * @default []
+             */
+            collage_cover_urls: string[];
             /**
              * Song Count
              * @default 0

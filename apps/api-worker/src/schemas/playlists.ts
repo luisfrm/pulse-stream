@@ -30,6 +30,7 @@ export const PlaylistCreateSchema = z
     description: z.string().nullable().optional(),
     // Default no-None de Pydantic (`is_public: bool = False`).
     is_public: z.boolean().default(false),
+    cover_key: optionalCoverKeySchema(),
   })
   .openapi("PlaylistCreate");
 
@@ -93,6 +94,7 @@ function playlistReadShape() {
     is_public: z.boolean().default(false),
     cover_key: z.string().nullable().optional(),
     cover_url: z.string().nullable().optional(),
+    collage_cover_urls: z.array(z.string()).default([]),
     song_count: IntSchema.default(0),
     // Query de snapshot (solo system); NULL en playlists de usuario.
     query: nullableRef(PlaylistSystemQueryEnum).optional(),
