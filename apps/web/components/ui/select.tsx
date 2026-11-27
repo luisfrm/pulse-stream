@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
-import { Check, ChevronDown, Search } from "lucide-react";
+import { Check, ChevronDown, Loader2, Search } from "lucide-react";
 
 import { cn } from "./utils";
 import { Input } from "./input";
@@ -50,6 +50,10 @@ interface SelectProps<T extends string = string>
   label?: string;
   searchable?: boolean;
   emptyLabel?: string;
+  /** Called whenever the search input changes (or resets on close). */
+  onSearchChange?: (query: string) => void;
+  /** Shows a subtle loading indicator while remote options are being fetched. */
+  loading?: boolean;
 }
 
 /**
@@ -71,6 +75,8 @@ export function Select<T extends string = string>({
   label,
   searchable = false,
   emptyLabel = "Sin opciones",
+  onSearchChange,
+  loading = false,
   disabled,
   ...props
 }: SelectProps<T>) {
@@ -79,14 +85,34 @@ export function Select<T extends string = string>({
   const [highlighted, setHighlighted] = React.useState(0);
   const rootRef = React.useRef<HTMLDivElement>(null);
   const searchRef = React.useRef<HTMLInputElement>(null);
+  const onSearchChangeRef = React.useRef(onSearchChange);
+  const queryRef = React.useRef(query);
   const generatedId = React.useId();
   const listboxId = `${generatedId}-listbox`;
 
+  React.useEffect(() => {
+    onSearchChangeRef.current = onSearchChange;
+    queryRef.current = query;
+  }, [onSearchChange, query]);
+
+  const resetSearch = React.useCallback(() => {
+    if (queryRef.current !== "") {
+      setQuery("");
+      onSearchChangeRef.current?.("");
+    }
+  }, []);
+
+  const closeDropdown = React.useCallback(() => {
+    setOpen(false);
+    resetSearch();
+  }, [resetSearch]);
+
   const selected = options.find((o) => o.value === value);
 
-  const filtered = searchable
+  const normalizedQuery = query.trim().toLowerCase();
+  const filtered = searchable && normalizedQuery
     ? options.filter((o) =>
-        o.label.toLowerCase().includes(query.toLowerCase())
+        o.label.toLowerCase().includes(normalizedQuery)
       )
     : options;
 
@@ -100,10 +126,10 @@ export function Select<T extends string = string>({
   React.useEffect(() => {
     if (!open) return;
     const onPointerDown = (e: PointerEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+      if (!rootRef.current?.contains(e.target as Node)) closeDropdown();
     };
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") closeDropdown();
     };
     document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
@@ -111,7 +137,7 @@ export function Select<T extends string = string>({
       document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [open]);
+  }, [open, closeDropdown]);
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "ArrowDown") {
@@ -126,7 +152,7 @@ export function Select<T extends string = string>({
       const option = filtered[highlighted];
       if (option) {
         onChange(option.value);
-        setOpen(false);
+        closeDropdown();
       }
     } else if (e.key === "Enter" || e.key === " ") {
       if (!open) {
@@ -153,8 +179,12 @@ export function Select<T extends string = string>({
         aria-haspopup="listbox"
         disabled={disabled}
         onClick={() => {
-          setQuery("");
-          setOpen((o) => !o);
+          if (open) {
+            closeDropdown();
+          } else {
+            resetSearch();
+            setOpen(true);
+          }
         }}
         onKeyDown={handleKeyDown}
         data-state={open ? "open" : "closed"}
@@ -193,8 +223,10 @@ export function Select<T extends string = string>({
                 type="text"
                 value={query}
                 onChange={(e) => {
-                  setQuery(e.target.value);
+                  const nextQuery = e.target.value;
+                  setQuery(nextQuery);
                   setHighlighted(0);
+                  onSearchChange?.(nextQuery);
                 }}
                 placeholder="Buscar…"
                 leftIcon={<Search size={14} />}
@@ -202,8 +234,20 @@ export function Select<T extends string = string>({
             </div>
           )}
 
+          {loading && (
+            <p
+              role="status"
+              className="flex items-center gap-2 px-2 py-2 text-xs text-text-subdued"
+            >
+              <Loader2 size={13} className="shrink-0 animate-spin" aria-hidden />
+              <span>Buscando…</span>
+            </p>
+          )}
+
           {filtered.length === 0 ? (
-            <p className="px-2 py-3 text-sm text-text-subdued">{emptyLabel}</p>
+            !loading && (
+              <p className="px-2 py-3 text-sm text-text-subdued">{emptyLabel}</p>
+            )
           ) : (
             filtered.map((option, index) => {
               const isSelected = option.value === value;
@@ -218,7 +262,7 @@ export function Select<T extends string = string>({
                   onPointerEnter={() => setHighlighted(index)}
                   onClick={() => {
                     onChange(option.value);
-                    setOpen(false);
+                    closeDropdown();
                   }}
                   style={{ animationDelay: `${Math.min(index, 8) * 20}ms` }}
                   className={cn(

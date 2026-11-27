@@ -10,6 +10,7 @@ import { NoCover } from "@/components/no-cover";
 import {
   Button,
   Input,
+  Modal,
   Select,
   Textarea,
   cn,
@@ -56,6 +57,8 @@ export function PlaylistsManager({
   const [description, setDescription] = React.useState("");
   const [query, setQuery] = React.useState<QueryValue>("top_week");
   const [pending, setPending] = React.useState(false);
+  const [playlistToDelete, setPlaylistToDelete] =
+    React.useState<Playlist | null>(null);
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [created, setCreated] = React.useState<string | null>(null);
@@ -91,16 +94,17 @@ export function PlaylistsManager({
     }
   }
 
-  async function handleDelete(id: string) {
-    if (!window.confirm("¿Borrar esta playlist del sistema?")) return;
-    setDeletingId(id);
-    setError(null);
+  async function handleDelete() {
+    if (!playlistToDelete) return;
+    setDeletingId(playlistToDelete.id);
     try {
-      await playlistsService.delete(id);
-      await onMutated();
+      await playlistsService.delete(playlistToDelete.id);
+      setPlaylistToDelete(null);
+      await onMutated().catch(() => {});
       router.refresh();
     } catch (err) {
-      setError(friendlyError(err));
+      toast.error(friendlyError(err));
+      setPlaylistToDelete(null);
     } finally {
       setDeletingId(null);
     }
@@ -251,7 +255,7 @@ export function PlaylistsManager({
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleDelete(pl.id)}
+                    onClick={() => setPlaylistToDelete(pl)}
                     disabled={deletingId === pl.id}
                     aria-label={`Borrar ${pl.name}`}
                     className="rounded-pill p-2 text-text-subdued transition-colors hover:bg-brand-900/30 hover:text-brand-200 disabled:opacity-50"
@@ -281,6 +285,37 @@ export function PlaylistsManager({
           </ul>
         )}
       </div>
+
+      {/* Confirm system playlist deletion */}
+      <Modal
+        open={playlistToDelete !== null}
+        onClose={() => {
+          if (!deletingId) setPlaylistToDelete(null);
+        }}
+        title="¿Borrar esta playlist del sistema?"
+        description={
+          playlistToDelete
+            ? `"${playlistToDelete.name}" se eliminará de forma permanente. Esta acción no se puede deshacer.`
+            : undefined
+        }
+      >
+        <div className="flex justify-end gap-3">
+          <Button
+            variant="outline"
+            disabled={deletingId !== null}
+            onClick={() => setPlaylistToDelete(null)}
+          >
+            Cancelar
+          </Button>
+          <Button
+            variant="destructive"
+            loading={deletingId !== null}
+            onClick={handleDelete}
+          >
+            Sí, eliminar
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 }
@@ -298,6 +333,7 @@ function PlaylistCuration({
   const [search, setSearch] = React.useState("");
   const debounced = useDebounce(search, 300);
   const [results, setResults] = React.useState<Song[]>([]);
+  const [songToRemove, setSongToRemove] = React.useState<Song | null>(null);
   const [pendingSongId, setPendingSongId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -320,20 +356,22 @@ function PlaylistCuration({
     };
   }, [debounced]);
 
-  async function handleRemove(song: Song) {
-    if (pendingSongId) return;
-    if (!window.confirm(`¿Quitar «${song.title}» de esta playlist?`)) return;
-    setPendingSongId(song.id);
+  async function handleRemove() {
+    const target = songToRemove;
+    if (!target || pendingSongId) return;
+    setPendingSongId(target.id);
     try {
       // removeSong ya devuelve el detalle actualizado: se pasa directo a
       // onReload (sin refetch).
-      const updated = await playlistsService.removeSong(playlistId, song.id);
-      toast.success(`Quitada «${song.title}»`);
-      await onReload(updated);
+      const updated = await playlistsService.removeSong(playlistId, target.id);
+      toast.success(`Quitada «${target.title}»`);
+      setSongToRemove(null);
+      await onReload(updated).catch(() => {});
     } catch (err) {
       toast.error(friendlyError(err));
+      setSongToRemove(null);
     } finally {
-      setPendingSongId((cur) => (cur === song.id ? null : cur));
+      setPendingSongId((cur) => (cur === target.id ? null : cur));
     }
   }
 
@@ -390,7 +428,7 @@ function PlaylistCuration({
               </span>
               <button
                 type="button"
-                onClick={() => handleRemove(song)}
+                onClick={() => setSongToRemove(song)}
                 disabled={pendingSongId === song.id}
                 className="shrink-0 rounded-pill px-3 py-1 text-xs text-text-subdued transition-colors hover:bg-brand-900/30 hover:text-brand-200 disabled:opacity-50"
               >
@@ -433,6 +471,37 @@ function PlaylistCuration({
           </ul>
         )}
       </div>
+
+      {/* Confirm song removal from playlist */}
+      <Modal
+        open={songToRemove !== null}
+        onClose={() => {
+          if (!pendingSongId) setSongToRemove(null);
+        }}
+        title="¿Quitar canción de la playlist?"
+        description={
+          songToRemove
+            ? `«${songToRemove.title}» se quitará de esta playlist.`
+            : undefined
+        }
+      >
+        <div className="flex justify-end gap-3">
+          <Button
+            variant="outline"
+            disabled={pendingSongId !== null}
+            onClick={() => setSongToRemove(null)}
+          >
+            Cancelar
+          </Button>
+          <Button
+            variant="destructive"
+            loading={pendingSongId !== null}
+            onClick={handleRemove}
+          >
+            Sí, quitar
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 }

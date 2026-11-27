@@ -124,7 +124,7 @@ export function ArtistsResults({
                       onClick={() =>
                         setEditingCoverId(editingCoverId === artist.id ? null : artist.id)
                       }
-                      className="mt-1 text-xs text-text-subdued transition-colors hover:text-brand-400"
+                      className="mt-1 inline-flex min-h-11 items-center text-xs text-text-subdued transition-colors hover:text-brand-400 sm:min-h-0"
                     >
                       {editingCoverId === artist.id ? "Cerrar cover" : "Editar cover"}
                     </button>
@@ -135,7 +135,7 @@ export function ArtistsResults({
                     type="button"
                     disabled={pendingId === artist.id}
                     onClick={() => setDeleting(artist)}
-                    className="shrink-0 rounded-pill px-3 py-1.5 text-sm text-text-subdued transition-colors hover:bg-bg-highlight hover:text-text-primary disabled:opacity-50"
+                    className="inline-flex min-h-11 shrink-0 items-center rounded-pill px-3 py-1.5 text-sm text-text-subdued transition-colors hover:bg-bg-highlight hover:text-text-primary disabled:opacity-50 sm:min-h-0"
                   >
                     {pendingId === artist.id ? "Borrando…" : "Borrar"}
                   </button>

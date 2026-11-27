@@ -7,13 +7,14 @@ import { Loader2, Music2 } from "lucide-react";
 
 import { CoverUploader } from "@/components/cover-uploader";
 import { Checkbox, FileInput, Input, Select, Textarea } from "@/components/ui";
+import { useCatalogSearch } from "@/lib/hooks/use-catalog-search";
 import { albumsService } from "@/lib/services/albums-service";
 import { artistsService } from "@/lib/services/artists-service";
 import type { Album, Artist } from "@/lib/services/types";
 import { friendlyError } from "@/lib/utils/error";
 import { formatGenre } from "@/lib/utils/format";
 import {
-  isAlbumReturnPath,
+  getPanelReturnLabel,
   safePanelReturnPath,
   uploadAndCreateSong,
 } from "@/lib/utils/song-upload";
@@ -42,9 +43,7 @@ export function NewSongForm({
 }: NewSongFormProps) {
   const router = useRouter();
   const backHref = safePanelReturnPath(returnTo);
-  const backLabel = isAlbumReturnPath(backHref)
-    ? "← Volver al álbum"
-    : "← Volver a canciones";
+  const backLabel = getPanelReturnLabel(backHref);
 
   const [title, setTitle] = useState("");
   const [artistId, setArtistId] = useState(initialArtistId);
@@ -63,11 +62,26 @@ export function NewSongForm({
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
+  const {
+    artists,
+    albums,
+    artistsLoading,
+    albumsLoading,
+    setArtistQuery,
+    setAlbumQuery,
+  } = useCatalogSearch({
+    initialArtists,
+    initialAlbums,
+    artistId: createNewArtist ? undefined : artistId,
+    selectedArtistId: createNewArtist ? undefined : artistId,
+    selectedAlbumId: createNewArtist ? undefined : albumId,
+  });
+
   // Álbumes del artista elegido (el álbum pertenece al mismo artista).
   const artistAlbums = artistId
-    ? initialAlbums.filter((a) => a.artist.id === artistId)
+    ? albums.filter((a) => a.artist.id === artistId)
     : [];
-  const artistOptions = initialArtists.map((a) => ({ value: a.id, label: a.name }));
+  const artistOptions = artists.map((a) => ({ value: a.id, label: a.name }));
   const albumOptions = artistAlbums.map((a) => ({ value: a.id, label: a.title }));
 
   function toggleGenre(genre: string) {
@@ -85,6 +99,7 @@ export function NewSongForm({
   function handleArtistChange(id: string) {
     setArtistId(id);
     setAlbumId("");
+    setAlbumQuery("");
     setAlbumCreateOpen(false);
   }
 
@@ -208,6 +223,8 @@ export function NewSongForm({
               onChange={handleArtistChange}
               placeholder="Elegí un artista…"
               searchable
+              onSearchChange={setArtistQuery}
+              loading={artistsLoading}
             />
           )}
           <label className="mt-1 flex items-center gap-2 text-text-subdued">
@@ -247,12 +264,16 @@ export function NewSongForm({
               value={albumId}
               onChange={setAlbumId}
               placeholder={
-                artistAlbums.length === 0
-                  ? "Este artista no tiene álbumes"
-                  : "Elegí un álbum…"
+                albumsLoading
+                  ? "Cargando álbumes…"
+                  : artistAlbums.length === 0
+                    ? "Este artista no tiene álbumes"
+                    : "Elegí un álbum…"
               }
               emptyLabel="Este artista no tiene álbumes todavía"
               searchable
+              onSearchChange={setAlbumQuery}
+              loading={albumsLoading}
             />
             <button
               type="button"
@@ -265,7 +286,7 @@ export function NewSongForm({
             {albumCreateOpen && (
               <CreateAlbumInline
                 artistName={
-                  initialArtists.find((a) => a.id === artistId)?.name ?? "el artista"
+                  artists.find((a) => a.id === artistId)?.name ?? "el artista"
                 }
                 onCreated={handleCreateAlbum}
               />
@@ -306,7 +327,7 @@ export function NewSongForm({
           <fieldset className="flex flex-col text-sm font-medium">
             <legend className="mb-2">Colaboradores (opcional)</legend>
             <div className="flex flex-wrap gap-2">
-              {initialArtists
+              {artists
                 .filter((a) => a.id !== artistId)
                 .map((artist) => {
                   const selected = collaboratorIds.includes(artist.id);
