@@ -4,6 +4,7 @@ import * as React from "react";
 import { useState } from "react";
 
 import { Button, Checkbox, Modal, Input, Select, Textarea } from "@/components/ui";
+import { useCatalogSearch } from "@/lib/hooks/use-catalog-search";
 import { songsService } from "@/lib/services/songs-service";
 import type { Album, Artist, Song } from "@/lib/services/types";
 import { friendlyError } from "@/lib/utils/error";
@@ -45,9 +46,21 @@ export function SongEditDialog({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const {
+    albums: searchedAlbums,
+    albumsLoading,
+    setAlbumQuery,
+  } = useCatalogSearch({
+    initialArtists: artists,
+    initialAlbums: albums,
+    artistId: song?.artist.id,
+    selectedArtistId: song?.artist.id,
+    selectedAlbumId: albumId,
+  });
+
   // Álbumes del artista principal de la canción
   const artistAlbums = song
-    ? albums.filter((a) => a.artist.id === song.artist.id)
+    ? searchedAlbums.filter((a) => a.artist.id === song.artist.id)
     : [];
   const albumOptions = artistAlbums.map((a) => ({ value: a.id, label: a.title }));
 
@@ -113,9 +126,16 @@ export function SongEditDialog({
           value={albumId}
           onChange={setAlbumId}
           placeholder={
-            artistAlbums.length === 0 ? "Sin álbumes de este artista" : "Elegí un álbum…"
+            albumsLoading
+              ? "Cargando álbumes…"
+              : artistAlbums.length === 0
+                ? "Sin álbumes de este artista"
+                : "Elegí un álbum…"
           }
           emptyLabel="Este artista no tiene álbumes — crealo desde su página"
+          searchable
+          onSearchChange={setAlbumQuery}
+          loading={albumsLoading}
         />
 
         <fieldset className="flex flex-col text-sm font-medium">
