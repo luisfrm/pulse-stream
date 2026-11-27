@@ -9,15 +9,14 @@ import { CoverUploader } from "@/components/cover-uploader";
 import { Checkbox, FileInput, Input, Select, Textarea } from "@/components/ui";
 import { albumsService } from "@/lib/services/albums-service";
 import { artistsService } from "@/lib/services/artists-service";
-import { songsService } from "@/lib/services/songs-service";
 import type { Album, Artist } from "@/lib/services/types";
-import {
-  uploadContentType,
-  uploadsService,
-  uploadToR2,
-} from "@/lib/services/uploads-service";
 import { friendlyError } from "@/lib/utils/error";
 import { formatGenre } from "@/lib/utils/format";
+import {
+  isAlbumReturnPath,
+  safePanelReturnPath,
+  uploadAndCreateSong,
+} from "@/lib/utils/song-upload";
 
 interface NewSongFormProps {
   readonly initialArtists: Artist[];
@@ -25,12 +24,12 @@ interface NewSongFormProps {
   readonly initialGenres: string[];
   readonly initialArtistId?: string;
   readonly initialAlbumId?: string;
+  readonly returnTo?: string;
   readonly onCreated: () => Promise<void>;
 }
 
 /**
- * Flujo de alta: primero el artista (o se crea), después el álbum (o se crea
- * inline para ese artista) y recién ahí los datos de la canción.
+ * Song creation flow: choose/create artist, choose/create album, then upload audio.
  */
 export function NewSongForm({
   initialArtists,
@@ -38,9 +37,14 @@ export function NewSongForm({
   initialGenres,
   initialArtistId = "",
   initialAlbumId = "",
+  returnTo,
   onCreated,
 }: NewSongFormProps) {
   const router = useRouter();
+  const backHref = safePanelReturnPath(returnTo);
+  const backLabel = isAlbumReturnPath(backHref)
+    ? "← Volver al álbum"
+    : "← Volver a canciones";
 
   const [title, setTitle] = useState("");
   const [artistId, setArtistId] = useState(initialArtistId);
@@ -135,33 +139,22 @@ export function NewSongForm({
         resolvedAlbumId = album.id;
       }
 
-      // 1) Presign + subida directa a R2 (el audio no pasa por la API)
-      const contentType = uploadContentType(file);
-      const presign = await uploadsService.presignUpload(
-        file.name,
-        contentType,
-        file.size,
-      );
-      await uploadToR2(presign.url, file);
-
-      // 2) Crear la canción con el object_key confirmado
-      await songsService.createSong({
-        title: title.trim(),
+      // 1-2) Presign, direct upload to R2, and create song record
+      await uploadAndCreateSong({
+        title,
         ...(createNewArtist
-          ? { artist_id: resolvedArtistId }
-          : artistSpec),
-        album_id: resolvedAlbumId,
+          ? { artistId: resolvedArtistId }
+          : { artistId: artistId || undefined, artistName: createNewArtist ? newArtistName : undefined }),
+        albumId: resolvedAlbumId,
         genres: selectedGenres,
-        lyrics: lyrics.trim() || undefined,
-        object_key: presign.object_key,
-        ...(collaboratorIds.length > 0
-          ? { collaborator_ids: collaboratorIds }
-          : {}),
+        lyrics,
+        collaboratorIds,
+        file,
       });
 
-      // 3) Purgar caché del servidor + refrescar el RSC
+      // 3) Purge server cache and return to originating panel route
       await onCreated();
-      router.push("/panel/songs");
+      router.push(backHref);
       router.refresh();
     } catch (err) {
       setError(friendlyError(err));
@@ -173,10 +166,10 @@ export function NewSongForm({
   return (
     <div className="mx-auto w-full max-w-2xl">
       <Link
-        href="/panel/songs"
+        href={backHref}
         className="text-sm text-text-subdued hover:text-text-primary"
       >
-        ← Volver a canciones
+        {backLabel}
       </Link>
       <h1 className="font-display mt-2 text-3xl font-bold">Subir canción</h1>
 

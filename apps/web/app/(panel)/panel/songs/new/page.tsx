@@ -5,6 +5,7 @@ import { albumsService } from "@/lib/services/albums-service";
 import { artistsService } from "@/lib/services/artists-service";
 import { genresService } from "@/lib/services/genres-service";
 import { CACHE_TAGS } from "@/lib/services/tags";
+import { safePanelReturnPath } from "@/lib/utils/song-upload";
 
 import { NewSongForm } from "./new-song-form";
 
@@ -15,11 +16,12 @@ export const dynamic = "force-dynamic";
 export default async function NewSongPage({
   searchParams,
 }: {
-  searchParams: Promise<{ artist?: string; album?: string }>;
+  searchParams: Promise<{ artist?: string; album?: string; returnTo?: string }>;
 }) {
   const params = await searchParams;
   const initialArtistId = params.artist ?? "";
   const initialAlbumId = params.album ?? "";
+  const returnTo = safePanelReturnPath(params.returnTo);
 
   // Lecturas en paralelo en el servidor: cero waterfalls
   const [artistsPage, albumsPage, genres] = await Promise.all([
@@ -51,6 +53,7 @@ export default async function NewSongPage({
       initialGenres={genres}
       initialArtistId={initialArtistId}
       initialAlbumId={initialAlbumId}
+      returnTo={returnTo}
       onCreated={refreshCatalog}
     />
   );

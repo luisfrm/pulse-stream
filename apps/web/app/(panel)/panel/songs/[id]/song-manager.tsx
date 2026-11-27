@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Trash2 } from "lucide-react";
+import { CheckCircle2, Trash2 } from "lucide-react";
 
 import { AudioPreviewPlayer } from "@/components/audio-preview-player";
 import { NoCover } from "@/components/no-cover";
@@ -12,24 +12,31 @@ import { songsService } from "@/lib/services/songs-service";
 import type { Album, Artist, Song } from "@/lib/services/types";
 import { friendlyError } from "@/lib/utils/error";
 import { formatGenre } from "@/lib/utils/format";
+import { isAlbumReturnPath, safePanelReturnPath } from "@/lib/utils/song-upload";
 
 interface SongManagerProps {
   readonly song: Song;
   readonly genres: string[];
   readonly albums: Album[];
   readonly artists: Artist[];
+  readonly returnTo?: string;
   readonly onMutated: () => Promise<void>;
 }
 
-/** Página admin de la canción: datos, metadatos y analytics (el cover se hereda del álbum). */
+/** Admin page for a song: metadata, playback preview, and analytics. */
 export function SongManager({
   song,
   genres,
   albums,
   artists,
+  returnTo,
   onMutated,
 }: SongManagerProps) {
   const router = useRouter();
+  const backHref = safePanelReturnPath(returnTo);
+  const backLabel = isAlbumReturnPath(backHref)
+    ? "← Volver al álbum"
+    : "← Volver a canciones";
   const [title, setTitle] = React.useState(song.title);
   const [artistId, setArtistId] = React.useState<string>(song.artist.id);
   const [albumId, setAlbumId] = React.useState<string>(song.album?.id ?? "");
@@ -42,6 +49,7 @@ export function SongManager({
     song.duration_seconds ? String(song.duration_seconds) : ""
   );
   const [pending, setPending] = React.useState(false);
+  const [savedBanner, setSavedBanner] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [deleting, setDeleting] = React.useState(false);
 
@@ -71,6 +79,7 @@ export function SongManager({
     if (!albumId) return setError("La canción requiere un álbum.");
     setPending(true);
     setError(null);
+    setSavedBanner(false);
     try {
       await songsService.updateSong(song.id, {
         title: title.trim(),
@@ -83,6 +92,7 @@ export function SongManager({
       });
       await onMutated();
       router.refresh();
+      setSavedBanner(true);
     } catch (err) {
       setError(friendlyError(err));
     } finally {
@@ -95,7 +105,7 @@ export function SongManager({
     setError(null);
     try {
       await songsService.deleteSong(song.id);
-      router.push("/panel/songs");
+      router.push(backHref);
       router.refresh();
     } catch (err) {
       setError(friendlyError(err));
@@ -106,10 +116,10 @@ export function SongManager({
   return (
     <div className="mx-auto w-full max-w-3xl">
       <Link
-        href="/panel/songs"
+        href={backHref}
         className="text-sm text-text-subdued hover:text-text-primary"
       >
-        ← Volver a canciones
+        {backLabel}
       </Link>
 
       {/* Cabecera */}
@@ -145,6 +155,13 @@ export function SongManager({
           </div>
         )}
       </div>
+
+      {savedBanner && (
+        <p className="mt-4 flex items-center gap-2 rounded-xl border border-brand-400/40 bg-brand-400/15 px-4 py-3 text-sm text-brand-200">
+          <CheckCircle2 size={16} className="shrink-0" aria-hidden />
+          <span>Cambios guardados.</span>
+        </p>
+      )}
 
       {error && (
         <p className="mt-4 rounded-xl bg-brand-900/30 px-4 py-3 text-sm text-brand-200">
