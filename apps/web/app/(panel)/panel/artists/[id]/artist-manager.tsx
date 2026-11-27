@@ -39,12 +39,14 @@ export function ArtistManager({
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [deleting, setDeleting] = React.useState(false);
+  const [albumToDelete, setAlbumToDelete] = React.useState<Album | null>(null);
   const [deletingAlbumId, setDeletingAlbumId] = React.useState<string | null>(null);
   // Se inicializa con el lookup del server y se actualiza con la respuesta de
   // crear/reseed (la UI no depende del timing del router.refresh).
   const [currentEssentials, setCurrentEssentials] =
     React.useState<Playlist | null>(essentials);
   const [creatingEssentials, setCreatingEssentials] = React.useState(false);
+  const [confirmReseedOpen, setConfirmReseedOpen] = React.useState(false);
   const [reseedingEssentials, setReseedingEssentials] = React.useState(false);
   const [albumOpen, setAlbumOpen] = React.useState(false);
   // Mantiene el form montado durante la animación de salida.
@@ -101,15 +103,17 @@ export function ArtistManager({
     }
   }
 
-  async function handleDeleteAlbum(id: string) {
-    setDeletingAlbumId(id);
-    setError(null);
+  async function handleDeleteAlbum() {
+    if (!albumToDelete) return;
+    setDeletingAlbumId(albumToDelete.id);
     try {
-      await albumsService.delete(id);
-      await onMutated();
+      await albumsService.delete(albumToDelete.id);
+      setAlbumToDelete(null);
+      await onMutated().catch(() => {});
       router.refresh();
     } catch (err) {
-      setError(friendlyError(err));
+      toast.error(friendlyError(err));
+      setAlbumToDelete(null);
     } finally {
       setDeletingAlbumId(null);
     }
@@ -129,7 +133,7 @@ export function ArtistManager({
           onClick: () => router.push(`/playlists/${created.id}`),
         },
       });
-      await onMutated();
+      await onMutated().catch(() => {});
       router.refresh();
     } catch (err) {
       toast.error(friendlyError(err));
@@ -140,13 +144,6 @@ export function ArtistManager({
 
   async function reseedEssentials() {
     if (!currentEssentials) return;
-    if (
-      !window.confirm(
-        "Re-sembrar reemplaza las canciones por el ranking actual del artista. ¿Continuar?"
-      )
-    ) {
-      return;
-    }
     setReseedingEssentials(true);
     try {
       const updated = await playlistsService.reseedArtistEssentials(
@@ -155,10 +152,12 @@ export function ArtistManager({
       setCurrentEssentials(updated);
       const noun = updated.song_count === 1 ? "canción" : "canciones";
       toast.success(`Essentials re-sembrada · ${updated.song_count} ${noun}`);
-      await onMutated();
+      setConfirmReseedOpen(false);
+      await onMutated().catch(() => {});
       router.refresh();
     } catch (err) {
       toast.error(friendlyError(err));
+      setConfirmReseedOpen(false);
     } finally {
       setReseedingEssentials(false);
     }
@@ -285,7 +284,7 @@ export function ArtistManager({
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={reseedEssentials}
+                    onClick={() => setConfirmReseedOpen(true)}
                     loading={reseedingEssentials}
                   >
                     Re-sembrar
@@ -379,7 +378,7 @@ export function ArtistManager({
                 </Link>
                 <button
                   type="button"
-                  onClick={() => handleDeleteAlbum(album.id)}
+                  onClick={() => setAlbumToDelete(album)}
                   disabled={deletingAlbumId === album.id}
                   aria-label={`Borrar ${album.title}`}
                   className="rounded-pill p-2 text-text-subdued transition-colors hover:bg-brand-900/30 hover:text-brand-200 disabled:opacity-50"
@@ -482,6 +481,63 @@ export function ArtistManager({
           </Button>
           <Button variant="destructive" loading={pending} onClick={handleDelete}>
             Sí, eliminar
+          </Button>
+        </div>
+      </Modal>
+
+      {/* Confirm album deletion (API blocks deletion if the album has songs) */}
+      <Modal
+        open={albumToDelete !== null}
+        onClose={() => {
+          if (!deletingAlbumId) setAlbumToDelete(null);
+        }}
+        title="¿Borrar este álbum?"
+        description={
+          albumToDelete
+            ? albumToDelete.song_count > 0
+              ? `"${albumToDelete.title}" tiene ${albumToDelete.song_count} ${albumToDelete.song_count === 1 ? "canción" : "canciones"}: primero reasignalas a otro álbum (las canciones requieren álbum).`
+              : `"${albumToDelete.title}" se eliminará. Esta acción no se puede deshacer.`
+            : undefined
+        }
+      >
+        <div className="flex justify-end gap-3">
+          <Button
+            variant="outline"
+            disabled={deletingAlbumId !== null}
+            onClick={() => setAlbumToDelete(null)}
+          >
+            Cancelar
+          </Button>
+          <Button
+            variant="destructive"
+            disabled={(albumToDelete?.song_count ?? 0) > 0}
+            loading={deletingAlbumId !== null}
+            onClick={handleDeleteAlbum}
+          >
+            Sí, eliminar
+          </Button>
+        </div>
+      </Modal>
+
+      {/* Confirm Essentials re-seed */}
+      <Modal
+        open={confirmReseedOpen}
+        onClose={() => {
+          if (!reseedingEssentials) setConfirmReseedOpen(false);
+        }}
+        title="¿Re-sembrar Essentials?"
+        description="Re-sembrar reemplaza las canciones por el ranking actual del artista. ¿Continuar?"
+      >
+        <div className="flex justify-end gap-3">
+          <Button
+            variant="outline"
+            disabled={reseedingEssentials}
+            onClick={() => setConfirmReseedOpen(false)}
+          >
+            Cancelar
+          </Button>
+          <Button loading={reseedingEssentials} onClick={reseedEssentials}>
+            Sí, re-sembrar
           </Button>
         </div>
       </Modal>
