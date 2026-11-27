@@ -36,7 +36,7 @@ export function AlbumSongModal({
   const [collaboratorIds, setCollaboratorIds] = React.useState<string[]>([]);
   const [lyrics, setLyrics] = React.useState("");
   const [file, setFile] = React.useState<File | null>(null);
-  const [pendingMode, setPendingMode] = React.useState<"close" | "another" | null>(null);
+  const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [successMessage, setSuccessMessage] = React.useState<string | null>(null);
 
@@ -54,7 +54,7 @@ export function AlbumSongModal({
   }
 
   function handleClose() {
-    if (pendingMode !== null) return;
+    if (pending) return;
     setError(null);
     setSuccessMessage(null);
     onClose();
@@ -72,7 +72,8 @@ export function AlbumSongModal({
     );
   }
 
-  async function submitSong(mode: "close" | "another") {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
     setError(null);
     setSuccessMessage(null);
 
@@ -86,7 +87,7 @@ export function AlbumSongModal({
       return;
     }
 
-    setPendingMode(mode);
+    setPending(true);
     try {
       await uploadAndCreateSong({
         title: trimmedTitle,
@@ -101,25 +102,13 @@ export function AlbumSongModal({
       await onCreated();
       router.refresh();
       resetFields();
-
-      if (mode === "close") {
-        onClose();
-      } else {
-        setSuccessMessage(`"${trimmedTitle}" se agregó al álbum. Podés subir otra.`);
-      }
+      setSuccessMessage(`"${trimmedTitle}" se agregó al álbum. Podés subir otra.`);
     } catch (err) {
       setError(friendlyError(err));
     } finally {
-      setPendingMode(null);
+      setPending(false);
     }
   }
-
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    void submitSong("close");
-  }
-
-  const isPending = pendingMode !== null;
 
   return (
     <Modal
@@ -135,6 +124,17 @@ export function AlbumSongModal({
             <span>{successMessage}</span>
           </p>
         )}
+
+        <div className="rounded-2xl border border-brand-400/35 bg-brand-400/5 p-4">
+          <FileInput
+            label="Archivo de audio (.mp3, .aac, .m4a)"
+            icon={<Music2 size={16} />}
+            accept="audio/mpeg,.mp3,audio/aac,audio/x-hx-aac-adts,audio/vnd.dlna.adts,.aac,audio/mp4,audio/x-m4a,audio/m4a,.m4a"
+            value={file}
+            onChange={setFile}
+            hint="Formatos MP3, AAC o M4A · máximo 50 MB"
+          />
+        </div>
 
         <Input
           label="Título"
@@ -205,38 +205,26 @@ export function AlbumSongModal({
           placeholder="La letra de la canción…"
         />
 
-        <FileInput
-          label="Archivo de audio (.mp3, .aac, .m4a)"
-          icon={<Music2 size={16} />}
-          accept="audio/mpeg,.mp3,audio/aac,audio/x-hx-aac-adts,audio/vnd.dlna.adts,.aac,audio/mp4,audio/x-m4a,audio/m4a,.m4a"
-          value={file}
-          onChange={setFile}
-          hint="Formatos MP3, AAC o M4A · máximo 50 MB"
-        />
-
         {error && (
           <p className="rounded-xl bg-brand-900/30 px-4 py-3 text-sm text-brand-200">
             {error}
           </p>
         )}
 
-        <div className="flex flex-wrap justify-end gap-2 pt-2">
-          <Button type="button" variant="outline" onClick={handleClose} disabled={isPending}>
-            Cancelar
-          </Button>
+        <div className="flex flex-nowrap items-center justify-end gap-2 pt-2">
           <Button
             type="button"
             variant="outline"
-            loading={pendingMode === "another"}
-            disabled={pendingMode === "close"}
-            onClick={() => void submitSong("another")}
+            className="whitespace-nowrap"
+            onClick={handleClose}
+            disabled={pending}
           >
-            Subir y agregar otra
+            Cerrar
           </Button>
           <Button
             type="submit"
-            loading={pendingMode === "close"}
-            disabled={pendingMode === "another"}
+            loading={pending}
+            className="whitespace-nowrap"
           >
             Subir canción
           </Button>

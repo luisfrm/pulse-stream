@@ -123,15 +123,13 @@ export function NewSongForm({
     if (!title.trim()) return setError("Falta el título.");
     if (!file) return setError("Elegí un archivo .mp3, .aac o .m4a para subir.");
 
-    const trimmedArtist = newArtistName.trim();
-    const artistSpec = createNewArtist
-      ? trimmedArtist
-        ? { artist_name: trimmedArtist }
-        : null
-      : artistId
-        ? { artist_id: artistId }
-        : null;
-    if (!artistSpec) return setError("Elegí o creá un artista.");
+    const trimmedNewArtistName = newArtistName.trim();
+    if (createNewArtist && !trimmedNewArtistName) {
+      return setError("Elegí o creá un artista.");
+    }
+    if (!createNewArtist && !artistId) {
+      return setError("Elegí o creá un artista.");
+    }
 
     // Álbum obligatorio en todos los caminos (el cover se hereda del álbum).
     if (!createNewArtist && !albumId) {
@@ -147,7 +145,7 @@ export function NewSongForm({
       let resolvedArtistId = artistId;
       let resolvedAlbumId = albumId;
       if (createNewArtist) {
-        const artist = await artistsService.createArtist(trimmedArtist);
+        const artist = await artistsService.createArtist(trimmedNewArtistName);
         resolvedArtistId = artist.id;
         const album = await albumsService.create({
           title: newAlbumTitle.trim(),
@@ -190,6 +188,17 @@ export function NewSongForm({
       <h1 className="font-display mt-2 text-3xl font-bold">Subir canción</h1>
 
       <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-5">
+        <div className="rounded-2xl border border-brand-400/35 bg-brand-400/5 p-4">
+          <FileInput
+            label="Archivo de audio (.mp3, .aac, .m4a)"
+            icon={<Music2 size={16} />}
+            accept="audio/mpeg,.mp3,audio/aac,audio/x-hx-aac-adts,audio/vnd.dlna.adts,.aac,audio/mp4,audio/x-m4a,audio/m4a,.m4a"
+            value={file}
+            onChange={setFile}
+            hint="Formatos MP3, AAC o M4A · máximo 50 MB"
+          />
+        </div>
+
         <Input
           label="Título"
           value={title}
@@ -355,17 +364,6 @@ export function NewSongForm({
           placeholder="La letra de la canción…"
         />
 
-        <div className="flex flex-col gap-1.5">
-          <FileInput
-            label="Archivo de audio (.mp3, .aac, .m4a)"
-            icon={<Music2 size={16} />}
-            accept="audio/mpeg,.mp3,audio/aac,audio/x-hx-aac-adts,audio/vnd.dlna.adts,.aac,audio/mp4,audio/x-m4a,audio/m4a,.m4a"
-            value={file}
-            onChange={setFile}
-            hint="Formatos MP3, AAC o M4A · máximo 50 MB"
-          />
-        </div>
-
         {error && (
           <p className="rounded-xl bg-brand-900/30 px-4 py-3 text-sm text-brand-200">
             {error}
@@ -437,7 +435,7 @@ function CreateAlbumInline({
         )}
         <button
           type="button"
-          onClick={handleCreate}
+          onClick={() => void handleCreate()}
           disabled={pending}
           className="w-fit rounded-pill bg-brand-400 px-4 py-2 text-sm font-semibold text-bg-base transition-colors hover:bg-brand-200 disabled:opacity-60"
         >
