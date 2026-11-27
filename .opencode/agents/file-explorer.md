@@ -2,7 +2,7 @@
 name: file-explorer
 description: Un agente rápido y de solo lectura para explorar el código sin modificar archivos.
 mode: subagent
-model: opencode-go/deepseek-v4.1-flash
+model: opencode-go/deepseek-v4.1-flash#low
 temperature: 0.2
 permissions:
   - {action: edit, resource: "*", effect: deny}
