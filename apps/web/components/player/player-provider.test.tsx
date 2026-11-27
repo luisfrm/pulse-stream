@@ -803,3 +803,40 @@ describe("PlayerProvider — cola por contexto (Q1)", () => {
     }
   });
 });
+
+describe("PlayerProvider — cambio rápido en el mismo contexto por key", () => {
+  it("cambiar a otra canción ya materializada en el mismo key cambia de inmediato sin re-fetchear", async () => {
+    await act(async () => {
+      renderPlayer();
+    });
+
+    const tracks = [song("a1"), song("a2"), song("a3"), song("a4")];
+    const loadPage = vi.fn(async () => tracks);
+    const context: PlayContext = {
+      label: "Álbum: Test",
+      key: "album:alb-1",
+      total: 4,
+      loadPage,
+    };
+
+    await act(async () => {
+      getPlayer().play(tracks[0], context);
+    });
+    expect(getPlayer().current?.id).toBe("a1");
+    expect(loadPage).toHaveBeenCalledTimes(1);
+
+    // Switching to another track in the same context key uses the already
+    // materialized queue synchronously without wiping it or re-fetching.
+    await act(async () => {
+      getPlayer().play(tracks[2], { ...context });
+    });
+    expect(getPlayer().current?.id).toBe("a3");
+    expect(loadPage).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      getPlayer().play(tracks[1], { ...context });
+    });
+    expect(getPlayer().current?.id).toBe("a2");
+    expect(loadPage).toHaveBeenCalledTimes(1);
+  });
+});

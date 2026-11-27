@@ -303,6 +303,7 @@ export function albumContext(args: {
   total?: number;
 }): PlayContext {
   let loaded: Song[] | null = null;
+  let inflight: Promise<Song[]> | null = null;
 
   return {
     label: `Álbum: ${args.albumTitle}`,
@@ -310,7 +311,19 @@ export function albumContext(args: {
     total: args.total,
     loadPage: async (offset, limit) => {
       if (!loaded) {
-        loaded = (await albumsService.getAlbumById(args.albumId)).songs ?? [];
+        if (!inflight) {
+          inflight = albumsService
+            .getAlbumById(args.albumId)
+            .then((album) => {
+              loaded = album.songs ?? [];
+              return loaded;
+            })
+            .finally(() => {
+              inflight = null;
+            });
+        }
+        const songs = await inflight;
+        return songs.slice(offset, offset + limit);
       }
       return loaded.slice(offset, offset + limit);
     },

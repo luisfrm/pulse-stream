@@ -96,4 +96,23 @@ describe("SongItem", () => {
     expect(player.toggle).toHaveBeenCalledTimes(1);
     expect(player.play).not.toHaveBeenCalled();
   });
+
+  it("los géneros se renderizan antes que el botón Play para mantener alineado el botón en desktop", () => {
+    render(
+      <SongItem
+        song={{
+          ...song,
+          genres: ["pop", "reggaeton"],
+        }}
+      />
+    );
+
+    const area = screen.getByRole("button", { name: "Reproducir Pompeii" });
+    const play = screen.getByRole("button", { name: "Reproducir" });
+    const genresContainer = area.nextElementSibling;
+    expect(genresContainer).not.toBeNull();
+    expect(genresContainer).toHaveTextContent("Pop");
+    expect(genresContainer).toHaveTextContent("Reggaeton");
+    expect(genresContainer!.nextElementSibling).toBe(play);
+  });
 });

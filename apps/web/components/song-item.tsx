@@ -68,7 +68,6 @@ export function SongItem({
           </span>
         </span>
       </button>
-      <PlayButton song={song} queue={queue} context={context} />
       {(song.genres?.length ?? 0) > 0 && (
         <div className="hidden gap-1.5 sm:flex">
           {song.genres!.slice(0, 2).map((genre) => (
@@ -78,6 +77,7 @@ export function SongItem({
           ))}
         </div>
       )}
+      <PlayButton song={song} queue={queue} context={context} />
       {showActions && (
         <SongActions
           song={song}

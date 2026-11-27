@@ -61,6 +61,11 @@ export function AlbumSongs({
     }
   }
 
+  const context = React.useMemo(
+    () => albumContext({ albumId, albumTitle, total }),
+    [albumId, albumTitle, total]
+  );
+
   if (items.length === 0) {
     return (
       <p className="text-text-subdued">
@@ -68,8 +73,6 @@ export function AlbumSongs({
       </p>
     );
   }
-
-  const context = albumContext({ albumId, albumTitle, total });
 
   return (
     <>
