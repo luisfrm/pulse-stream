@@ -66,7 +66,7 @@ describe("AlbumManager in-context song upload", () => {
     };
   });
 
-  it("opens upload modal in-context and supports 'Subir y agregar otra' without navigating away", async () => {
+  it("uploads song via 'Subir canción', refreshes album, keeps modal open, and never navigates away", async () => {
     const onMutated = vi.fn().mockResolvedValue(undefined);
     render(
       <AlbumManager
@@ -81,15 +81,15 @@ describe("AlbumManager in-context song upload", () => {
     expect(screen.getByText("Subir canción al álbum")).toBeInTheDocument();
     expect(mocks.push).not.toHaveBeenCalled();
 
-    fireEvent.change(screen.getByPlaceholderText("Ej. De Música Ligera"), {
-      target: { value: "De Música Ligera" },
-    });
-
     const fileInput = document.querySelector('input[type="file"][accept*="audio"]') as HTMLInputElement;
     const audioFile = new File(["audio"], "track.mp3", { type: "audio/mpeg" });
     fireEvent.change(fileInput, { target: { files: [audioFile] } });
 
-    fireEvent.click(screen.getByRole("button", { name: /subir y agregar otra/i }));
+    fireEvent.change(screen.getByPlaceholderText("Ej. De Música Ligera"), {
+      target: { value: "De Música Ligera" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /^subir canción$/i }));
 
     await waitFor(() => {
       expect(mocks.uploadAndCreateSong).toHaveBeenCalledWith(
@@ -103,12 +103,13 @@ describe("AlbumManager in-context song upload", () => {
     expect(onMutated).toHaveBeenCalledTimes(1);
     expect(mocks.refresh).toHaveBeenCalledTimes(1);
     expect(mocks.push).not.toHaveBeenCalled();
+    expect(screen.getByText("Subir canción al álbum")).toBeInTheDocument();
     expect(
       screen.getByText(/"De Música Ligera" se agregó al álbum\. Podés subir otra\./i)
     ).toBeInTheDocument();
   });
 
-  it("closes modal after 'Subir canción' without leaving the album page", async () => {
+  it("closes modal when clicking 'Cerrar' without navigating away", () => {
     const onMutated = vi.fn().mockResolvedValue(undefined);
     render(
       <AlbumManager
@@ -120,22 +121,15 @@ describe("AlbumManager in-context song upload", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: /subir canción a este álbum/i }));
-    fireEvent.change(screen.getByPlaceholderText("Ej. De Música Ligera"), {
-      target: { value: "Té para Tres" },
-    });
+    expect(screen.getByText("Subir canción al álbum")).toBeInTheDocument();
 
-    const fileInput = document.querySelector('input[type="file"][accept*="audio"]') as HTMLInputElement;
-    const audioFile = new File(["audio"], "track2.mp3", { type: "audio/mpeg" });
-    fireEvent.change(fileInput, { target: { files: [audioFile] } });
+    const closeButton = screen
+      .getAllByRole("button", { name: /^cerrar$/i })
+      .find((button) => button.textContent?.trim() === "Cerrar");
+    expect(closeButton).toBeDefined();
+    fireEvent.click(closeButton!);
 
-    fireEvent.click(screen.getByRole("button", { name: /^subir canción$/i }));
-
-    await waitFor(() => {
-      expect(mocks.uploadAndCreateSong).toHaveBeenCalledTimes(1);
-    });
-    await waitFor(() => {
-      expect(screen.queryByText("Subir canción al álbum")).not.toBeInTheDocument();
-    });
+    expect(screen.queryByText("Subir canción al álbum")).not.toBeInTheDocument();
     expect(mocks.push).not.toHaveBeenCalled();
   });
 });

@@ -174,6 +174,17 @@ export function NewSongForm({
       <h1 className="font-display mt-2 text-3xl font-bold">Subir canción</h1>
 
       <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-5">
+        <div className="rounded-2xl border border-brand-400/35 bg-brand-400/5 p-4">
+          <FileInput
+            label="Archivo de audio (.mp3, .aac, .m4a)"
+            icon={<Music2 size={16} />}
+            accept="audio/mpeg,.mp3,audio/aac,audio/x-hx-aac-adts,audio/vnd.dlna.adts,.aac,audio/mp4,audio/x-m4a,audio/m4a,.m4a"
+            value={file}
+            onChange={setFile}
+            hint="Formatos MP3, AAC o M4A · máximo 50 MB"
+          />
+        </div>
+
         <Input
           label="Título"
           value={title}
@@ -332,17 +343,6 @@ export function NewSongForm({
           rows={5}
           placeholder="La letra de la canción…"
         />
-
-        <div className="flex flex-col gap-1.5">
-          <FileInput
-            label="Archivo de audio (.mp3, .aac, .m4a)"
-            icon={<Music2 size={16} />}
-            accept="audio/mpeg,.mp3,audio/aac,audio/x-hx-aac-adts,audio/vnd.dlna.adts,.aac,audio/mp4,audio/x-m4a,audio/m4a,.m4a"
-            value={file}
-            onChange={setFile}
-            hint="Formatos MP3, AAC o M4A · máximo 50 MB"
-          />
-        </div>
 
         {error && (
           <p className="rounded-xl bg-brand-900/30 px-4 py-3 text-sm text-brand-200">
